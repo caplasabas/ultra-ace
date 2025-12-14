@@ -1,34 +1,58 @@
-import { View, Text, StyleSheet } from 'react-native'
+import { View, Image, StyleSheet } from 'react-native'
 import type { VisualReel } from '@game/types'
-import { SYMBOL_HEIGHT, REEL_HEIGHT } from '@constants/layout'
+import { VISIBLE_ROWS } from '@constants/layout'
+import { SYMBOL_MAP } from './symbolMap'
 
-export function Reel({ reel }: { reel: VisualReel }) {
+interface Props {
+  reel: VisualReel
+  width: number
+  reelIndex: number
+  winningPositions?: Set<string>
+  dim?: boolean
+}
+
+export function Reel({ reel, width, reelIndex, winningPositions, dim = false }: Props) {
+  const visible = reel.symbols.slice(reel.stopIndex, reel.stopIndex + VISIBLE_ROWS)
+
   return (
-    <View style={styles.window}>
-      {reel.symbols.map((symbol, i) => (
-        <View key={i} style={styles.symbol}>
-          <Text style={styles.text}>{symbol}</Text>
-        </View>
-      ))}
+    <View style={[styles.reel, { width }, dim && styles.dimmed]}>
+      {visible.map((symbol, rowIndex) => {
+        const isWinning = winningPositions?.has(`${reelIndex}-${rowIndex}`)
+
+        return (
+          <View key={rowIndex} style={[styles.symbol, isWinning && styles.winningSymbol]}>
+            <Image source={SYMBOL_MAP[symbol]} style={styles.image} resizeMode="contain" />
+          </View>
+        )
+      })}
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  window: {
-    height: REEL_HEIGHT,
-    width: 120,
-    overflow: 'hidden',
-    borderColor: '#444',
-    borderWidth: 1
+  reel: {
+    aspectRatio: 1 / VISIBLE_ROWS,
   },
+
+  dimmed: {
+    opacity: 0.35,
+  },
+
   symbol: {
-    height: SYMBOL_HEIGHT,
+    flex: 1,
+    width: '100%',
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    backgroundColor: '#050c12',
   },
-  text: {
-    fontSize: 28,
-    color: '#fff'
-  }
+
+  winningSymbol: {
+    backgroundColor: 'rgba(255,216,77,0.15)',
+    borderRadius: 6,
+  },
+
+  image: {
+    width: '75%',
+    height: '75%',
+  },
 })

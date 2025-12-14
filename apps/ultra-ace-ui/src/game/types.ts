@@ -1,14 +1,23 @@
+import type { SpinOutcome } from '@ultra-ace/engine'
+
 export interface VisualReel {
-  symbols: string[]
-  stopIndex: number
+  symbols: string[] // full reel strip (debug / future)
+  stopIndex: number // debug
+  visible: string[] // ALWAYS length === VISIBLE_ROWS
 }
 
 export interface VisualSpinResult {
   reels: VisualReel[]
-  outcome: {
-    bet: number
-    win: number
-    reelStops: number[]
-    lineWins: unknown[]
-  }
+  outcome: SpinOutcome
+  winningPaylines: number[]
+  debug: DebugSpinInfo
+}
+
+export type VisualSpinBase = Omit<VisualSpinResult, 'debug'>
+
+export interface DebugSpinInfo {
+  seed: string
+  reelStops: number[]
+  bet: number
+  win: number
 }

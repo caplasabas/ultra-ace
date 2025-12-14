@@ -16,7 +16,13 @@ export interface SpinOutcome {
   bet: number
   win: number
   reelStops: number[]
-  lineWins: LineWin[]
+  lineWins: {
+    lineIndex: number
+    symbol: Symbol
+    count: number
+    payout: number
+    positions: { reel: number; row: number }[]
+  }[]
 }
 
 export interface SpinInput {

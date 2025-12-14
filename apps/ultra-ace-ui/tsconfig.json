@@ -2,39 +2,18 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "lib": [
-      "DOM",
-      "ES2022"
-    ],
-    "types": [
-      "expo-router"
-    ],
+    "lib": ["DOM", "ES2022"],
+    "types": ["expo-router"],
     "baseUrl": ".",
     "paths": {
-      "@ui/*": [
-        "src/ui/*"
-      ],
-      "@game/*": [
-        "src/game/*"
-      ],
-      "@hooks/*": [
-        "src/hooks/*"
-      ],
-      "@components/*": [
-        "src/components/*"
-      ],
-      "@assets/*": [
-        "src/assets/*"
-      ],
-      "@constants/*": [
-        "src/constants/*"
-      ]
+      "@ui/*": ["src/ui/*"],
+      "@game/*": ["src/game/*"],
+      "@hooks/*": ["src/hooks/*"],
+      "@components/*": ["src/components/*"],
+      "@assets/*": ["src/assets/*"],
+      "@constants/*": ["src/constants/*"],
+      "@utils/*": ["src/utils/*"]
     }
   },
-  "include": [
-    "app",
-    "src",
-    "expo-env.d.ts",
-    ".expo/types/**/*.ts"
-  ]
+  "include": ["app", "src", "expo-env.d.ts", ".expo/types/**/*.ts"]
 }

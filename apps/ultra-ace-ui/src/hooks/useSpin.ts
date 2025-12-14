@@ -1,32 +1,36 @@
 import { useState } from 'react'
 import { executeSpin } from '@game/spinController'
-import type { VisualSpinResult } from '@game/types'
 
 export function useSpin() {
-  const [result, setResult] =
-    useState<VisualSpinResult | null>(null)
-
+  const [result, setResult] = useState<any>(null)
   const [isSpinning, setIsSpinning] = useState(false)
+  const [showPaylines, setShowPaylines] = useState(false)
 
   function spin() {
     if (isSpinning) return
 
     setIsSpinning(true)
+    setShowPaylines(false)
 
     const visualResult = executeSpin({
       betPerLine: 1,
-      lines: 20,
+      lines: 5,
     })
 
     setResult(visualResult)
-    setIsSpinning(false)
+
+    setTimeout(() => {
+      setShowPaylines(true)
+      setIsSpinning(false)
+    }, 500)
   }
 
   return {
     spin,
-    isSpinning,
     reels: result?.reels ?? [],
-    win: result?.outcome.win ?? 0,
-    bet: result?.outcome.bet ?? 0
+    win: result?.outcome?.win ?? 0,
+    debug: result?.debug,
+    lineWins: showPaylines ? (result?.outcome?.lineWins ?? []) : [],
+    scatter: result?.outcome?.scatter,
   }
 }
