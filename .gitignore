@@ -1,0 +1,26 @@
+# Node / JS
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# EAS
+.eas/
+
+# Environment
+.env
+.env.*
+
+# OS
+.DS_Store
+
+# Build output
+apps/**/build
+apps/**/.next
+
+# Metro
+apps/**/node_modules
