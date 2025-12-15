@@ -1,13 +1,15 @@
-export type LineSymbol =
+export type SymbolKind =
   | 'A'
   | 'K'
   | 'Q'
   | 'J'
-  | '10'
-  | '9'
-  | 'LOW'
+  | 'SPADE'
+  | 'HEART'
+  | 'DIAMOND'
+  | 'CLUB'
   | 'WILD'
+  | 'SCATTER'
 
-export type ScatterSymbol = 'SCATTER'
-
-export type Symbol = LineSymbol | ScatterSymbol
+export type Symbol = {
+  kind: SymbolKind
+}

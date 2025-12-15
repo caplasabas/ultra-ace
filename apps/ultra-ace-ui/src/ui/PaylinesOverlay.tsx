@@ -1,8 +1,6 @@
-import { Animated } from 'react-native'
-import { useEffect, useRef } from 'react'
 import Svg, { Polyline } from 'react-native-svg'
-
-const AnimatedPolyline = Animated.createAnimatedComponent(Polyline)
+import { engineRowToUIRow } from '@utils/rowMapping'
+import { CARD_HEIGHT } from '@ui/Reel'
 
 interface LineWin {
   positions: { reel: number; row: number }[]
@@ -14,65 +12,38 @@ interface Props {
   rowCount: number
 }
 
+const SYMBOL_SIZE = 96
+
 export function PaylinesOverlay({ lineWins, reelWidth, rowCount }: Props) {
-  const progress = useRef(new Animated.Value(0)).current
-
-  useEffect(() => {
-    if (lineWins.length) {
-      progress.setValue(0)
-      Animated.timing(progress, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: false,
-      }).start()
-    }
-  }, [lineWins])
-
   if (!lineWins.length) return null
 
-  const reelHeight = reelWidth * rowCount
-  const cellHeight = reelHeight / rowCount
-  const svgWidth = reelWidth * lineWins[0].positions.length
-
-  const dashOffset = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [svgWidth, 0],
-  })
+  const reelHeight = SYMBOL_SIZE * rowCount
+  const svgWidth = reelWidth * 5
 
   return (
-    <Animated.View
-      pointerEvents="none"
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        zIndex: 10,
-      }}
-    >
-      <Svg width={svgWidth} height={reelHeight}>
-        {lineWins.map((lw, i) => {
-          const points = lw.positions
-            .map(p => {
-              const x = p.reel * reelWidth + reelWidth / 2
-              const y = p.row * cellHeight + cellHeight / 2
-              return `${x},${y}`
-            })
-            .join(' ')
+    <Svg width={svgWidth} height={reelHeight} style={{ position: 'absolute', top: 0, left: 0 }}>
+      {lineWins.map((lw, i) => {
+        const points = lw.positions
+          .map(p => {
+            const x = p.reel * reelWidth + reelWidth / 2
+            const uiRow = engineRowToUIRow(p.row, rowCount)
 
-          return (
-            <AnimatedPolyline
-              key={i}
-              points={points}
-              stroke="#ffd84d"
-              strokeWidth={6}
-              fill="none"
-              strokeLinecap="round"
-              strokeDasharray={`${svgWidth} ${svgWidth}`}
-              strokeDashoffset={dashOffset}
-            />
-          )
-        })}
-      </Svg>
-    </Animated.View>
+            const y = uiRow * CARD_HEIGHT + CARD_HEIGHT / 2
+            return `${x},${y}`
+          })
+          .join(' ')
+
+        return (
+          <Polyline
+            key={i}
+            points={points}
+            stroke="#ffd84d"
+            strokeWidth={4}
+            fill="none"
+            strokeLinecap="round"
+          />
+        )
+      })}
+    </Svg>
   )
 }

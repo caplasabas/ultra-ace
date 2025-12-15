@@ -1,28 +1,20 @@
-import { Symbol } from './symbol'
+// src/types/spin.ts
 
-export interface SpinResult {
-  window: Symbol[][]
-  win: number
-}
+import { Symbol } from './symbol'
 
 export interface LineWin {
   lineIndex: number
-  symbol: Symbol
+  symbol: Symbol['kind']
   count: number
   payout: number
+  positions: { reel: number; row: number }[]
 }
 
 export interface SpinOutcome {
   bet: number
   win: number
   reelStops: number[]
-  lineWins: {
-    lineIndex: number
-    symbol: Symbol
-    count: number
-    payout: number
-    positions: { reel: number; row: number }[]
-  }[]
+  lineWins: LineWin[]
 }
 
 export interface SpinInput {

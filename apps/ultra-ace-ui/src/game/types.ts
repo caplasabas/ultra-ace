@@ -1,19 +1,38 @@
 import type { SpinOutcome } from '@ultra-ace/engine'
 
+export type UISymbol =
+  | 'A'
+  | 'K'
+  | 'Q'
+  | 'J'
+  | 'SPADE'
+  | 'HEART'
+  | 'DIAMOND'
+  | 'CLUB'
+  | 'WILD'
+  | 'SCATTER'
+
 export interface VisualReel {
-  symbols: string[] // full reel strip (debug / future)
-  stopIndex: number // debug
-  visible: string[] // ALWAYS length === VISIBLE_ROWS
+  symbols: string[] // UI-safe keys
+  stopIndex: number
+}
+
+export interface WinPosition {
+  reel: number
+  row: number
+}
+
+export interface VisualLineWin {
+  lineIndex: number
+  positions: WinPosition[]
 }
 
 export interface VisualSpinResult {
   reels: VisualReel[]
   outcome: SpinOutcome
-  winningPaylines: number[]
+  lineWins: VisualLineWin[]
   debug: DebugSpinInfo
 }
-
-export type VisualSpinBase = Omit<VisualSpinResult, 'debug'>
 
 export interface DebugSpinInfo {
   seed: string

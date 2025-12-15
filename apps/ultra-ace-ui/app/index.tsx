@@ -5,56 +5,44 @@ import { SpinButton } from '@ui/SpinButton'
 import { WinCounter } from '@ui/WinCounter'
 import { DebugHUD } from '@ui/DebugHUD'
 import { PaylinesOverlay } from '@ui/PaylinesOverlay'
-import { ReelsViewport } from '@ui/ReelsViewport'
 import { VISIBLE_ROWS } from '@constants/layout'
+import { isMobile } from '@hooks/useLayoutType'
 
 const DESIGN_WIDTH = 360
 
 export default function SlotScreen() {
-  const { spin, reels, win, debug, lineWins } = useSpin()
+  const { spin, reels, win, debug, lineWins, winningPositions } = useSpin()
   const { width } = Dimensions.get('window')
 
   const maxAvailableWidth = width - 24
   const gameWidth = Math.min(maxAvailableWidth, DESIGN_WIDTH)
 
-  const columnCount = reels.length
-  const reelWidth = gameWidth / columnCount
-
-  const winningPositions: Set<string> = new Set(
-    lineWins.flatMap(lw => lw.positions.map(p => `${p.reel}-${p.row}`)),
-  )
+  const reelWidth = gameWidth / (reels.length ? reels.length : 5)
 
   return (
     <View style={styles.root}>
-      <View style={styles.phoneFrame}>
-        <View style={[styles.gameSurface, { width: gameWidth }]}>
-          <DebugHUD info={debug} />
+      <View style={[styles.gameSurface, { width: isMobile ? '100%' : gameWidth }]}>
+        <DebugHUD info={debug} />
 
-          <View style={styles.topSpacer} />
-
-          <View style={styles.reelsSection}>
-            <ReelsViewport reelWidth={reelWidth}>
-              <View style={styles.reelsRow}>
-                {reels.map((reel, i) => (
-                  <Reel
-                    key={i}
-                    reel={reel}
-                    reelIndex={i}
-                    width={reelWidth}
-                    winningPositions={winningPositions}
-                    dim={lineWins.length > 0}
-                  />
-                ))}
-              </View>
-
-              <PaylinesOverlay lineWins={lineWins} reelWidth={reelWidth} rowCount={VISIBLE_ROWS} />
-            </ReelsViewport>
+        <View style={styles.reelsSection}>
+          <View style={styles.reelsRow}>
+            {reels.map((reel, i) => (
+              <Reel
+                key={i}
+                reel={reel}
+                reelIndex={i}
+                reelWidth={reelWidth}
+                winningPositions={winningPositions}
+              />
+            ))}
           </View>
 
-          <View style={styles.bottomPanel}>
-            <WinCounter amount={win} />
-            <SpinButton onPress={spin} />
-          </View>
+          <PaylinesOverlay lineWins={lineWins} reelWidth={reelWidth} rowCount={VISIBLE_ROWS} />
+        </View>
+
+        <View style={styles.bottomPanel}>
+          <WinCounter amount={win} />
+          <SpinButton onPress={spin} />
         </View>
       </View>
     </View>
@@ -69,25 +57,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  phoneFrame: {
-    flex: 0.97,
-    backgroundColor: '#111',
-    borderRadius: 32,
-    padding: 10,
-    borderWidth: 4,
-    borderColor: '#333',
-  },
-
   gameSurface: {
-    flex: 1,
-    backgroundColor: '#07141f',
-    borderRadius: 20,
+    flex: isMobile ? 1 : 0.95,
+    borderRadius: isMobile ? 0 : 10,
+    backgroundColor: '#0f3e4b',
+    // borderRadius: 20,
     overflow: 'hidden',
     justifyContent: 'space-between',
-  },
-
-  topSpacer: {
-    height: 120,
+    paddingVertical: 20,
+    paddingHorizontal: 5,
   },
 
   reelsSection: {
@@ -96,11 +74,11 @@ const styles = StyleSheet.create({
   },
 
   reelsRow: {
+    width: '100%',
     flexDirection: 'row',
   },
 
   bottomPanel: {
-    paddingBottom: 48,
     alignItems: 'center',
     gap: 12,
   },

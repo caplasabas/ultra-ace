@@ -10,7 +10,6 @@
       "@game/*": ["src/game/*"],
       "@hooks/*": ["src/hooks/*"],
       "@components/*": ["src/components/*"],
-      "@assets/*": ["src/assets/*"],
       "@constants/*": ["src/constants/*"],
       "@utils/*": ["src/utils/*"]
     }

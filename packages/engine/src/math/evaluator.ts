@@ -1,29 +1,29 @@
 import { REELS } from './reels'
 import { PAYLINES } from './paylines'
-import { PAYTABLE } from './symbols'
-import { Symbol, LineSymbol } from '../types/symbol'
+import { PAYTABLE } from './paytable'
+import { Symbol, SymbolKind } from '../types/symbol'
 import { SCATTER_CONFIG } from '../config/scatter.config'
 
 export interface LineWin {
   lineIndex: number
-  symbol: LineSymbol
+  symbol: SymbolKind
   count: number
   payout: number
   positions: { reel: number; row: number }[]
-}
-
-export interface ScatterResult {
-  count: number
-  positions: { reel: number; row: number }[]
-  freeSpins: number
 }
 
 export interface EvalResult {
   window: Symbol[][]
   win: number
   lineWins: LineWin[]
-  scatter: ScatterResult
+  scatter: {
+    count: number
+    positions: { reel: number; row: number }[]
+    freeSpins: number
+  }
 }
+
+const PAYING_BASES: SymbolKind[] = ['A', 'K', 'Q', 'J']
 
 export function evaluateSpin(
   reelStops: number[],
@@ -31,52 +31,40 @@ export function evaluateSpin(
   activeLines: number,
   rows: number,
 ): EvalResult {
-  // Build visible window
-  const window: Symbol[][] = REELS.map((reel, i) => buildWindow(reel, reelStops[i], rows))
+  const window = REELS.map((reel, i) => buildWindow(reel, reelStops[i], rows))
 
-  // --- SCATTER COUNT ---
+  // -------- SCATTER --------
   let scatterCount = 0
   const scatterPositions: { reel: number; row: number }[] = []
 
-  for (let reelIndex = 0; reelIndex < window.length; reelIndex++) {
-    if (!SCATTER_CONFIG.reels.includes(reelIndex)) continue
-
-    for (let row = 0; row < window[reelIndex].length; row++) {
-      if (window[reelIndex][row] === 'SCATTER') {
+  for (let r = 0; r < window.length; r++) {
+    if (!SCATTER_CONFIG.reels.includes(r)) continue
+    for (let row = 0; row < rows; row++) {
+      if (window[r][row].kind === 'SCATTER') {
         scatterCount++
-        scatterPositions.push({ reel: reelIndex, row })
+        scatterPositions.push({ reel: r, row })
       }
     }
   }
 
-  let freeSpinsAwarded = 0
-  if (scatterCount >= 3) {
-    freeSpinsAwarded = SCATTER_CONFIG.freeSpins[scatterCount] ?? 0
-  }
-
+  // -------- LINES --------
   const lineWins: LineWin[] = []
 
-  for (let lineIndex = 0; lineIndex < activeLines; lineIndex++) {
-    const line = PAYLINES[lineIndex]
-
-    const positions = line.map((row, reelIndex) => ({
-      reel: reelIndex,
-      row,
-    }))
-
+  for (let i = 0; i < activeLines; i++) {
+    const line = PAYLINES[i]
+    const positions = line.map((row, reel) => ({ reel, row }))
     const symbols = positions.map(p => window[p.reel][p.row])
 
     const base = symbols[0]
 
-    // Scatter and Wild never start a line
-    if (base === 'SCATTER' || base === 'WILD') continue
-
-    const pay = PAYTABLE[base as LineSymbol]
-    if (!pay) continue
+    // must start on reel 0
+    if (!PAYING_BASES.includes(base.kind)) continue
 
     let count = 1
-    for (let i = 1; i < symbols.length; i++) {
-      if (symbols[i] === base || symbols[i] === 'WILD') {
+
+    for (let r = 1; r < symbols.length; r++) {
+      const s = symbols[r]
+      if (s.kind === base.kind || s.kind === 'WILD') {
         count++
       } else {
         break
@@ -84,28 +72,27 @@ export function evaluateSpin(
     }
 
     if (count >= 3) {
-      const payout = pay[count - 1] * betPerLine
-
+      const pay = PAYTABLE[base.kind]
       lineWins.push({
-        lineIndex,
-        symbol: base as LineSymbol,
+        lineIndex: i,
+        symbol: base.kind,
         count,
-        payout,
+        payout: pay[count - 1] * betPerLine,
         positions: positions.slice(0, count),
       })
     }
   }
 
-  const totalWin = lineWins.reduce((sum, lw) => sum + lw.payout, 0)
+  const win = lineWins.reduce((s, l) => s + l.payout, 0)
 
   return {
     window,
-    win: totalWin,
+    win,
     lineWins,
     scatter: {
       count: scatterCount,
       positions: scatterPositions,
-      freeSpins: freeSpinsAwarded,
+      freeSpins: SCATTER_CONFIG.freeSpins[scatterCount] ?? 0,
     },
   }
 }
@@ -113,9 +100,5 @@ export function evaluateSpin(
 function buildWindow(reel: Symbol[], stop: number, rows: number): Symbol[] {
   const len = reel.length
   const half = Math.floor(rows / 2)
-
-  return Array.from({ length: rows }, (_, i) => {
-    const offset = i - half
-    return reel[(stop + offset + len) % len]
-  })
+  return Array.from({ length: rows }, (_, i) => reel[(stop + i - half + len) % len])
 }

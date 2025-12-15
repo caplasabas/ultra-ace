@@ -1,4 +1,4 @@
-export * from "./rng";
+export * from './rng'
 
 export { spin } from './spin'
 
@@ -6,8 +6,4 @@ export { REELS } from './math'
 
 export { createRNG } from './rng'
 
-export type {
-  SpinInput,
-  SpinOutcome,
-  LineWin,
-} from './types'
+export type { SpinInput, SpinOutcome, LineWin, Symbol } from './types'
