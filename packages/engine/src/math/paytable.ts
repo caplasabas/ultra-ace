@@ -14,4 +14,5 @@ export const PAYTABLE: Record<SymbolKind, number[]> = {
 
   WILD: [0, 0, 0, 0, 0],
   SCATTER: [0, 0, 0, 0, 0],
+  EMPTY: [0, 0, 0, 0, 0],
 }

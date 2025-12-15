@@ -1,95 +1,104 @@
-// src/ui/Reel.web.tsx
-
-import { View, Image, StyleSheet } from 'react-native'
-import type { VisualReel } from '@game/types'
-import { VISIBLE_ROWS } from '@constants/layout'
+import { Image, StyleSheet, Platform } from 'react-native'
+import { MotionView } from '@components/MotionView'
+import type { CascadePhase, UISymbolInstance } from '@components/types'
 import { SYMBOL_MAP } from './symbolMap'
 
 export const CARD_HEIGHT = 100
 export const CARD_ASPECT_RATIO = 192 / 254
-export const CARD_WIDTH = Math.round(CARD_HEIGHT * CARD_ASPECT_RATIO) // 60
+export const CARD_WIDTH = Math.round(CARD_HEIGHT * CARD_ASPECT_RATIO)
 
 interface Props {
-  reel: VisualReel
+  reel: {
+    symbols: UISymbolInstance[]
+  }
   reelIndex: number
-  reelWidth: number
   winningPositions: Set<string>
+  phase: CascadePhase
 }
-import { Platform } from 'react-native'
 
-export const cardShadow = Platform.select({
-  web: {
-    boxShadow: '0px 3px 8px rgba(0,0,0,0.35)',
-  },
-  ios: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-  },
-  android: {
-    elevation: 4,
-  },
-})
-
-export function Reel({ reel, reelIndex, reelWidth, winningPositions }: Props) {
-  const visible = Array.from({ length: VISIBLE_ROWS }, (_, row) => {
-    const idx = (reel.stopIndex + row) % reel.symbols.length
-    return reel.symbols[idx]
-  })
-  const hasAnyWin = winningPositions.size > 0
-
+export function Reel({ reel, reelIndex, winningPositions, phase }: Props) {
   return (
-    <View style={[styles.reel]}>
-      {visible.map((symbol, row) => {
-        const isWin = winningPositions.has(`${reelIndex}-${row}`)
+    <MotionView style={styles.reel}>
+      {reel.symbols.map((symbol, row) => {
+        const key = `${reelIndex}-${row}`
+        const isWin = winningPositions.has(key)
+
+        const finalY = row * CARD_HEIGHT
+        const spawnY = -CARD_HEIGHT * 4
+
+        const isHighlight = phase === 'highlight' && isWin
+        const isPop = phase === 'pop' && isWin
+        const isRefillNew = phase === 'refill' && symbol.isNew
 
         return (
-          <View
-            style={[
-              styles.card,
-              cardShadow,
-              hasAnyWin && !isWin && styles.dimmed,
-              isWin && styles.win,
-            ]}
+          <MotionView
+            key={symbol.id}
+            initial={isRefillNew ? { y: spawnY } : false}
+            animate={{
+              y: finalY,
+
+              // 🔥 MUCH STRONGER SCALE
+              scale: isHighlight ? [1, 1.45, 1.35] : isPop ? [1.35, 0.9, 0] : 1,
+
+              opacity: isPop ? 0 : 1,
+
+              // subtle juice
+              rotateZ: isHighlight ? ['0deg', '-1.5deg', '1.5deg', '0deg'] : '0deg',
+            }}
+            transition={{
+              y: { duration: isRefillNew ? 0.6 : 0, ease: 'easeOut' },
+              scale: { duration: 0.35, ease: 'easeOut' },
+              opacity: { duration: 0.25 },
+              rotateZ: { duration: 0.35 },
+            }}
+            style={{
+              ...styles.card,
+
+              // 🔝 ALWAYS ABOVE DIM OVERLAY
+              zIndex: isHighlight ? 10 : 1,
+
+              ...(isHighlight ? styles.glow : null),
+            }}
           >
-            <Image source={SYMBOL_MAP[symbol]} style={styles.image} resizeMode="contain" />
-          </View>
+            {symbol.kind !== 'EMPTY' && (
+              <Image source={SYMBOL_MAP[symbol.kind]} style={styles.image} resizeMode="contain" />
+            )}
+          </MotionView>
         )
       })}
-    </View>
+    </MotionView>
   )
 }
 
 const styles = StyleSheet.create({
   reel: {
-    overflow: 'hidden',
-    alignItems: 'center',
+    position: 'relative',
+    height: CARD_HEIGHT * 4,
     flex: 1,
-    gap: 5,
+    // overflow: 'hidden',
   },
 
   card: {
+    position: 'absolute',
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
     backgroundColor: '#E4E8EC',
-    borderRadius: 5,
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.35)',
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
+
+  // 💡 STRONG, VISIBLE GLOW
+  glow: {
+    shadowColor: '#ffd84d',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: Platform.OS === 'android' ? 14 : 0,
+  },
+
   image: {
     width: '100%',
     height: '100%',
-    borderRadius: 5,
-  },
-  dimmed: {
-    opacity: 0.35,
-  },
-  win: {
-    borderWidth: 2,
-    borderColor: '#ffd84d',
-    boxShadow: '0 0 14px rgba(255,216,77,0.9)',
-    backgroundColor: '#fffbe6',
-    borderRadius: 5,
   },
 })

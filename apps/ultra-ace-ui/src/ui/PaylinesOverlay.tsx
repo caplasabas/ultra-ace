@@ -12,12 +12,10 @@ interface Props {
   rowCount: number
 }
 
-const SYMBOL_SIZE = 96
-
 export function PaylinesOverlay({ lineWins, reelWidth, rowCount }: Props) {
   if (!lineWins.length) return null
 
-  const reelHeight = SYMBOL_SIZE * rowCount
+  const reelHeight = CARD_HEIGHT * rowCount
   const svgWidth = reelWidth * 5
 
   return (
@@ -27,7 +25,6 @@ export function PaylinesOverlay({ lineWins, reelWidth, rowCount }: Props) {
           .map(p => {
             const x = p.reel * reelWidth + reelWidth / 2
             const uiRow = engineRowToUIRow(p.row, rowCount)
-
             const y = uiRow * CARD_HEIGHT + CARD_HEIGHT / 2
             return `${x},${y}`
           })
@@ -38,7 +35,7 @@ export function PaylinesOverlay({ lineWins, reelWidth, rowCount }: Props) {
             key={i}
             points={points}
             stroke="#ffd84d"
-            strokeWidth={4}
+            strokeWidth={0}
             fill="none"
             strokeLinecap="round"
           />

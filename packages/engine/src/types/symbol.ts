@@ -9,6 +9,7 @@ export type SymbolKind =
   | 'CLUB'
   | 'WILD'
   | 'SCATTER'
+  | 'EMPTY'
 
 export type Symbol = {
   kind: SymbolKind

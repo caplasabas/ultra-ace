@@ -1,24 +1,16 @@
 // src/types/spin.ts
 
-import { Symbol } from './symbol'
+import { CascadeStep } from './cascade'
 
-export interface LineWin {
-  lineIndex: number
-  symbol: Symbol['kind']
-  count: number
-  payout: number
-  positions: { reel: number; row: number }[]
+export interface SpinInput {
+  betPerSpin: number // TOTAL bet (e.g. 20)
+  lines: number
+  isFreeGame?: boolean
 }
 
 export interface SpinOutcome {
-  bet: number
-  win: number
+  bet: number // total bet charged
+  win: number // total win
   reelStops: number[]
-  lineWins: LineWin[]
-}
-
-export interface SpinInput {
-  betPerLine: number
-  lines: number
-  isFreeGame?: boolean
+  cascades?: CascadeStep[]
 }

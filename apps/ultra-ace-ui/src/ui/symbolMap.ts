@@ -6,10 +6,10 @@ export const SYMBOL_MAP: Record<string, any> = {
   K: require('../../assets/symbols/K.png'),
   A: require('../../assets/symbols/A.png'),
 
-  S: require('../../assets/symbols/S.png'),
-  H: require('../../assets/symbols/H.png'),
-  D: require('../../assets/symbols/D.png'),
-  C: require('../../assets/symbols/C.png'),
+  SPADE: require('../../assets/symbols/S.png'),
+  HEART: require('../../assets/symbols/H.png'),
+  DIAMOND: require('../../assets/symbols/D.png'),
+  CLUB: require('../../assets/symbols/C.png'),
 
   WILD: require('../../assets/symbols/H.png'),
 

@@ -1,18 +1,14 @@
 import type { SpinInput } from '@ultra-ace/engine'
 import { runSpin } from './engineAdapter'
-import { mapOutcomeToVisualResult } from './reelMath'
 import type { VisualSpinResult } from './types'
 
 export function executeSpin(input: SpinInput): VisualSpinResult {
   const outcome = runSpin(input)
-  const base = mapOutcomeToVisualResult(outcome)
 
   return {
-    ...base,
-    lineWins: outcome.lineWins.map(lw => ({
-      lineIndex: lw.lineIndex,
-      positions: lw.positions,
-    })),
+    outcome,
+    reels: [], // reels are now derived per cascade in useSpin
+    lineWins: [], // legacy compatibility (not used)
     debug: {
       seed: new Date().toISOString(),
       reelStops: outcome.reelStops,

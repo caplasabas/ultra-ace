@@ -6,4 +6,4 @@ export { REELS } from './math'
 
 export { createRNG } from './rng'
 
-export type { SpinInput, SpinOutcome, LineWin, Symbol } from './types'
+export type { SpinInput, SpinOutcome, LineWin, Symbol, CascadeStep } from './types'

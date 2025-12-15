@@ -1,5 +1,4 @@
 import type { SpinOutcome } from '@ultra-ace/engine'
-
 export type UISymbol =
   | 'A'
   | 'K'
@@ -11,9 +10,10 @@ export type UISymbol =
   | 'CLUB'
   | 'WILD'
   | 'SCATTER'
+  | 'EMPTY'
 
 export interface VisualReel {
-  symbols: string[] // UI-safe keys
+  symbols: UISymbol[]
   stopIndex: number
 }
 

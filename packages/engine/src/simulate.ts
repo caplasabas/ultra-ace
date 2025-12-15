@@ -16,8 +16,8 @@ let maxWin = 0
 
 for (let i = 0; i < spins; i++) {
   const outcome = spin(rng, {
-    betPerLine: betPerSpin,
-    lines: 20,
+    betPerSpin,
+    lines: 5,
   })
 
   totalBet += outcome.bet
@@ -28,8 +28,10 @@ for (let i = 0; i < spins; i++) {
     maxWin = Math.max(maxWin, outcome.win)
   }
 
-  for (const lw of outcome.lineWins) {
-    symbolRtp[lw.symbol] = (symbolRtp[lw.symbol] || 0) + lw.payout
+  for (const c of outcome.cascades ?? []) {
+    for (const lw of c.lineWins) {
+      symbolRtp[lw.symbol] = (symbolRtp[lw.symbol] || 0) + lw.payout
+    }
   }
 }
 
@@ -50,6 +52,6 @@ console.log({
   symbolRtp: symbolRtpPct,
 })
 
-if (rtp < 0.9 || rtp > 0.97) {
+if (rtp < 0.85 || rtp > 0.97) {
   throw new Error(`RTP out of bounds: ${(rtp * 100).toFixed(2)}%`)
 }

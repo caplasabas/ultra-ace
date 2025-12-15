@@ -1,15 +1,22 @@
+import { Symbol } from '../types/symbol'
+
 export const GAME_CONFIG = {
-  reelsVisibleRows: 4, // 🔥 upgraded
-  reelsCount: 5,
+  reelsVisibleRows: 4,
+  maxLines: 20,
+  maxCascades: 10,
 
-  minBet: 1,
-  maxBet: 100,
-  betSteps: [1, 2, 5, 10, 20, 50, 100],
+  multiplierLadder: [1, 2, 3, 5],
 
-  defaultLines: 5, // 🔥 multi-line
-  maxLines: 5,
+  seedChance: 0.14,
+  seedReels: 3,
+  seedSymbols: ['A', 'K', 'Q', 'J'] as const,
 
-  enableWilds: true,
-  enableScatters: false,
-  enableGamble: false,
+  cascadeFillPool: [
+    { kind: 'SPADE' },
+    { kind: 'HEART' },
+    { kind: 'DIAMOND' },
+    { kind: 'CLUB' },
+    { kind: 'J' },
+    { kind: 'Q' },
+  ] satisfies Symbol[],
 }

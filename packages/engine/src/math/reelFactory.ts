@@ -1,5 +1,3 @@
-// src/math/reelFactory.ts
-
 import { Symbol } from '../types/symbol'
 import { REEL_WEIGHTS } from './reelWeights'
 

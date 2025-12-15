@@ -1,3 +1,5 @@
-export { SpinInput, SpinOutcome, LineWin } from './spin'
+export { SpinInput, SpinOutcome } from './spin'
+
+export { LineWin, CascadeStep } from './cascade'
 
 export { Symbol } from './symbol'

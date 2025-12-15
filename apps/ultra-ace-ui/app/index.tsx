@@ -3,21 +3,24 @@ import { useSpin } from '@hooks/useSpin'
 import { Reel } from '@ui/Reel'
 import { SpinButton } from '@ui/SpinButton'
 import { WinCounter } from '@ui/WinCounter'
-import { DebugHUD } from '@ui/DebugHUD'
 import { PaylinesOverlay } from '@ui/PaylinesOverlay'
+import { DimOverlay } from '@components/DimOverlay'
 import { VISIBLE_ROWS } from '@constants/layout'
 import { isMobile } from '@hooks/useLayoutType'
+import { DebugHUD } from '@ui/DebugHUD'
 
 const DESIGN_WIDTH = 360
 
 export default function SlotScreen() {
-  const { spin, reels, win, debug, lineWins, winningPositions } = useSpin()
+  const { spin, reels, win, phase, debug, lineWins, winningPositions } = useSpin()
   const { width } = Dimensions.get('window')
 
-  const maxAvailableWidth = width - 24
-  const gameWidth = Math.min(maxAvailableWidth, DESIGN_WIDTH)
+  const gameWidth = Math.min(width - 24, DESIGN_WIDTH)
+  const reelWidth = gameWidth / (reels.length || 5)
 
-  const reelWidth = gameWidth / (reels.length ? reels.length : 5)
+  const inputLocked = phase !== 'idle'
+
+  const hasWins = phase === 'highlight' && lineWins.length > 0 && winningPositions.size > 0
 
   return (
     <View style={styles.root}>
@@ -31,10 +34,11 @@ export default function SlotScreen() {
                 key={i}
                 reel={reel}
                 reelIndex={i}
-                reelWidth={reelWidth}
                 winningPositions={winningPositions}
+                phase={phase}
               />
             ))}
+            <DimOverlay active={hasWins} />
           </View>
 
           <PaylinesOverlay lineWins={lineWins} reelWidth={reelWidth} rowCount={VISIBLE_ROWS} />
@@ -42,7 +46,7 @@ export default function SlotScreen() {
 
         <View style={styles.bottomPanel}>
           <WinCounter amount={win} />
-          <SpinButton onPress={spin} />
+          <SpinButton onPress={spin} disabled={inputLocked} />
         </View>
       </View>
     </View>
@@ -56,28 +60,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
   gameSurface: {
-    flex: isMobile ? 1 : 0.95,
-    borderRadius: isMobile ? 0 : 10,
-    backgroundColor: '#0f3e4b',
-    // borderRadius: 20,
-    overflow: 'hidden',
-    justifyContent: 'space-between',
+    flex: 1,
     paddingVertical: 20,
-    paddingHorizontal: 5,
+    backgroundColor: '#0f3e4b',
+    justifyContent: 'space-between',
   },
-
   reelsSection: {
-    alignItems: 'center',
-    marginBottom: 24,
+    justifyContent: 'center',
   },
-
   reelsRow: {
-    width: '100%',
     flexDirection: 'row',
+    position: 'relative',
   },
-
   bottomPanel: {
     alignItems: 'center',
     gap: 12,
