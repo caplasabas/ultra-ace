@@ -1,9 +1,17 @@
-export * from './rng'
+// src/index.ts
 
+// ─────────────────────────────────────────────
+// Public runtime API
+// ─────────────────────────────────────────────
 export { spin } from './spin'
-
-export { REELS } from './math'
-
 export { createRNG } from './rng'
 
-export type { SpinInput, SpinOutcome, LineWin, Symbol, CascadeStep } from './types'
+// ─────────────────────────────────────────────
+// Game configuration / constants
+// ─────────────────────────────────────────────
+export { REELS } from './math'
+
+// ─────────────────────────────────────────────
+// Types (no runtime cost)
+// ─────────────────────────────────────────────
+export type { SpinInput, SpinOutcome, CascadeStep, LineWin, Symbol } from './types'

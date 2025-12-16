@@ -1,0 +1,17 @@
+.debug-hud {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 6px;
+    z-index: 50;
+    font-family: monospace;
+}
+
+.debug-line {
+    color: #0f0;
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: nowrap;
+}

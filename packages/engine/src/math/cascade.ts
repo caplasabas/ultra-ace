@@ -10,15 +10,24 @@ export function runCascades(initialWindow: Symbol[][], betPerLine: number, activ
 
   const ladder = GAME_CONFIG.multiplierLadder
 
+  /**
+   * SEED CASCADE (VISUAL ONLY)
+   * - No payout
+   * - No evaluation
+   * - Exists only so UI has an initial window
+   */
   cascades.push({
     index: 0,
-    multiplier: ladder[0],
+    multiplier: 1,
     lineWins: [],
     win: 0,
     removedPositions: [],
     window: cloneWindow(window),
   })
 
+  /**
+   * REAL CASCADES START HERE
+   */
   for (let i = 1; i <= GAME_CONFIG.maxCascades; i++) {
     const multiplier = ladder[Math.min(i - 1, ladder.length - 1)]
 
@@ -32,7 +41,7 @@ export function runCascades(initialWindow: Symbol[][], betPerLine: number, activ
       for (const pos of lw.positions) {
         const symbol = window[pos.reel][pos.row]
 
-        // Wild persists
+        // Wilds persist
         if (symbol.kind === 'WILD') continue
 
         window[pos.reel][pos.row] = { kind: 'EMPTY' }
@@ -42,7 +51,7 @@ export function runCascades(initialWindow: Symbol[][], betPerLine: number, activ
 
     refill(window)
 
-    const win = lineWins.reduce((s, l) => s + l.payout, 0)
+    const win = lineWins.reduce((sum, lw) => sum + lw.payout, 0)
     totalWin += win
 
     cascades.push({

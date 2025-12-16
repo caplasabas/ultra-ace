@@ -5,7 +5,7 @@ export const GAME_CONFIG = {
   maxLines: 20,
   maxCascades: 10,
 
-  multiplierLadder: [1, 2, 3, 5],
+  multiplierLadder: [1, 1.5, 2.25, 3],
 
   seedChance: 0.14,
   seedReels: 3,
