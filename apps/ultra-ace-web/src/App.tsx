@@ -3,17 +3,19 @@ import { Reel } from './ui/Reel'
 import { DimOverlay } from './ui/DimOverlay'
 import { adaptWindow } from './game/adaptWindow'
 import { useCascadeTimeline } from './hooks/useCascadeTimeline'
+import { DebugHud } from './debug/DebugHud'
 
 const makePlaceholder = (kind: string) =>
   Array.from({ length: 4 }, () => ({ kind }))
 
 export default function App() {
-  const { cascades, spinId, spin, commitSpin, spinning } = useEngine()
+  const { cascades, spinId, spin, commitSpin, spinning,debugInfo } = useEngine()
 
   const {
     phase,
     activeCascade,
     previousCascade,
+    cascadeIndex,
     isIdle,
   } = useCascadeTimeline(cascades, spinId, commitSpin)
 
@@ -35,9 +37,9 @@ export default function App() {
 
   return (
     <div className="game-root">
+      <DebugHud info={debugInfo} />
       <div className="reels-row">
 
-        {/* PLACEHOLDER */}
         {showPlaceholder &&
           placeholderWindow.map((col, i) => (
             <Reel
@@ -50,12 +52,11 @@ export default function App() {
             />
           ))}
 
-        {/* OLD reels — sweep OUT */}
         {previousCascade &&
           phase === 'reelSweepOut' &&
           adaptWindow(previousCascade.window).map((col, i) => (
             <Reel
-              key={`old-${i}`}
+              key={`old-${cascadeIndex}-${i}`}
               symbols={col}
               reelIndex={i}
               winningPositions={winningPositions}
@@ -64,12 +65,21 @@ export default function App() {
             />
           ))}
 
-        {/* NEW reels — MUST exist during sweep-out */}
         {activeCascade &&
-          ['refill', 'settle', 'idle'].includes(phase) &&
-          adaptWindow(activeCascade.window, previousCascade?.window).map((col, i) => (
+          [
+            'initialRefill',
+            'cascadeRefill',
+            'highlight',
+            'pop',
+            'settle',
+            'idle',
+          ].includes(phase) &&
+          adaptWindow(
+            activeCascade.window,
+            previousCascade?.window,
+          ).map((col, i) => (
             <Reel
-              key={`new-${i}`}
+              key={`new-${cascadeIndex}-${i}`} // ✅ STABLE
               symbols={col}
               reelIndex={i}
               winningPositions={winningPositions}

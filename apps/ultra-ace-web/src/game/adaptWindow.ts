@@ -5,16 +5,18 @@ export function adaptWindow(
   window: EngineSymbol[][],
   previousWindow?: EngineSymbol[][],
 ): UISymbol[][] {
-  const isFirst = !previousWindow
-
   return window.map((col, reelIndex) =>
     col.map((symbol, row) => {
-      const prevSymbol = previousWindow?.[reelIndex]?.[row]
+      const prev = previousWindow?.[reelIndex]?.[row]
 
       return {
-        id: `${reelIndex}-${row}`,
+        id: `${reelIndex}-${row}-${symbol.kind}`,
         kind: symbol.kind,
-        isNew: isFirst || prevSymbol?.kind !== symbol.kind,
+
+        // ✅ NEW if:
+        // - no previous window (initial spin)
+        // - OR symbol kind changed (cascade drop)
+        isNew: !prev || prev.kind !== symbol.kind,
       }
     }),
   )

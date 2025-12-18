@@ -28,69 +28,65 @@ export function Reel({
                        phase,
                        layer,
                      }: Props) {
-  const hideNewReel =
-    layer === 'new' &&
-    phase === 'reelSweepOut'
+  const isInitialRefill = phase === 'initialRefill'
+  const isCascadeRefill = phase === 'cascadeRefill'
 
   return (
     <div
       className={[
         'reel',
 
-        // OLD reels move as a block
         layer === 'old' &&
         phase === 'reelSweepOut' &&
         'sweep-out-old',
 
-        // NEW reels are invisible during sweep-out
-        hideNewReel && 'reel-hidden',
+        // ✅ ONLY initial deal starts offscreen
+        layer === 'new' &&
+        isInitialRefill &&
+        'reel-pre-deal',
       ]
         .filter(Boolean)
         .join(' ')}
       style={{
         left: reelIndex * (REEL_WIDTH + REEL_GAP),
+
+        // ✅ reel ALWAYS centered during cascade refill
+        transform:
+          layer === 'new' && !isInitialRefill
+            ? 'translate3d(0,0,0)'
+            : undefined,
       }}
     >
       {symbols.map((symbol, row) => {
-        const key = `${reelIndex}-${row}`
-        const isWin = winningPositions.has(key)
-        const y = row * (CARD_HEIGHT + GAP_Y)
-        const imgSrc = SYMBOL_MAP[symbol.kind]
+        const isWin = winningPositions.has(`${reelIndex}-${row}`)
+        const shouldDeal =
+          layer === 'new' &&
+          symbol.isNew &&
+          (isInitialRefill || isCascadeRefill)
 
         return (
           <div
-            key={symbol.id}
+            key={`${symbol.id}-${phase}-${symbol.isNew ? 'new' : 'old'}`}
             className={[
               'card',
               isWin && phase === 'highlight' && 'highlight',
               isWin && phase === 'pop' && 'pop',
-
-              // ONLY new cards deal in
-              layer === 'new' &&
-              symbol.isNew &&
-              phase === 'refill' &&
-              'deal',
+              shouldDeal && 'deal',
             ]
               .filter(Boolean)
               .join(' ')}
             style={{
-              top: y,
-              animationDelay:
-                layer === 'new' &&
-                symbol.isNew &&
-                phase === 'refill'
-                  ? `${(reelIndex + row) * 70}ms`
-                  : '0ms',
+              top: row * (CARD_HEIGHT + GAP_Y),
+              animationDelay: shouldDeal
+                ? `${(reelIndex + row) * 70}ms`
+                : '0ms',
             }}
           >
-            {imgSrc && (
-              <img
-                src={imgSrc}
-                alt={symbol.kind}
-                className="symbol-img"
-                draggable={false}
-              />
-            )}
+            <img
+              src={SYMBOL_MAP[symbol.kind]}
+              className="symbol-img"
+              draggable={false}
+            />
           </div>
         )
       })}

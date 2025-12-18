@@ -1,14 +1,13 @@
-
 import { useEffect, useReducer } from 'react'
 import type { CascadeStep } from '@ultra-ace/engine'
 
 export type CascadePhase =
   | 'idle'
   | 'reelSweepOut'
-  | 'reelSweepIn'
+  | 'initialRefill'
   | 'highlight'
   | 'pop'
-  | 'refill'
+  | 'cascadeRefill'
   | 'settle'
 
 interface State {
@@ -66,13 +65,11 @@ export function useCascadeTimeline(
   const previousCascade = state.previous
   const isIdle = state.phase === 'idle'
 
-  // Start ONLY on spin
   useEffect(() => {
     if (spinId === 0) return
     dispatch({ type: 'START', cascades })
   }, [spinId])
 
-  // Timeline driver
   useEffect(() => {
     let t: number | undefined
 
@@ -80,25 +77,36 @@ export function useCascadeTimeline(
       case 'reelSweepOut':
         t = window.setTimeout(() => {
           onCommit?.()
-          dispatch({ type: 'NEXT', phase: 'highlight' })
+          dispatch({ type: 'NEXT', phase: 'initialRefill' })
         }, 450)
         break
 
+      case 'initialRefill':
+        t = window.setTimeout(
+          () => dispatch({ type: 'NEXT', phase: 'highlight' }),
+          700,
+        )
+        break
+
       case 'highlight':
+        if (!activeCascade?.lineWins?.length) {
+          dispatch({ type: 'NEXT', phase: 'settle' })
+          return
+        }
         t = window.setTimeout(
           () => dispatch({ type: 'NEXT', phase: 'pop' }),
-          1200,
+          1000,
         )
         break
 
       case 'pop':
         t = window.setTimeout(
-          () => dispatch({ type: 'NEXT', phase: 'refill' }),
-          180,
+          () => dispatch({ type: 'NEXT', phase: 'cascadeRefill' }),
+          220,
         )
         break
 
-      case 'refill':
+      case 'cascadeRefill':
         t = window.setTimeout(() => {
           if (state.index + 1 < cascades.length) {
             dispatch({ type: 'ADVANCE', cascades })
@@ -109,17 +117,22 @@ export function useCascadeTimeline(
         break
 
       case 'settle':
-        t = window.setTimeout(() => dispatch({ type: 'RESET' }), 200)
+        t = window.setTimeout(() => dispatch({ type: 'RESET' }), 250)
         break
     }
 
-    return () => t && clearTimeout(t)
+    return () => {
+      if (t !== undefined) {
+        clearTimeout(t)
+      }
+    }
   }, [state.phase, state.index, cascades])
 
   return {
     phase: state.phase,
     activeCascade,
     previousCascade,
+    cascadeIndex: state.index, // ✅ EXPOSE THIS
     isIdle,
   }
 }
