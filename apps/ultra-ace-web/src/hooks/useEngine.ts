@@ -5,14 +5,12 @@ import { DebugSpinInfo } from 'src/debug/DebugHud'
 
 export function useEngine() {
   const [committedCascades, setCommittedCascades] = useState<CascadeStep[]>([])
-  const [pendingCascades, setPendingCascades] =
-    useState<CascadeStep[] | null>(null)
+  const [pendingCascades, setPendingCascades] = useState<CascadeStep[] | null>(null)
 
+  const [totalWin, setTotalWin] = useState(0)
   const [spinning, setSpinning] = useState(false)
   const [spinId, setSpinId] = useState(0)
-  const [debugInfo, setDebugInfo] = useState<DebugSpinInfo | undefined>(
-    undefined,
-  )
+  const [debugInfo, setDebugInfo] = useState<DebugSpinInfo | undefined>(undefined)
 
   function spinNow() {
     if (spinning) return
@@ -28,7 +26,6 @@ export function useEngine() {
       lines: 5,
     })
 
-
     setPendingCascades(result.cascades ?? [])
     setSpinId(id => id + 1)
 
@@ -38,6 +35,8 @@ export function useEngine() {
       bet,
       win: result?.win ?? 0,
     })
+
+    setTotalWin(prev => prev + (result?.win ?? 0))
   }
 
   function commitSpin() {
@@ -57,5 +56,6 @@ export function useEngine() {
 
     // ✅ Debug
     debugInfo,
+    totalWin,
   }
 }

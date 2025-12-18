@@ -1,29 +1,66 @@
+:root {
+    --reel-height: 380px;
+    --highlight-pad: 24px; /* safe for 1.3x scale */
+    --reel-count: 5;
+    --reel-width: 64px;
+    --reel-gap: 10px;
+
+}
+
+
+/* =========================
+   Root – centers frame
+   ========================= */
+
 .game-root {
     height: 100vh;
     width: 100%;
 
     display: flex;
-    flex-direction: column;
-
     justify-content: center;
     align-items: center;
-    /*overflow: hidden;*/
-    position: absolute;
-    top: 0;
-    left:0;
+
+    position: relative;
+
 }
+
+/* =========================
+   Phone-style Frame (NEW)
+   ========================= */
+
+.game-frame {
+    width: 430px;           /* 📱 mobile width */
+    height: 100vh;
+
+
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+
+    box-sizing: border-box;
+    padding: 24px 0;
+
+    background-color: #0f3e4b;
+}
+
+/* =========================
+   Reel Stage (padding prevents clipping)
+   ========================= */
 
 .reels-row {
-    position: relative;
-    display: flex;
-    gap: 10px;
-    height: 380px;
-    width: 25%;
-    margin: 20px 0;
-    /*overflow: hidden;*/
-overflow-y:hidden;
-}
+    position: absolute;
+    top: var(--highlight-pad);
+    left: var(--highlight-pad);
 
+    width: calc(
+            var(--reel-count) * var(--reel-width) +
+            (var(--reel-count) - 1) * var(--reel-gap)
+    );
+
+    height: var(--reel-height);
+    overflow: visible;
+}
 /* =========================
    Reel Container
    ========================= */
@@ -34,8 +71,52 @@ overflow-y:hidden;
     height: 380px;
     top: 0;
     left: 0;
-    /*overflow: hidden;*/
+
+
 }
+
+
+/* =========================
+   Reel Stage (padding + centering)
+   ========================= */
+
+.reels-stage {
+    position: relative; /* REQUIRED */
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding: 18px 0;
+    overflow: visible;
+}
+
+/* =========================
+   Reel Clip (animation mask)
+   ========================= */
+
+.reels-clip {
+    position: relative;
+
+    width: calc(
+            var(--reel-count) * var(--reel-width) +
+            (var(--reel-count) - 1) * var(--reel-gap) +
+            var(--highlight-pad) * 2
+    );
+
+    height: calc(
+            var(--reel-height) +
+            var(--highlight-pad) * 2
+    );
+
+    overflow-x: hidden;
+    overflow-y: hidden;
+    z-index: 2;
+}
+/* =========================
+   Rest of your CSS
+   ========================= */
+
+/* 🔽 KEEP EVERYTHING BELOW EXACTLY AS YOU HAVE IT 🔽 */
+/* cards, animations, highlights, pop, etc. */
 
 /* OLD reels only — sweep DOWN */
 .reel.sweep-out-old {
@@ -115,10 +196,10 @@ overflow-y:hidden;
         transform: scale(1);
     }
     60% {
-        transform: scale(1.48);
+        transform: scale(1.30);
     }
     100% {
-        transform: scale(1.35);
+        transform: scale(1.15);
     }
 }
 
@@ -152,8 +233,11 @@ overflow-y:hidden;
    ========================= */
 
 .spin-btn {
-    margin-top: 20px;
+    /*margin-top: 20px;*/
+    display: flex;
+    margin: 0 auto;
     font-size: 18px;
+    border-radius: 100px;
 }
 
 .spin-btn:disabled {
@@ -164,21 +248,25 @@ overflow-y:hidden;
 /* =========================
    Dim Overlay
    ========================= */
-
 .dim {
     position: absolute;
-    inset: 0;
+    top: 0;
+    left: 0;
+
+    width: 100%;
+    height: 100%;
+
     background: rgba(0, 0, 0, 0);
     pointer-events: none;
-    transition: background 250ms ease;
 
+    transition: background 250ms ease;
+    inset: 0;
+    z-index: 1; /* BELOW highlights */
 }
 
 .dim.active {
     background: rgba(0, 0, 0, 0.55);
-    z-index: 2;
 }
-
 
 .card-inner {
     width: 100%;
@@ -190,9 +278,10 @@ overflow-y:hidden;
 
 /* highlight now ONLY affects inner layer */
 .card-inner.highlight {
+    position: relative;   /* REQUIRED */
+    z-index: 3;
     animation: highlightPulse 380ms ease-out forwards;
     box-shadow: 0 0 18px rgba(255, 216, 77, 0.9);
-    z-index: 10;
 }
 
 
@@ -235,4 +324,50 @@ overflow-y:hidden;
         opacity: 1;
         transform: translateY(0);
     }
+}
+
+
+.top-container {
+    width: 100%;
+    height: 15vh;
+    padding: 20px 0;
+}
+
+.bottom-container {
+    width: 100%;
+    height: 15vh;
+    padding: 20px 0;
+}
+
+
+.spin-btn.active {
+    background-color: #d33;
+    color: #fff;
+}
+
+
+.spin-btn.turbo {
+    opacity: 10%;
+}
+
+
+.win-display {
+    height: 32px;
+    margin-bottom: 8px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.win-amount {
+    font-size: 20px;
+    font-weight: 700;
+    color: #ffd84d;
+    text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
+}
+
+.win-placeholder {
+    font-size: 18px;
+    opacity: 0.4;
 }
