@@ -1,5 +1,0 @@
-{
-  "buildCommand": "npm run build",
-  "outputDirectory": "apps/ultra-ace-web/dist",
-  "framework": "vite"
-}
