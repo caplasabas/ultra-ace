@@ -47,10 +47,10 @@ function reducer(state: State, action: Action): State {
       }
 
     case 'RESET':
-      return initialState
+      return  {phase: 'idle', index: state.index }
 
     default:
-      return state
+      return initialState
   }
 }
 
@@ -76,10 +76,8 @@ export function useCascadeTimeline(
 
     switch (state.phase) {
       case 'reelSweepOut':
-        t = window.setTimeout(() => {
-          onCommit?.()
           dispatch({ type: 'NEXT', phase: 'initialRefill' })
-        }, 450)
+          onCommit?.()
         break
 
       case 'initialRefill':
@@ -90,13 +88,13 @@ export function useCascadeTimeline(
           } else {
             dispatch({ type: 'NEXT', phase: 'settle' })
           }
-        }, 700)
+        }, 900)
         break
 
       case 'highlight':
         t = window.setTimeout(
           () => dispatch({ type: 'NEXT', phase: 'pop' }),
-          1000,
+          1500,
         )
         break
 
@@ -114,7 +112,7 @@ export function useCascadeTimeline(
           } else {
             dispatch({ type: 'NEXT', phase: 'settle' })
           }
-        }, 700)
+        }, 900)
         break
 
       case 'settle':

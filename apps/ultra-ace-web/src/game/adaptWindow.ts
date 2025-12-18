@@ -1,23 +1,26 @@
 import type { Symbol as EngineSymbol } from '@ultra-ace/engine'
 import type { UISymbol } from '../ui/Reel'
 
+interface RemovedPosition {
+  reel: number
+  row: number
+}
+
 export function adaptWindow(
   window: EngineSymbol[][],
-  previousWindow?: EngineSymbol[][],
+  removedPositions?: RemovedPosition[] | undefined,
 ): UISymbol[][] {
+  const removedSet = new Set(
+    removedPositions?.map(p => `${p.reel}-${p.row}`) ?? [],
+  )
+
   return window.map((col, reelIndex) =>
-    col.map((symbol, row) => {
-      const prev = previousWindow?.[reelIndex]?.[row]
+    col.map((symbol, row) => ({
+      id: `${reelIndex}-${row}-${symbol.kind}`,
+      kind: symbol.kind,
 
-      return {
-        id: `${reelIndex}-${row}-${symbol.kind}`,
-        kind: symbol.kind,
-
-        // ✅ NEW if:
-        // - no previous window (initial spin)
-        // - OR symbol kind changed (cascade drop)
-        isNew: !prev || prev.kind !== symbol.kind,
-      }
-    }),
+      // ✅ ONLY these positions animate during cascadeRefill
+      isNew: removedSet.has(`${reelIndex}-${row}`),
+    })),
   )
 }

@@ -31,6 +31,7 @@ export function Reel({
   const isInitialRefill = phase === 'initialRefill'
   const isCascadeRefill = phase === 'cascadeRefill'
 
+
   return (
     <div
       className={[
@@ -51,26 +52,44 @@ export function Reel({
     >
       {symbols.map((symbol, row) => {
         const isWin = winningPositions.has(`${reelIndex}-${row}`)
-        const shouldDeal =
-          layer === 'new' &&
-          symbol.isNew &&
-          (isInitialRefill || isCascadeRefill)
+
+        const isInitialDeal =
+          layer === 'new' && phase === 'initialRefill'
+
+        const isCascadeDeal =
+          layer === 'new' && phase === 'cascadeRefill' && symbol.isNew
+
+        const TOTAL_ROWS = symbols.length
+
+        const baseDelay =
+          reelIndex * 140 // reel cadence (machine rhythm)
+
+        const depthDelay =
+          (TOTAL_ROWS - 1 - row) * 55 // top cards lag
+
+        const microJitter =
+          row * 6 // prevents robotic simultaneity
+
+        const delay = baseDelay + depthDelay + microJitter
 
         return (
           <div
-            key={`${symbol.id}-${phase}`}
+            key={`${symbol.id}`}
             className={[
               'card',
-              shouldDeal && 'deal',
+              isInitialDeal && 'deal-initial',
+              isCascadeDeal && 'deal',
               isWin && phase === 'pop' && 'pop',
             ]
               .filter(Boolean)
               .join(' ')}
             style={{
               top: row * (CARD_HEIGHT + GAP_Y),
-              animationDelay: shouldDeal
-                ? `${(reelIndex + row) * 70}ms`
-                : '0ms',
+              animationDelay: isInitialDeal
+                ? `${delay}ms`
+                : isCascadeDeal
+                  ? `${row * 70}ms`
+                  : '0ms',
               zIndex: isWin ? 10: 1
             }}
           >

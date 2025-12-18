@@ -28,13 +28,37 @@ export default function App() {
     makePlaceholder('CLUB'),
   ] as any)
 
-  const showPlaceholder = cascades.length === 0 && isIdle
-
   const winningPositions = new Set(
     activeCascade?.lineWins.flatMap(lw =>
       lw.positions.map(p => `${p.reel}-${p.row}`),
     ) ?? [],
   )
+
+  const windowForRender = (() => {
+    switch (phase) {
+      case 'highlight':
+      case 'pop':
+        return previousCascade?.window
+
+      case 'cascadeRefill':
+      case 'settle':
+      case 'idle':
+      case 'initialRefill':
+        return activeCascade?.window
+
+      default:
+        return activeCascade?.window
+    }
+  })()
+
+  const adaptedWindow =
+    windowForRender &&
+    adaptWindow(
+      windowForRender,
+      phase === 'cascadeRefill'
+        ? activeCascade?.removedPositions
+        : undefined,
+    )
 
 
   return (
@@ -47,20 +71,23 @@ export default function App() {
             Boolean(activeCascade?.lineWins?.length)
           }
         />
-        {showPlaceholder &&
+        {placeholderWindow &&
           placeholderWindow.map((col, i) => (
             <Reel
               key={`ph-${i}`}
               symbols={col}
               reelIndex={i}
               winningPositions={new Set()}
-              phase="idle"
-              layer="new"
+              phase={spinId > 0 ? 'reelSweepOut' : 'idle'}
+              layer={spinId > 0 ? 'old' : 'new'}
             />
           ))}
 
         {previousCascade &&
-          phase === 'reelSweepOut' &&
+          [
+            'reelSweepOut',
+            'initialRefill'
+          ].includes(phase) &&
           adaptWindow(previousCascade.window).map((col, i) => (
             <Reel
               key={`old-${cascadeIndex}-${i}`}
@@ -72,7 +99,7 @@ export default function App() {
             />
           ))}
 
-        {activeCascade &&
+        {adaptedWindow &&
           [
             'initialRefill',
             'cascadeRefill',
@@ -81,10 +108,7 @@ export default function App() {
             'settle',
             'idle',
           ].includes(phase) &&
-          adaptWindow(
-            activeCascade.window,
-     
-          ).map((col, i) => (
+         adaptedWindow.map((col, i) => (
             <Reel
               key={`new-${cascadeIndex}-${i}`} // ✅ STABLE
               symbols={col}
@@ -108,3 +132,7 @@ export default function App() {
     </div>
   )
 }
+
+
+
+
