@@ -12,7 +12,7 @@ export type CascadePhase =
 
 interface State {
   phase: CascadePhase
-  index: number
+  index: number // 👈 index into cascades, starting at 0 (base)
   previous?: CascadeStep
 }
 
@@ -62,6 +62,7 @@ export function useCascadeTimeline(
   const [state, dispatch] = useReducer(reducer, initialState)
 
   const activeCascade = cascades[state.index]
+  const nextCascade = cascades[state.index + 1] // 🔥 THIS IS THE KEY
   const previousCascade = state.previous
   const isIdle = state.phase === 'idle'
 
@@ -82,17 +83,17 @@ export function useCascadeTimeline(
         break
 
       case 'initialRefill':
-        t = window.setTimeout(
-          () => dispatch({ type: 'NEXT', phase: 'highlight' }),
-          700,
-        )
+        // 🔑 after base window, CHECK FIRST WIN CASCADE
+        t = window.setTimeout(() => {
+          if (nextCascade?.lineWins?.length) {
+            dispatch({ type: 'ADVANCE', cascades }) // go to index 1
+          } else {
+            dispatch({ type: 'NEXT', phase: 'settle' })
+          }
+        }, 700)
         break
 
       case 'highlight':
-        if (!activeCascade?.lineWins?.length) {
-          dispatch({ type: 'NEXT', phase: 'settle' })
-          return
-        }
         t = window.setTimeout(
           () => dispatch({ type: 'NEXT', phase: 'pop' }),
           1000,
@@ -108,8 +109,8 @@ export function useCascadeTimeline(
 
       case 'cascadeRefill':
         t = window.setTimeout(() => {
-          if (state.index + 1 < cascades.length) {
-            dispatch({ type: 'ADVANCE', cascades })
+          if (cascades[state.index + 1]?.lineWins?.length) {
+            dispatch({ type: 'ADVANCE' , cascades})
           } else {
             dispatch({ type: 'NEXT', phase: 'settle' })
           }
@@ -122,17 +123,15 @@ export function useCascadeTimeline(
     }
 
     return () => {
-      if (t !== undefined) {
-        clearTimeout(t)
-      }
+      if (t !== undefined) clearTimeout(t)
     }
   }, [state.phase, state.index, cascades])
 
   return {
     phase: state.phase,
-    activeCascade,
+    activeCascade, // always correct window for rendering
     previousCascade,
-    cascadeIndex: state.index, // ✅ EXPOSE THIS
+    cascadeIndex: state.index,
     isIdle,
   }
 }

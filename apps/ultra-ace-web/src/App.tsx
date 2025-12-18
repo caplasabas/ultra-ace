@@ -4,6 +4,7 @@ import { DimOverlay } from './ui/DimOverlay'
 import { adaptWindow } from './game/adaptWindow'
 import { useCascadeTimeline } from './hooks/useCascadeTimeline'
 import { DebugHud } from './debug/DebugHud'
+import { useEffect } from 'react'
 
 const makePlaceholder = (kind: string) =>
   Array.from({ length: 4 }, () => ({ kind }))
@@ -35,11 +36,17 @@ export default function App() {
     ) ?? [],
   )
 
+
   return (
     <div className="game-root">
       <DebugHud info={debugInfo} />
       <div className="reels-row">
-
+        <DimOverlay
+          active={
+            phase === 'highlight' &&
+            Boolean(activeCascade?.lineWins?.length)
+          }
+        />
         {showPlaceholder &&
           placeholderWindow.map((col, i) => (
             <Reel
@@ -76,7 +83,7 @@ export default function App() {
           ].includes(phase) &&
           adaptWindow(
             activeCascade.window,
-            previousCascade?.window,
+     
           ).map((col, i) => (
             <Reel
               key={`new-${cascadeIndex}-${i}`} // ✅ STABLE
@@ -88,12 +95,7 @@ export default function App() {
             />
           ))}
 
-        <DimOverlay
-          active={
-            phase === 'highlight' &&
-            Boolean(activeCascade?.lineWins?.length)
-          }
-        />
+
       </div>
 
       <button

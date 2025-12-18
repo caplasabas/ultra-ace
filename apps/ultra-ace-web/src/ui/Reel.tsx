@@ -35,12 +35,9 @@ export function Reel({
     <div
       className={[
         'reel',
-
         layer === 'old' &&
         phase === 'reelSweepOut' &&
         'sweep-out-old',
-
-        // ✅ ONLY initial deal starts offscreen
         layer === 'new' &&
         isInitialRefill &&
         'reel-pre-deal',
@@ -49,12 +46,7 @@ export function Reel({
         .join(' ')}
       style={{
         left: reelIndex * (REEL_WIDTH + REEL_GAP),
-
-        // ✅ reel ALWAYS centered during cascade refill
-        transform:
-          layer === 'new' && !isInitialRefill
-            ? 'translate3d(0,0,0)'
-            : undefined,
+        transform: 'translate3d(0,0,0)', // locked
       }}
     >
       {symbols.map((symbol, row) => {
@@ -66,12 +58,11 @@ export function Reel({
 
         return (
           <div
-            key={`${symbol.id}-${phase}-${symbol.isNew ? 'new' : 'old'}`}
+            key={`${symbol.id}-${phase}`}
             className={[
               'card',
-              isWin && phase === 'highlight' && 'highlight',
-              isWin && phase === 'pop' && 'pop',
               shouldDeal && 'deal',
+              isWin && phase === 'pop' && 'pop',
             ]
               .filter(Boolean)
               .join(' ')}
@@ -80,13 +71,24 @@ export function Reel({
               animationDelay: shouldDeal
                 ? `${(reelIndex + row) * 70}ms`
                 : '0ms',
+              zIndex: isWin ? 10: 1
             }}
           >
-            <img
-              src={SYMBOL_MAP[symbol.kind]}
-              className="symbol-img"
-              draggable={false}
-            />
+            {/* ✅ INNER LAYER FOR HIGHLIGHT */}
+            <div
+              className={[
+                'card-inner',
+                isWin && phase === 'highlight' && 'highlight',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              <img
+                src={SYMBOL_MAP[symbol.kind]}
+                className="symbol-img"
+                draggable={false}
+              />
+            </div>
           </div>
         )
       })}
