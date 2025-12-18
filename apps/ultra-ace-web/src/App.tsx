@@ -6,14 +6,13 @@ import { useCascadeTimeline } from './hooks/useCascadeTimeline'
 import { DebugHud } from './debug/DebugHud'
 import { useEffect, useState } from 'react'
 
-const MULTIPLIERS = [1, 2, 3, 5]
-
 const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kind }))
 
 export default function App() {
   const [autoSpin, setAutoSpin] = useState(false)
 
-  const { cascades, spinId, spin, commitSpin, spinning, debugInfo, totalWin } = useEngine()
+  const { cascades, spinId, spin, commitSpin, commitWin, spinning, debugInfo, totalWin } =
+    useEngine()
 
   const { phase, activeCascade, previousCascade, cascadeIndex, isIdle } = useCascadeTimeline(
     cascades,
@@ -54,7 +53,14 @@ export default function App() {
     return () => clearTimeout(t)
   }, [autoSpin, isIdle, spinning, spin])
 
-  const MULTIPLIERS = [1, 2, 3, 5, 10]
+  useEffect(() => {
+    if (phase !== 'highlight') return
+    if (!activeCascade?.win) return
+
+    commitWin(activeCascade.win)
+  }, [phase])
+
+  const MULTIPLIERS = [1, 2, 3, 5]
 
   const activeMultiplier = MULTIPLIERS[Math.min(cascadeIndex, MULTIPLIERS.length - 1)]
   const currentMultiplier = activeCascade?.multiplier ?? 1

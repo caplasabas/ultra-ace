@@ -8,6 +8,8 @@ export function useEngine() {
   const [pendingCascades, setPendingCascades] = useState<CascadeStep[] | null>(null)
 
   const [totalWin, setTotalWin] = useState(0)
+  const [pendingWin, setPendingWin] = useState(0)
+
   const [spinning, setSpinning] = useState(false)
   const [spinId, setSpinId] = useState(0)
   const [debugInfo, setDebugInfo] = useState<DebugSpinInfo | undefined>(undefined)
@@ -36,7 +38,11 @@ export function useEngine() {
       win: result?.win ?? 0,
     })
 
-    setTotalWin(prev => prev + (result?.win ?? 0))
+    setPendingWin(result.win ?? 0)
+  }
+
+  function commitWin(amount: number) {
+    setTotalWin(w => w + amount)
   }
 
   function commitSpin() {
@@ -53,9 +59,9 @@ export function useEngine() {
     spinId,
     spin: spinNow,
     commitSpin,
-
-    // ✅ Debug
     debugInfo,
     totalWin,
+    pendingWin,
+    commitWin,
   }
 }
