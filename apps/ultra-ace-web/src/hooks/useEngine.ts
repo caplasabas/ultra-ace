@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { spin, createRNG } from '@ultra-ace/engine'
 import type { CascadeStep } from '@ultra-ace/engine'
 
-const rng = createRNG('demo-seed')
 export function useEngine() {
   const [committedCascades, setCommittedCascades] = useState<CascadeStep[]>([])
   const [pendingCascades, setPendingCascades] = useState<CascadeStep[] | null>(null)
@@ -11,13 +10,14 @@ export function useEngine() {
 
   function spinNow() {
     if (spinning) return
-
     setSpinning(true)
 
-    const result = spin(rng, { betPerSpin: 20, lines: 5 })
-    setPendingCascades(result.cascades ?? [])
+    const result = spin(createRNG(new Date().toString()), {
+      betPerSpin: 20,
+      lines: 5,
+    })
 
-    // 🔑 trigger reel sweep out
+    setPendingCascades(result.cascades ?? [])
     setSpinId(id => id + 1)
   }
 

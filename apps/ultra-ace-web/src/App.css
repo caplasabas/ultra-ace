@@ -1,55 +1,61 @@
+/* =========================
+   Layout
+   ========================= */
+
 .game-root {
     height: 100vh;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
+    overflow: hidden;
 }
 
 .reels-row {
+    position: relative;
     display: flex;
     gap: 10px;
-    position: relative;
+    height: 380px;
+
 }
+
+/* =========================
+   Reel Container
+   ========================= */
 
 .reel {
+    position: absolute;
     width: 64px;
     height: 380px;
-    position: relative;
+    top: 0;
+    left: 0;
+    overflow: hidden;
+    will-change: transform;
 }
 
-.reel.sweep {
-    animation: reelSweep 0.6s ease-out;
+/* OLD reels only — sweep DOWN */
+.reel.sweep-out-old {
+    animation: oldReelDown 450ms cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 
-@keyframes reelSweep {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(120%); }
-}
-
-@keyframes reelSweepOut {
-    to {
-        transform: translateY(140%);
-    }
-}
-
-.reel.sweep-out {
-    animation: reelSweepOut 450ms cubic-bezier(0.4, 0, 1, 1);
-}
-
-
-@keyframes reelSweepIn {
+@keyframes oldReelDown {
     from {
-        transform: translateY(-140%);
+        transform: translate3d(0, 0%, 0);
     }
     to {
-        transform: translateY(0);
+        transform: translate3d(0, 140%, 0);
     }
 }
 
-.reel.sweep-in {
-    animation: reelSweepIn 550ms cubic-bezier(0, 0, 0.2, 1);
+/* NEW reels hidden during sweep-out */
+.reel-hidden {
+    opacity: 0;
+    pointer-events: none;
 }
+
+/* =========================
+   Cards
+   ========================= */
 
 .card {
     position: absolute;
@@ -60,28 +66,77 @@
     display: flex;
     justify-content: center;
     align-items: center;
-}
-.card {
-    transform: translateY(0);
+
+    opacity: 1;
+    will-change: transform, opacity;
 }
 
+/* =========================
+   Deal Animation (NEW cards only)
+   ========================= */
+
+/*
+  CRITICAL:
+  - Cards start invisible
+  - Become visible ONLY when animation starts
+  - Prevents flicker during animation-delay
+*/
 .card.deal {
-    animation: dealIn 700ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    opacity: 0;
+    animation: dealIn 650ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-fill-mode: both;
 }
 
 @keyframes dealIn {
     from {
-        transform: translateY(-220px);
+        opacity: 1;
+        transform: translate3d(0, -380px, 0); /* ✅ FULL REEL HEIGHT */
     }
     to {
-        transform: translateY(0);
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
     }
 }
+/* =========================
+   Highlight / Win
+   ========================= */
+
 .card.highlight {
-    transform: scale(1.4);
+    animation: highlightPulse 380ms ease-out forwards;
     box-shadow: 0 0 18px rgba(255, 216, 77, 0.9);
     z-index: 10;
 }
+
+@keyframes highlightPulse {
+    0% {
+        transform: scale(1);
+    }
+    60% {
+        transform: scale(1.48);
+    }
+    100% {
+        transform: scale(1.35);
+    }
+}
+
+/* =========================
+   Pop / Remove
+   ========================= */
+
+.card.pop {
+    animation: popOut 220ms ease-in forwards;
+}
+
+@keyframes popOut {
+    to {
+        opacity: 0;
+        transform: translate3d(0, 140px, 0) scale(0);
+    }
+}
+
+/* =========================
+   Symbols
+   ========================= */
 
 .symbol-img {
     width: 100%;
@@ -89,31 +144,24 @@
     pointer-events: none;
 }
 
+/* =========================
+   Spin Button
+   ========================= */
+
 .spin-btn {
     margin-top: 20px;
     font-size: 18px;
 }
-
 
 .spin-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
 
+/* =========================
+   Dim Overlay
+   ========================= */
 
-@keyframes popOut {
-    to {
-        opacity: 0;
-        transform: translateY(140px) scale(0);
-    }
-}
-
-.card.pop {
-    animation: popOut 220ms ease-in forwards;
-}
-
-
-/* dim.css */
 .dim {
     position: absolute;
     inset: 0;

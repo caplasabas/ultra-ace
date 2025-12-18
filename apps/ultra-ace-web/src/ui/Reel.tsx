@@ -13,27 +13,47 @@ interface Props {
   reelIndex: number
   winningPositions: Set<string>
   phase: CascadePhase
+  layer: 'old' | 'new'
 }
 
 const CARD_HEIGHT = 86
 const GAP_Y = 5
+const REEL_WIDTH = 64
+const REEL_GAP = 10
 
-export function Reel({ symbols, reelIndex, winningPositions, phase }: Props) {
+export function Reel({
+                       symbols,
+                       reelIndex,
+                       winningPositions,
+                       phase,
+                       layer,
+                     }: Props) {
+  const hideNewReel =
+    layer === 'new' &&
+    phase === 'reelSweepOut'
+
   return (
     <div
       className={[
         'reel',
-        phase === 'reelSweepOut' && 'sweep-out',
-        phase === 'reelSweepIn' && 'sweep-in',
-        phase === 'settle' && 'settle',
+
+        // OLD reels move as a block
+        layer === 'old' &&
+        phase === 'reelSweepOut' &&
+        'sweep-out-old',
+
+        // NEW reels are invisible during sweep-out
+        hideNewReel && 'reel-hidden',
       ]
         .filter(Boolean)
         .join(' ')}
+      style={{
+        left: reelIndex * (REEL_WIDTH + REEL_GAP),
+      }}
     >
       {symbols.map((symbol, row) => {
         const key = `${reelIndex}-${row}`
         const isWin = winningPositions.has(key)
-
         const y = row * (CARD_HEIGHT + GAP_Y)
         const imgSrc = SYMBOL_MAP[symbol.kind]
 
@@ -44,18 +64,32 @@ export function Reel({ symbols, reelIndex, winningPositions, phase }: Props) {
               'card',
               isWin && phase === 'highlight' && 'highlight',
               isWin && phase === 'pop' && 'pop',
-              symbol.isNew && phase === 'refill' && 'deal',
+
+              // ONLY new cards deal in
+              layer === 'new' &&
+              symbol.isNew &&
+              phase === 'refill' &&
+              'deal',
             ]
               .filter(Boolean)
               .join(' ')}
             style={{
               top: y,
-              animationDelay: symbol.isNew && phase === 'refill' ? `${row * 70}ms` : '0ms',
-              zIndex: isWin ? 10 : 1,
+              animationDelay:
+                layer === 'new' &&
+                symbol.isNew &&
+                phase === 'refill'
+                  ? `${(reelIndex + row) * 70}ms`
+                  : '0ms',
             }}
           >
             {imgSrc && (
-              <img src={imgSrc} alt={symbol.kind} className="symbol-img" draggable={false} />
+              <img
+                src={imgSrc}
+                alt={symbol.kind}
+                className="symbol-img"
+                draggable={false}
+              />
             )}
           </div>
         )
