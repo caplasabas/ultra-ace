@@ -40,7 +40,7 @@
 
 .game-frame {
     width: 430px;
-    height: 88vh;
+    height: min(88vh, 820px);
 
     display: flex;
     flex-direction: column;
@@ -52,10 +52,13 @@
 
 
     background-image: url('./assets/images/bg-frame.png');
-    background-size: contain;
+    background-size: 100% 100%;
     background-position: center;
     background-repeat: no-repeat;
     background-color: #0f3e4b;
+    background-origin: content-box;
+    background-clip: content-box;
+    will-change: background-image;
 }
 
 /* =========================
