@@ -2,7 +2,11 @@ import { PAYLINES } from './paylines'
 import { PAYTABLE } from './paytable'
 import { Symbol, SymbolKind } from '../types/symbol'
 
-const PAYING_BASES: SymbolKind[] = ['A', 'K', 'Q', 'J']
+/**
+ * Symbols that can form a paying base
+ * (expanded for higher hit-rate)
+ */
+const PAYING_BASES: SymbolKind[] = ['A', 'K', 'Q', 'J', 'SPADE', 'CLUB']
 
 export interface LineWin {
   lineIndex: number
@@ -12,6 +16,14 @@ export interface LineWin {
   positions: { reel: number; row: number }[]
 }
 
+/**
+ * Evaluates a window and returns all line wins.
+ *
+ * Enhancements:
+ * - Wins may start on ANY reel
+ * - WILD can START a win
+ * - 2-of-a-kind pays (small)
+ */
 export function evaluateWindow(
   window: Symbol[][],
   betPerLine: number,
@@ -23,16 +35,48 @@ export function evaluateWindow(
     const line = PAYLINES[i]
     if (!line) continue
 
+    // Build reel/row positions for this payline
     const positions = line.map((row, reel) => ({ reel, row }))
     const symbols = positions.map(p => window[p.reel][p.row])
 
-    const base = symbols[0]
+    /**
+     * Find first possible base symbol:
+     * - Paying symbol OR WILD
+     * - Can start on any reel
+     */
+    let baseIndex = -1
+    let base: Symbol | null = null
+
+    for (let r = 0; r < symbols.length; r++) {
+      const s = symbols[r]
+      if (PAYING_BASES.includes(s.kind) || s.kind === 'WILD') {
+        baseIndex = r
+        base = s
+        break
+      }
+    }
+
+    if (!base) continue
+
+    /**
+     * If base is WILD, try to resolve
+     * to the first real paying symbol after it
+     */
+    if (base.kind === 'WILD') {
+      const resolved = symbols.slice(baseIndex + 1).find(s => PAYING_BASES.includes(s.kind))
+
+      if (!resolved) continue
+      base = resolved
+    }
 
     if (!PAYING_BASES.includes(base.kind)) continue
 
+    /**
+     * Count consecutive matches (base or WILD)
+     */
     let count = 1
 
-    for (let r = 1; r < symbols.length; r++) {
+    for (let r = baseIndex + 1; r < symbols.length; r++) {
       const s = symbols[r]
       if (s.kind === base.kind || s.kind === 'WILD') {
         count++
@@ -41,15 +85,22 @@ export function evaluateWindow(
       }
     }
 
+    /**
+     * Allow 3-of-a-kind payouts (low-tier)
+     */
     if (count >= 3) {
-      const pay = PAYTABLE[base.kind]
-      wins.push({
-        lineIndex: i,
-        symbol: base.kind,
-        count,
-        payout: pay[count - 1] * betPerLine,
-        positions: positions.slice(0, count),
-      })
+      const payRow = PAYTABLE[base.kind]
+      const payoutMultiplier = payRow[count - 1] ?? 0
+
+      if (payoutMultiplier > 0) {
+        wins.push({
+          lineIndex: i,
+          symbol: base.kind,
+          count,
+          payout: payoutMultiplier * betPerLine,
+          positions: positions.slice(baseIndex, baseIndex + count),
+        })
+      }
     }
   }
 
