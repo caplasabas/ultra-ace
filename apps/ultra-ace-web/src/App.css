@@ -1,12 +1,25 @@
 :root {
-    --reel-height: 380px;
-    --highlight-pad: 24px; /* safe for 1.3x scale */
+    --card-scale: 1.15;
+
+    --card-width: 64px;
+    --card-height: 86px;
+
+    --scaled-card-width: calc(var(--card-width) * var(--card-scale));
+    --scaled-card-height: calc(var(--card-height) * var(--card-scale));
+
+    --reel-height: calc(
+            (4 * var(--scaled-card-height)) +
+            (3 * 10px * var(--card-scale))
+    );
+
+    --highlight-pad: 10px;
     --reel-count: 5;
-    --reel-width: 64px;
-    --reel-gap: 10px;
+    --reel-width: 73px;
+    --reel-gap: 20px;
 
+    /* Dim overlay geometry */
+    --dim-top: 12px;
 }
-
 
 /* =========================
    Root – centers frame
@@ -15,23 +28,19 @@
 .game-root {
     height: 100vh;
     width: 100%;
-
     display: flex;
     justify-content: center;
     align-items: center;
-
     position: relative;
-
 }
 
 /* =========================
-   Phone-style Frame (NEW)
+   Phone-style Frame
    ========================= */
 
 .game-frame {
-    width: 430px;           /* 📱 mobile width */
-    height: 100vh;
-
+    width: 430px;
+    height: 88vh;
 
     display: flex;
     flex-direction: column;
@@ -39,49 +48,21 @@
     align-items: center;
 
     box-sizing: border-box;
-    padding: 24px 0;
+    padding: 5px 0;
 
+    background-image: url('/bg-frame.png');
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
     background-color: #0f3e4b;
 }
 
 /* =========================
-   Reel Stage (padding prevents clipping)
-   ========================= */
-
-.reels-row {
-    position: absolute;
-    top: var(--highlight-pad);
-    left: var(--highlight-pad);
-
-    width: calc(
-            var(--reel-count) * var(--reel-width) +
-            (var(--reel-count) - 1) * var(--reel-gap)
-    );
-
-    height: var(--reel-height);
-    overflow: visible;
-}
-/* =========================
-   Reel Container
-   ========================= */
-
-.reel {
-    position: absolute;
-    width: 64px;
-    height: 380px;
-    top: 0;
-    left: 0;
-
-
-}
-
-
-/* =========================
-   Reel Stage (padding + centering)
+   Reel Stage
    ========================= */
 
 .reels-stage {
-    position: relative; /* REQUIRED */
+    position: relative; /* stacking root for dim */
     width: 100%;
     display: flex;
     justify-content: center;
@@ -90,35 +71,58 @@
 }
 
 /* =========================
-   Reel Clip (animation mask)
+   Reel Clip (mask + stacking root)
    ========================= */
 
 .reels-clip {
     position: relative;
-
     width: calc(
             var(--reel-count) * var(--reel-width) +
             (var(--reel-count) - 1) * var(--reel-gap) +
             var(--highlight-pad) * 2
     );
-
     height: calc(
             var(--reel-height) +
             var(--highlight-pad) * 2
     );
 
-    overflow-x: hidden;
-    overflow-y: hidden;
-    z-index: 2;
+    overflow: hidden;
+    z-index: 1;
 }
+
 /* =========================
-   Rest of your CSS
+   Reel Row
    ========================= */
 
-/* 🔽 KEEP EVERYTHING BELOW EXACTLY AS YOU HAVE IT 🔽 */
-/* cards, animations, highlights, pop, etc. */
+.reels-row {
+    position: absolute;
+    top: calc(var(--highlight-pad) * 2);
+    left: var(--highlight-pad);
 
-/* OLD reels only — sweep DOWN */
+    width: calc(
+            var(--reel-count) * var(--reel-width) +
+            (var(--reel-count) - 1) * var(--reel-gap)
+    );
+    height: var(--reel-height);
+    overflow: visible;
+}
+
+/* =========================
+   Reel Container
+   ========================= */
+
+.reel {
+    position: absolute;
+    width: var(--reel-width);
+    height: var(--reel-height);
+    top: 0;
+    left: 0;
+}
+
+/* =========================
+   OLD reels sweep out
+   ========================= */
+
 .reel.sweep-out-old {
     animation: oldReelDown 900ms cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
 }
@@ -132,39 +136,30 @@
     }
 }
 
-/* NEW reels hidden during sweep-out */
-.reel-hidden {
-    opacity: 0;
-    pointer-events: none;
-}
-
 /* =========================
    Cards
    ========================= */
 
 .card {
     position: absolute;
-    width: 64px;
-    height: 86px;
+
+    width: var(--scaled-card-width);
+    height: var(--scaled-card-height);
+
     background: #e4e8ec;
     border-radius: 6px;
+
     display: flex;
     justify-content: center;
     align-items: center;
 
-    opacity: 1;
+    z-index: 2; /* BELOW dim */
 }
 
 /* =========================
-   Deal Animation (NEW cards only)
+   Initial / Cascade Deal
    ========================= */
 
-/*
-  CRITICAL:
-  - Cards start invisible
-  - Become visible ONLY when animation starts
-  - Prevents flicker during animation-delay
-*/
 .card.deal {
     opacity: 0;
     animation: dealIn 650ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
@@ -174,32 +169,27 @@
 @keyframes dealIn {
     from {
         opacity: 1;
-        transform: translate3d(0, -380px, 0); /* ✅ FULL REEL HEIGHT */
+        transform: translate3d(0, -380px, 0);
     }
     to {
         opacity: 1;
         transform: translate3d(0, 0, 0);
     }
 }
-/* =========================
-   Highlight / Win
-   ========================= */
 
-.card.highlight {
-    animation: highlightPulse 380ms ease-out forwards;
-    box-shadow: 0 0 18px rgba(255, 216, 77, 0.9);
-    z-index: 10;
+.card.deal-initial {
+    opacity: 0;
+    animation: dealInitial 360ms cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
 
-@keyframes highlightPulse {
-    0% {
-        transform: scale(1);
+@keyframes dealInitial {
+    from {
+        opacity: 0;
+        transform: translateY(-380px);
     }
-    60% {
-        transform: scale(1.30);
-    }
-    100% {
-        transform: scale(1.15);
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }
 
@@ -219,6 +209,46 @@
 }
 
 /* =========================
+   Card Inner (highlight layer)
+   ========================= */
+
+.card-inner {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* =========================
+   Highlight (ABOVE dim)
+   ========================= */
+
+.card.highlight {
+    z-index: 4;
+}
+
+.card-inner.highlight {
+    position: relative;
+    z-index: 4;
+
+    animation: highlightPulse 380ms ease-out forwards;
+    box-shadow: 0 0 18px rgba(255, 216, 77, 0.9);
+}
+
+@keyframes highlightPulse {
+    0% {
+        transform: scale(1);
+    }
+    60% {
+        transform: scale(1.30);
+    }
+    100% {
+        transform: scale(1.15);
+    }
+}
+
+/* =========================
    Symbols
    ========================= */
 
@@ -229,11 +259,48 @@
 }
 
 /* =========================
-   Spin Button
+   Dim Overlay (covers cards)
+   ========================= */
+
+.dim {
+    position: absolute;
+    top: var(--dim-top);
+    left: 0;
+    right: 0;
+    bottom: 0;
+
+    background: rgba(0, 0, 0, 0);
+    pointer-events: none;
+
+    transition: background 250ms ease;
+    z-index: 3; /* BETWEEN cards and highlight */
+}
+
+.dim.active {
+    background: rgba(0, 0, 0, 0.55);
+}
+
+/* =========================
+   UI Containers
+   ========================= */
+
+.top-container {
+    width: 100%;
+    height: 34vh;
+    /*padding:5px 0;*/
+}
+
+.bottom-container {
+    width: 100%;
+    height: 30vh;
+    padding: 0 0 20px 0;
+}
+
+/* =========================
+   Buttons
    ========================= */
 
 .spin-btn {
-    /*margin-top: 20px;*/
     display: flex;
     margin: 0 auto;
     font-size: 18px;
@@ -245,111 +312,18 @@
     cursor: not-allowed;
 }
 
-/* =========================
-   Dim Overlay
-   ========================= */
-.dim {
-    position: absolute;
-    top: 0;
-    left: 0;
-
-    width: 100%;
-    height: 100%;
-
-    background: rgba(0, 0, 0, 0);
-    pointer-events: none;
-
-    transition: background 250ms ease;
-    inset: 0;
-    z-index: 1; /* BELOW highlights */
-}
-
-.dim.active {
-    background: rgba(0, 0, 0, 0.55);
-}
-
-.card-inner {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-/* highlight now ONLY affects inner layer */
-.card-inner.highlight {
-    position: relative;   /* REQUIRED */
-    z-index: 3;
-    animation: highlightPulse 380ms ease-out forwards;
-    box-shadow: 0 0 18px rgba(255, 216, 77, 0.9);
-}
-
-
-/* Initial deal reels start above */
-/*.reel.reel-pre-deal {*/
-/*    transform: translate3d(0, -380px, 0);*/
-/*}*/
-
-
-/* Dealer-style initial deal */
-/*.card.deal-initial {*/
-/*    opacity: 0;*/
-/*    animation: dealInitial 420ms cubic-bezier(0.18, 0.89, 0.32, 1.15) forwards;*/
-/*}*/
-
-/*@keyframes dealInitial {*/
-/*    from {*/
-/*        opacity: 0;*/
-/*        transform: translate3d(0, -120px, 0) rotate(-2deg);*/
-/*    }*/
-/*    to {*/
-/*        opacity: 1;*/
-/*        transform: translate3d(0, 0, 0) rotate(0deg);*/
-/*    }*/
-/*}*/
-
-
-/* Dealer-style initial deal — mechanical, not bouncy */
-.card.deal-initial {
-    opacity: 0;
-    animation: dealInitial 360ms cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
-}
-
-@keyframes dealInitial {
-    from {
-        opacity: 0;
-        transform: translateY(-380px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-
-.top-container {
-    width: 100%;
-    height: 15vh;
-    padding: 20px 0;
-}
-
-.bottom-container {
-    width: 100%;
-    height: 15vh;
-    padding: 20px 0;
-}
-
-
 .spin-btn.active {
     background-color: #d33;
     color: #fff;
 }
 
-
 .spin-btn.turbo {
-    opacity: 10%;
+    opacity: 0.1;
 }
 
+/* =========================
+   Win Display
+   ========================= */
 
 .win-display {
     height: 32px;
@@ -370,4 +344,109 @@
 .win-placeholder {
     font-size: 18px;
     opacity: 0.4;
+}
+
+/* =========================
+   Multiplier Strip
+   ========================= */
+
+.multiplier-strip {
+
+    width: 57%;
+    transform: translateX(30%);
+    align-self: center;
+    display: flex;
+    /*gap: 10px;*/
+    justify-content: space-evenly;
+    padding: 8px 10px;
+    align-items: center;
+    border-radius: 20px;
+
+    /*background: rgba(0, 0, 0, 0.35);*/
+    /*backdrop-filter: blur(6px);*/
+
+    z-index: 6; /* ABOVE dim, ABOVE reels */
+    pointer-events: none;
+}
+
+/* =========================
+   Multiplier Chips
+   ========================= */
+
+.multiplier-chip {
+    min-width: 38px;
+    height: 28px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+
+
+
+    color: #3a2a00;
+
+
+    transition:
+            transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+            /*background 220ms ease,*/
+            color 220ms ease
+            /*box-shadow 220ms ease;*/
+}
+
+.multiplier-chip h1 {
+    font-size: 28px;
+    font-weight: 700;
+}
+
+
+
+
+/* =========================
+   Active (≤ multiplier)
+   ========================= */
+
+.multiplier-chip.active {
+
+
+
+    /*box-shadow:*/
+    /*        0 4px 10px rgba(0, 0, 0, 0.35),*/
+    /*        inset 0 1px 0 rgba(255, 255, 255, 0.45);*/
+}
+
+/* =========================
+   Current Multiplier
+   ========================= */
+
+.multiplier-chip.current {
+    transform: scale(1.25);
+
+    color: rgb(255, 231, 174);
+    animation: multiplierTick 240ms ease-out;
+    /*box-shadow:*/
+    /*        0 8px 18px rgba(0, 0, 0, 0.45),*/
+            /*inset 0 1px 0 rgba(255, 255, 255, 0.55);*/
+}
+
+.multiplier-chip.current h1 {
+    font-size: 28px;
+    font-weight: 700;
+
+    text-shadow:
+            0 -1px 0 rgba(255, 60, 0, 0.45),  /* top highlight */
+            0  1px 0 rgba(45, 8, 2, 0.65);        /* bottom shadow */
+
+    /*border: 1px solid #ff3c00;*/
+    /*box-shadow:*/
+    /*        0 8px 18px rgba(0, 0, 0, 0.45),*/
+    /*inset 0 1px 0 rgba(255, 255, 255, 0.55);*/
+}
+
+
+
+@keyframes multiplierTick {
+    0%   { transform: scale(0.85); }
+    60%  { transform: scale(1.35); }
+    100% { transform: scale(1.25); }
 }

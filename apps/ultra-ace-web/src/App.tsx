@@ -6,6 +6,8 @@ import { useCascadeTimeline } from './hooks/useCascadeTimeline'
 import { DebugHud } from './debug/DebugHud'
 import { useEffect, useState } from 'react'
 
+const MULTIPLIERS = [1, 2, 3, 5]
+
 const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kind }))
 
 export default function App() {
@@ -52,16 +54,40 @@ export default function App() {
     return () => clearTimeout(t)
   }, [autoSpin, isIdle, spinning, spin])
 
+  const MULTIPLIERS = [1, 2, 3, 5, 10]
+
+  const activeMultiplier = MULTIPLIERS[Math.min(cascadeIndex, MULTIPLIERS.length - 1)]
+  const currentMultiplier = activeCascade?.multiplier ?? 1
+
   return (
     <div className="game-root">
       <div className="game-frame">
         <div className="top-container">
           <DebugHud info={debugInfo} />
+
+          <div className="multiplier-strip">
+            {MULTIPLIERS.map(m => (
+              <div
+                key={m}
+                className={[
+                  'multiplier-chip',
+                  m <= activeMultiplier && 'active',
+                  m === activeMultiplier && 'current',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                <h1>x{m}</h1>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="reels-stage">
-          <DimOverlay active={phase === 'highlight' && Boolean(activeCascade?.lineWins?.length)} />
           <div className="reels-clip">
+            <DimOverlay
+              active={phase === 'highlight' && Boolean(activeCascade?.lineWins?.length)}
+            />
             <div className="reels-row">
               {placeholderWindow.map((col, i) => (
                 <Reel
@@ -107,9 +133,9 @@ export default function App() {
 
         <div className="bottom-container">
           <div className="win-display">
-            <span className="win-amount">WIN: {totalWin}</span>
+            <span className="win-amount">Win: {totalWin}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 20 }}>
             <button className={`spin-btn turbo`}>Turbo</button>
 
             <button

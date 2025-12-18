@@ -17,20 +17,24 @@ interface Props {
   layer: 'old' | 'new'
 }
 
-const CARD_HEIGHT = 86
+const CARD_WIDTH = 64 * 1.15
+const CARD_HEIGHT = 86 * 1.15
 const GAP_Y = 5
-const REEL_WIDTH = 64
-const REEL_GAP = 10
 
 type CSSVars = CSSProperties & {
   '--hx'?: string
   '--hy'?: string
 }
 
+const getCSSNumber = (name: string) =>
+  parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name))
+
 export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Props) {
   const isInitialRefill = phase === 'initialRefill'
   const isCascadeRefill = phase === 'cascadeRefill'
 
+  const reelWidth = getCSSNumber('--reel-width')
+  const reelGap = getCSSNumber('--reel-gap')
   return (
     <div
       className={[
@@ -41,8 +45,8 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
         .filter(Boolean)
         .join(' ')}
       style={{
-        left: reelIndex * (REEL_WIDTH + REEL_GAP),
-        transform: 'translate3d(0,0,0)', // locked
+        left: reelIndex * ((reelWidth + reelGap) * 0.9),
+        // transform: 'translate3d(0,0,0)', // locked
       }}
     >
       {symbols.map((symbol, row) => {
