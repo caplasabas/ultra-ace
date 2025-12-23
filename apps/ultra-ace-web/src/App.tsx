@@ -140,7 +140,7 @@ export default function App() {
 
         <div className="bottom-container">
           <div className="win-display">
-            <span className="win-amount">Win: {totalWin}</span>
+            <span className="win-amount">Win: {totalWin.toFixed(2)}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 20 }}>
             <button className={`spin-btn turbo`}>Turbo</button>
