@@ -8,19 +8,25 @@ interface RemovedPosition {
 
 export function adaptWindow(
   window: EngineSymbol[][],
-  removedPositions?: RemovedPosition[] | undefined,
+  removedPositions?: RemovedPosition[],
+  previousWindow?: EngineSymbol[][],
 ): UISymbol[][] {
-  const removedSet = new Set(
-    removedPositions?.map(p => `${p.reel}-${p.row}`) ?? [],
-  )
+  const removedSet = new Set(removedPositions?.map(p => `${p.reel}-${p.row}`) ?? [])
 
   return window.map((col, reelIndex) =>
-    col.map((symbol, row) => ({
-      id: `${reelIndex}-${row}-${symbol.kind}`,
-      kind: symbol.kind,
+    col.map((symbol, row) => {
+      const prev = previousWindow?.[reelIndex]?.[row]
 
-      // ✅ ONLY these positions animate during cascadeRefill
-      isNew: removedSet.has(`${reelIndex}-${row}`),
-    })),
+      const goldToWild = prev?.isGold === true && prev.kind !== 'WILD' && symbol.kind === 'WILD'
+
+      return {
+        id: `${reelIndex}-${row}`,
+        kind: symbol.kind,
+        isNew: removedSet.has(`${reelIndex}-${row}`),
+        isGold: symbol.isGold === true,
+        goldTTL: symbol.goldTTL,
+        goldToWild,
+      }
+    }),
   )
 }

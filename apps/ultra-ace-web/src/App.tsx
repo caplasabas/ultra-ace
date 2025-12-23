@@ -40,6 +40,7 @@ export default function App() {
     adaptWindow(
       windowForRender,
       phase === 'cascadeRefill' ? activeCascade?.removedPositions : undefined,
+      previousCascade?.window,
     )
 
   useEffect(() => {

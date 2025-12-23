@@ -128,18 +128,23 @@
    ========================= */
 
 .reel.sweep-out-old {
-    animation: oldReelDown 900ms cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+    animation: oldReelDown 500ms cubic-bezier(0.3, 0.0, 0.6, 1) forwards;
 }
 
 @keyframes oldReelDown {
-    from {
+    0% {
         transform: translate3d(0, 0%, 0);
+        filter: blur(0px);
     }
-    to {
+    40% {
+        filter: blur(3px);
+    }
+    100% {
         transform: translate3d(0, 140%, 0);
+        filter: blur(8px);
+        opacity: 0;
     }
 }
-
 /* =========================
    Cards
    ========================= */
@@ -453,4 +458,71 @@
     0%   { transform: scale(0.85); }
     60%  { transform: scale(1.35); }
     100% { transform: scale(1.25); }
+}
+
+
+/* =========================
+   GOLD SYMBOL (FLAT TINT)
+   ========================= */
+
+.card.gold .symbol-img {
+    filter:
+            sepia(1)
+            saturate(4.5)
+            hue-rotate(-10deg)
+            brightness(1.15)
+            contrast(1.05);
+}
+
+.card.gold {
+    outline: 2px solid rgba(255, 200, 60, 0.85);
+    outline-offset: -2px;
+}
+
+/* =========================
+   Gold → Wild conversion
+   ========================= */
+
+.card.gold-to-wild {
+    animation: goldToWild 220ms ease-out;
+}
+
+@keyframes goldToWild {
+    0% {
+        transform: scale(1);
+        filter: brightness(1.4);
+    }
+    60% {
+        transform: scale(1.25);
+        filter: brightness(2);
+    }
+    100% {
+        transform: scale(1);
+        filter: brightness(1);
+    }
+}
+
+
+/* =========================
+   Gold → Wild Flip
+   ========================= */
+
+.card.gold-to-wild {
+    animation: goldFlip 260ms ease-in-out;
+    transform-style: preserve-3d;
+}
+
+@keyframes goldFlip {
+    0% {
+        transform: rotateY(0deg) scale(1);
+        filter: brightness(1.3);
+    }
+    50% {
+        transform: rotateY(90deg) scale(1.15);
+        filter: brightness(2);
+    }
+    100% {
+        transform: rotateY(0deg) scale(1);
+        filter: brightness(1);
+    }
 }

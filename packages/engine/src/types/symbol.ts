@@ -11,6 +11,8 @@ export type SymbolKind =
   | 'SCATTER'
   | 'EMPTY'
 
-export type Symbol = {
+export interface Symbol {
   kind: SymbolKind
+  isGold?: boolean
+  goldTTL?: number
 }

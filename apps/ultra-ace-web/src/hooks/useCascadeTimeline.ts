@@ -7,12 +7,13 @@ export type CascadePhase =
   | 'initialRefill'
   | 'highlight'
   | 'pop'
+  | 'cascadeRefillPrep' // 👈 NEW (paint buffer)
   | 'cascadeRefill'
   | 'settle'
 
 interface State {
   phase: CascadePhase
-  index: number // 👈 index into cascades, starting at 0 (base)
+  index: number
   previous?: CascadeStep
 }
 
@@ -47,44 +48,48 @@ function reducer(state: State, action: Action): State {
       }
 
     case 'RESET':
-      return  {phase: 'idle', index: state.index }
+      return {
+        phase: 'idle',
+        index: state.index,
+      }
 
     default:
-      return initialState
+      return state
   }
 }
 
-export function useCascadeTimeline(
-  cascades: CascadeStep[],
-  spinId: number,
-  onCommit?: () => void,
-) {
+export function useCascadeTimeline(cascades: CascadeStep[], spinId: number, onCommit?: () => void) {
   const [state, dispatch] = useReducer(reducer, initialState)
 
   const activeCascade = cascades[state.index]
-  const nextCascade = cascades[state.index + 1] // 🔥 THIS IS THE KEY
+  const nextCascade = cascades[state.index + 1]
   const previousCascade = state.previous
   const isIdle = state.phase === 'idle'
 
+  /* ----------------------------------------
+     Spin start
+  ---------------------------------------- */
   useEffect(() => {
     if (spinId === 0) return
     dispatch({ type: 'START', cascades })
   }, [spinId])
 
+  /* ----------------------------------------
+     Timeline controller
+  ---------------------------------------- */
   useEffect(() => {
     let t: number | undefined
 
     switch (state.phase) {
       case 'reelSweepOut':
-          dispatch({ type: 'NEXT', phase: 'initialRefill' })
-          onCommit?.()
+        dispatch({ type: 'NEXT', phase: 'initialRefill' })
+        onCommit?.()
         break
 
       case 'initialRefill':
-        // 🔑 after base window, CHECK FIRST WIN CASCADE
         t = window.setTimeout(() => {
           if (nextCascade?.lineWins?.length) {
-            dispatch({ type: 'ADVANCE', cascades }) // go to index 1
+            dispatch({ type: 'ADVANCE', cascades })
           } else {
             dispatch({ type: 'NEXT', phase: 'settle' })
           }
@@ -92,27 +97,31 @@ export function useCascadeTimeline(
         break
 
       case 'highlight':
-        t = window.setTimeout(
-          () => dispatch({ type: 'NEXT', phase: 'pop' }),
-          1500,
-        )
+        t = window.setTimeout(() => dispatch({ type: 'NEXT', phase: 'pop' }), 1500)
         break
 
       case 'pop':
+        t = window.setTimeout(() => dispatch({ type: 'NEXT', phase: 'cascadeRefillPrep' }), 220)
+        break
+
+      /* ----------------------------------------
+         👇 NEW: PAINT BUFFER (1 FRAME)
+      ---------------------------------------- */
+      case 'cascadeRefillPrep':
         t = window.setTimeout(
           () => dispatch({ type: 'NEXT', phase: 'cascadeRefill' }),
-          220,
+          40, // ~1 frame @ 60hz
         )
         break
 
       case 'cascadeRefill':
         t = window.setTimeout(() => {
           if (cascades[state.index + 1]?.lineWins?.length) {
-            dispatch({ type: 'ADVANCE' , cascades})
+            dispatch({ type: 'ADVANCE', cascades })
           } else {
             dispatch({ type: 'NEXT', phase: 'settle' })
           }
-        }, 900)
+        }, 1100)
         break
 
       case 'settle':
@@ -127,7 +136,7 @@ export function useCascadeTimeline(
 
   return {
     phase: state.phase,
-    activeCascade, // always correct window for rendering
+    activeCascade,
     previousCascade,
     cascadeIndex: state.index,
     isIdle,

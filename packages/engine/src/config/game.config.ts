@@ -1,19 +1,19 @@
 export const GAME_CONFIG = {
   reelsVisibleRows: 4,
-  maxLines: 20,
-  maxCascades: 10,
+  maxLines: 5,
 
-  multiplierLadder: [1, 1.5, 2.25, 3],
+  maxCascades: 4,
 
-  // Base-game refill bias
+  multiplierLadder: [1, 2, 3, 5],
+
   cascadeFillPool: [
+    { kind: 'A' },
+    { kind: 'K' },
+    { kind: 'Q' },
+    { kind: 'J' },
     { kind: 'SPADE' },
     { kind: 'HEART' },
     { kind: 'DIAMOND' },
     { kind: 'CLUB' },
-    { kind: 'J' },
-    { kind: 'Q' },
-    { kind: 'K' },
-    { kind: 'A' },
   ],
 }

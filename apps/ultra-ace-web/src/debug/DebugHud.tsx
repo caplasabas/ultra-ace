@@ -15,7 +15,7 @@ export function DebugHud({ info }: Props) {
       <div style={styles.line}>Seed: {info?.seed}</div>
       <div style={styles.line}>ReelStops: [{info?.reelStops.join(', ')}]</div>
       <div style={styles.line}>Bet: {info?.bet}</div>
-      <div style={styles.line}>Win: {info?.win}</div>
+      <div style={styles.line}>Win: {info?.win.toFixed(2)}</div>
     </div>
   )
 }
