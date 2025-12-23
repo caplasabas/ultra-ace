@@ -1,5 +1,5 @@
 // src/math/paytable.ts
-import { SymbolKind } from '../types/symbol'
+import { SymbolKind } from '../types/symbol.js'
 
 export const PAYTABLE: Record<SymbolKind, number[]> = {
   A: [0, 5, 30, 120, 600],

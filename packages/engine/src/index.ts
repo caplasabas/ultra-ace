@@ -3,8 +3,8 @@
 // ─────────────────────────────────────────────
 // Public runtime API
 // ─────────────────────────────────────────────
-export { spin } from './spin'
-export { createRNG } from './rng'
+export { spin } from './spin.js'
+export { createRNG } from './rng.js'
 
 // ─────────────────────────────────────────────
 // Game configuration / constants

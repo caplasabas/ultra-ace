@@ -1,6 +1,6 @@
-import { PAYLINES } from './paylines'
-import { PAYTABLE } from './paytable'
-import { Symbol, SymbolKind } from '../types/symbol'
+import { PAYLINES } from './paylines.js'
+import { PAYTABLE } from './paytable.js'
+import { Symbol, SymbolKind } from '../types/symbol.js'
 
 /**
  * Symbols that can form a paying base

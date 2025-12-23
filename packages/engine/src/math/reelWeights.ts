@@ -1,17 +1,14 @@
 export const REEL_WEIGHTS = {
-  // FILLERS (majority of reel)
-  SPADE: 12,
-  HEART: 12,
-  DIAMOND: 10,
-  CLUB: 10,
+  SPADE: 8,
+  HEART: 8,
+  DIAMOND: 7,
+  CLUB: 7,
 
-  // PAYING (rarer)
-  J: 7,
-  Q: 6,
-  K: 5,
+  J: 4,
+  Q: 4,
+  K: 4,
   A: 4,
 
-  // SPECIALS
-  WILD: 1,
-  SCATTER: 1,
+  WILD: 0,
+  SCATTER: 0,
 }

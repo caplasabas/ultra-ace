@@ -1,21 +1,21 @@
-import { Symbol } from '../types/symbol'
-import { CascadeStep } from '../types/cascade'
-import { evaluateWindow } from './evaluator'
-import { GAME_CONFIG } from '../config/game.config'
+import { Symbol, SymbolKind } from '../types/symbol.js'
+import { CascadeStep } from '../types/cascade.js'
+import { evaluateGlobalWindow } from './evaluator.global.js'
+import { GAME_CONFIG } from '../config/game.config.js'
 
-export function runCascades(initialWindow: Symbol[][], betPerLine: number, activeLines: number) {
+const BASE_WILD_CHANCE = [0, 0.05, 0.08, 0.12]
+
+export function runCascades(initialWindow: Symbol[][], totalBet: number) {
   const window = cloneWindow(initialWindow)
   let totalWin = 0
   const cascades: CascadeStep[] = []
 
-  const ladder = GAME_CONFIG.multiplierLadder
+  // 🔒 Symbols that already paid this spin
+  const wonSymbols = new Set<SymbolKind>()
 
-  /**
-   * SEED CASCADE (VISUAL ONLY)
-   * - No payout
-   * - No evaluation
-   * - Exists only so UI has an initial window
-   */
+  // ─────────────────────────────
+  // Cascade 0 — initial snapshot
+  // ─────────────────────────────
   cascades.push({
     index: 0,
     multiplier: 1,
@@ -25,39 +25,36 @@ export function runCascades(initialWindow: Symbol[][], betPerLine: number, activ
     window: cloneWindow(window),
   })
 
-  /**
-   * REAL CASCADES START HERE
-   */
   for (let i = 1; i <= GAME_CONFIG.maxCascades; i++) {
-    const multiplier = ladder[Math.min(i - 1, ladder.length - 1)]
+    const multiplier =
+      GAME_CONFIG.multiplierLadder[Math.min(i - 1, GAME_CONFIG.multiplierLadder.length - 1)]
 
-    const lineWins = evaluateWindow(window, betPerLine * multiplier, activeLines)
+    const isRefill = i > 1
 
-    if (lineWins.length === 0) break
+    const { wins } = evaluateGlobalWindow(window, totalBet * multiplier, isRefill, wonSymbols)
+
+    // Optional UI limiter: only first win per cascade
+    const limitedWins = wins.slice(0, 1)
+    if (limitedWins.length === 0) break
 
     const removed: { reel: number; row: number }[] = []
 
-    for (const lw of lineWins) {
-      for (const pos of lw.positions) {
-        const symbol = window[pos.reel][pos.row]
-
-        // Wilds persist
-        if (symbol.kind === 'WILD') continue
-
-        window[pos.reel][pos.row] = { kind: 'EMPTY' }
+    for (const w of limitedWins) {
+      for (const pos of w.positions) {
+        window[pos.reel][pos.row] = { kind: 'EMPTY' as SymbolKind }
         removed.push(pos)
       }
     }
 
-    refill(window)
+    refill(window, i)
 
-    const win = lineWins.reduce((sum, lw) => sum + lw.payout, 0)
+    const win = limitedWins.reduce((sum, w) => sum + w.payout, 0)
     totalWin += win
 
     cascades.push({
       index: i,
       multiplier,
-      lineWins,
+      lineWins: limitedWins,
       win,
       removedPositions: removed,
       window: cloneWindow(window),
@@ -67,14 +64,22 @@ export function runCascades(initialWindow: Symbol[][], betPerLine: number, activ
   return { totalWin, cascades }
 }
 
-function refill(window: Symbol[][]) {
+// ─────────────────────────────
+// Refill logic
+// ─────────────────────────────
+function refill(window: Symbol[][], cascadeIndex: number) {
+  const wildChance = BASE_WILD_CHANCE[Math.min(cascadeIndex, BASE_WILD_CHANCE.length - 1)]
+
   for (let r = 0; r < window.length; r++) {
     for (let row = 0; row < window[r].length; row++) {
       if (window[r][row].kind === 'EMPTY') {
-        window[r][row] =
-          GAME_CONFIG.cascadeFillPool[
+        if (Math.random() < wildChance) {
+          window[r][row] = { kind: 'WILD' as SymbolKind }
+        } else {
+          window[r][row] = GAME_CONFIG.cascadeFillPool[
             Math.floor(Math.random() * GAME_CONFIG.cascadeFillPool.length)
-          ]
+          ] as Symbol
+        }
       }
     }
   }

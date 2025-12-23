@@ -1,7 +1,7 @@
-import { Symbol } from './symbol'
+// /types/cascade.ts
+import { Symbol } from './symbol.js'
 
 export interface LineWin {
-  lineIndex: number
   symbol: string
   count: number
   payout: number

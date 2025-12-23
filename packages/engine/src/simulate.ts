@@ -1,8 +1,8 @@
 // src/simulate.ts
 
-import { spin } from './spin'
-import { createRNG } from './rng'
-import { SIMULATION_CONFIG } from './config/simulate.config'
+import { spin } from './spin.js'
+import { createRNG } from './rng.js'
+import { SIMULATION_CONFIG } from './config/simulate.config.js'
 
 const { spins, betPerSpin, seed, lines } = SIMULATION_CONFIG
 

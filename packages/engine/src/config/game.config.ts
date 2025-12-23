@@ -1,5 +1,3 @@
-import { Symbol } from '../types/symbol'
-
 export const GAME_CONFIG = {
   reelsVisibleRows: 4,
   maxLines: 20,
@@ -7,10 +5,7 @@ export const GAME_CONFIG = {
 
   multiplierLadder: [1, 1.5, 2.25, 3],
 
-  seedChance: 0.14,
-  seedReels: 3,
-  seedSymbols: ['A', 'K', 'Q', 'J'] as const,
-
+  // Base-game refill bias
   cascadeFillPool: [
     { kind: 'SPADE' },
     { kind: 'HEART' },
@@ -18,5 +13,7 @@ export const GAME_CONFIG = {
     { kind: 'CLUB' },
     { kind: 'J' },
     { kind: 'Q' },
-  ] satisfies Symbol[],
+    { kind: 'K' },
+    { kind: 'A' },
+  ],
 }

@@ -1,3 +1,1 @@
-export { REELS } from './reels'
-
-
+export { REELS } from './reels.js'

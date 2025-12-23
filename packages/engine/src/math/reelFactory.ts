@@ -1,5 +1,5 @@
-import { Symbol } from '../types/symbol'
-import { REEL_WEIGHTS } from './reelWeights'
+import { Symbol } from '../types/symbol.js'
+import { REEL_WEIGHTS } from './reelWeights.js'
 
 export function buildReel(): Symbol[] {
   const reel: Symbol[] = []

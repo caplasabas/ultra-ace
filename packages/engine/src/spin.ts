@@ -1,15 +1,11 @@
-import { PRNG } from './rng'
-import { REELS } from './math/reels'
-import { runCascades } from './math/cascade'
-import { seedInitialWindow } from './math/seed'
-import { SpinInput, SpinOutcome } from './types/spin'
-import { GAME_CONFIG } from './config/game.config'
+import { PRNG } from './rng.js'
+import { REELS } from './math/reels.js'
+import { runCascades } from './math/cascade.js'
+import { SpinInput, SpinOutcome } from './types/spin.js'
+import { GAME_CONFIG } from './config/game.config.js'
 
 export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
-  const activeLines = Math.min(input.lines, GAME_CONFIG.maxLines)
-
   const totalBet = input.isFreeGame ? 0 : input.betPerSpin
-  const betPerLine = input.isFreeGame ? 0 : input.betPerSpin / activeLines
 
   const stops = REELS.map(reel => Math.floor(rng() * reel.length))
 
@@ -20,9 +16,7 @@ export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
     }),
   )
 
-  seedInitialWindow(window, rng, activeLines)
-
-  const { totalWin, cascades } = runCascades(window, betPerLine, activeLines)
+  const { totalWin, cascades } = runCascades(window, totalBet)
 
   return {
     bet: totalBet,

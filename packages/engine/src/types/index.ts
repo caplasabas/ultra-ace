@@ -1,5 +1,5 @@
-export type { SpinInput, SpinOutcome } from './spin'
+export type { SpinInput, SpinOutcome } from './spin.js'
 
-export type { LineWin, CascadeStep } from './cascade'
+export type { LineWin, CascadeStep } from './cascade.js'
 
-export type { Symbol } from './symbol'
+export type { Symbol } from './symbol.js'

@@ -15,7 +15,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "simulate": "ts-node src/simulate.ts"
+    "simulate": "node dist/simulate.js"
   },
   "dependencies": {
     "seedrandom": "^3.0.5"
