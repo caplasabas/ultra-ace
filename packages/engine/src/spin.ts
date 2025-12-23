@@ -16,6 +16,13 @@ export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
     }),
   )
 
+  // ✅ Slightly higher Wild activation chance
+  if (Math.random() < 0.04) {
+    const r = Math.floor(Math.random() * window.length)
+    const row = Math.floor(Math.random() * window[r].length)
+    window[r][row] = { kind: 'WILD' }
+  }
+
   const { totalWin, cascades } = runCascades(window, totalBet)
 
   return {

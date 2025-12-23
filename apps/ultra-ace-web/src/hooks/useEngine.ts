@@ -21,7 +21,7 @@ export function useEngine() {
     const seed = new Date().toISOString()
     const rng = createRNG(seed)
 
-    const bet = 20
+    const bet = 5
 
     const result = spin(rng, {
       betPerSpin: bet,

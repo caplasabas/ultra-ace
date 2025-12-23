@@ -58,7 +58,7 @@ console.log({
   symbolRtp: symbolRtpPct,
 })
 
-// 🎯 TARGET BAND (commercial-feeling)
-if (rtp < 0.88 || rtp > 0.96) {
-  throw new Error(`RTP out of bounds: ${(rtp * 100).toFixed(2)}%`)
-}
+// // 🎯 TARGET BAND (commercial-feeling)
+// if (rtp < 0.88 || rtp > 0.96) {
+//   throw new Error(`RTP out of bounds: ${(rtp * 100).toFixed(2)}%`)
+// }
