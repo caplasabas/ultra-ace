@@ -8,18 +8,21 @@ import type { Symbol } from './types/symbol.js'
 const GOLD_CHANCE_INITIAL = 0.04
 const GOLD_TTL = 2
 
+// 🚫 GOLD forbidden on reels 0 and 4
+const FORBIDDEN_GOLD_REELS = new Set([0, 4])
+
 export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
   const totalBet = input.isFreeGame ? 0 : input.betPerSpin
 
   const stops = REELS.map((reel: Symbol[]) => Math.floor(rng() * reel.length))
 
-  const window: Symbol[][] = REELS.map((reel: Symbol[], i: number) =>
+  const window: Symbol[][] = REELS.map((reel: Symbol[], reelIndex: number) =>
     Array.from({ length: GAME_CONFIG.reelsVisibleRows }, (_, row) => {
-      const idx = (stops[i] + row) % reel.length
+      const idx = (stops[reelIndex] + row) % reel.length
       let symbol = reel[idx]
 
       if (
-        symbol.kind !== 'WILD' &&
+        !FORBIDDEN_GOLD_REELS.has(reelIndex) &&
         symbol.kind !== 'SCATTER' &&
         Math.random() < GOLD_CHANCE_INITIAL
       ) {
@@ -34,11 +37,7 @@ export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
     }),
   )
 
-  if (Math.random() < 0.04) {
-    const r = Math.floor(Math.random() * window.length)
-    const row = Math.floor(Math.random() * window[r].length)
-    window[r][row] = { kind: 'WILD' }
-  }
+  // ❌ NO RANDOM WILD EVER
 
   const { totalWin, cascades } = runCascades(window, totalBet)
 

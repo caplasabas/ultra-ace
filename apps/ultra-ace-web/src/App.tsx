@@ -65,7 +65,9 @@ export default function App() {
 
   const activeMultiplier = MULTIPLIERS[Math.min(cascadeIndex, MULTIPLIERS.length - 1)]
   const currentMultiplier = activeCascade?.multiplier ?? 1
-
+  useEffect(() => {
+    console.log('cascades', cascades)
+  }, [cascades])
   return (
     <div className="game-root">
       <div className="game-frame">

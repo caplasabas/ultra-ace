@@ -3,7 +3,7 @@ import { PAYTABLE } from './paytable.js'
 
 type Position = { reel: number; row: number }
 
-const GROUP_BET_FACTOR = 0.012
+const GROUP_BET_FACTOR = 0.016
 const MIN_COLUMNS = 3
 const MAX_COLUMNS = 5
 
