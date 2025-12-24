@@ -3,29 +3,19 @@ import { PAYTABLE } from './paytable.js'
 
 type Position = { reel: number; row: number }
 
-const GROUP_BET_FACTOR = 0.015
-
+const GROUP_BET_FACTOR = 0.012
 const MIN_COLUMNS = 3
 const MAX_COLUMNS = 5
 
-/**
- * Column-based evaluator
- *
- * Rules:
- * - Must start from LEFTMOST column (reel 0)
- * - Columns must be CONTIGUOUS
- * - Each column contributes AT MOST 1 count
- * - Symbol may appear in ANY row in a column
- * - WILD substitutes
- * - ONE best win only
- */
+const WILD_ALLOWED_COLUMNS = new Set([1, 2, 3])
+
 export function evaluateColumnWindow(window: Symbol[][], totalBet: number) {
   const reelCount = window.length
   const rowCount = window[0].length
 
   const wins = []
 
-  // Collect candidate symbols from column 0 (no EMPTY / SCATTER)
+  // Candidates must come from column 0 (NO wilds allowed)
   const startSymbols = new Set<SymbolKind>()
 
   for (let row = 0; row < rowCount; row++) {
@@ -36,46 +26,45 @@ export function evaluateColumnWindow(window: Symbol[][], totalBet: number) {
   }
 
   for (const symbol of startSymbols) {
-    let count = 0
+    let columns = 0
     const positions: Position[] = []
 
     for (let reel = 0; reel < reelCount; reel++) {
-      let matchedPos: Position | null = null
+      let columnMatched = false
 
       for (let row = 0; row < rowCount; row++) {
         const s = window[reel][row]
 
-        if (s.kind === symbol || s.kind === 'WILD') {
-          matchedPos = { reel, row }
-          break
+        if (s.kind === symbol) {
+          columnMatched = true
+          positions.push({ reel, row })
+        } else if (s.kind === 'WILD' && WILD_ALLOWED_COLUMNS.has(reel)) {
+          columnMatched = true
+          positions.push({ reel, row })
         }
       }
 
-      if (!matchedPos) break
+      if (!columnMatched) break
 
-      count++
-      positions.push(matchedPos)
-
-      if (count === MAX_COLUMNS) break
+      columns++
+      if (columns === MAX_COLUMNS) break
     }
 
-    if (count < MIN_COLUMNS) continue
+    if (columns < MIN_COLUMNS) continue
 
-    const payMult = PAYTABLE[symbol]?.[count - 1] ?? 0
+    const payMult = PAYTABLE[symbol]?.[columns - 1] ?? 0
     if (payMult <= 0) continue
 
     const payout = payMult * totalBet * GROUP_BET_FACTOR
 
     wins.push({
       symbol,
-      count,
+      count: columns,
       payout,
       positions,
     })
   }
 
-  // Highest paying win first
   wins.sort((a, b) => b.payout - a.payout)
-
   return { wins }
 }

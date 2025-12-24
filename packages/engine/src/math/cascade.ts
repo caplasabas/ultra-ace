@@ -102,7 +102,9 @@ function refillFromTop(window: Symbol[][], cascadeIndex: number) {
 
       let symbol: Symbol
 
-      if (Math.random() < wildChance) {
+      const canBeWild = reel >= 1 && reel <= 3
+
+      if (canBeWild && Math.random() < wildChance) {
         symbol = { kind: 'WILD' }
       } else {
         symbol = GAME_CONFIG.cascadeFillPool[
