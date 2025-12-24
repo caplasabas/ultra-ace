@@ -24,3 +24,5 @@ apps/**/.next
 
 # Metro
 apps/**/node_modules
+
+package-lock.json
