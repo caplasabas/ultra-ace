@@ -14,4 +14,4 @@ export { REELS } from './math'
 // ─────────────────────────────────────────────
 // Types (no runtime cost)
 // ─────────────────────────────────────────────
-export type { SpinInput, SpinOutcome, CascadeStep, LineWin, Symbol } from './types'
+export type { SpinInput, SpinOutcome, CascadeStep, RowWin, Symbol } from './types'

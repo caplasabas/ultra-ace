@@ -88,7 +88,7 @@ export function useCascadeTimeline(cascades: CascadeStep[], spinId: number, onCo
 
       case 'initialRefill':
         t = window.setTimeout(() => {
-          if (nextCascade?.lineWins?.length) {
+          if (nextCascade?.rowWins?.length) {
             dispatch({ type: 'ADVANCE', cascades })
           } else {
             dispatch({ type: 'NEXT', phase: 'settle' })
@@ -116,7 +116,7 @@ export function useCascadeTimeline(cascades: CascadeStep[], spinId: number, onCo
 
       case 'cascadeRefill':
         t = window.setTimeout(() => {
-          if (cascades[state.index + 1]?.lineWins?.length) {
+          if (cascades[state.index + 1]?.rowWins?.length) {
             dispatch({ type: 'ADVANCE', cascades })
           } else {
             dispatch({ type: 'NEXT', phase: 'settle' })

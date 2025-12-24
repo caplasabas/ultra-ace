@@ -1,9 +1,9 @@
 import { Symbol, SymbolKind } from '../types/symbol.js'
 import { CascadeStep } from '../types/cascade.js'
-import { evaluateGlobalWindow } from './evaluator.global.js'
+import { evaluateRowWindow } from './evaluator.global.js'
 import { GAME_CONFIG } from '../config/game.config.js'
 
-const BASE_WILD_CHANCE = [0, 0.05, 0.08, 0.12]
+const BASE_WILD_CHANCE = [0.03, 0.05, 0.08, 0.12]
 const GOLD_CHANCE_REFILL = 0.06
 const GOLD_TTL = 2
 
@@ -15,7 +15,7 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number) {
   cascades.push({
     index: 0,
     multiplier: 1,
-    lineWins: [],
+    rowWins: [],
     win: 0,
     removedPositions: [],
     window: cloneWindow(window),
@@ -25,17 +25,15 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number) {
     const multiplier =
       GAME_CONFIG.multiplierLadder[Math.min(i - 1, GAME_CONFIG.multiplierLadder.length - 1)]
 
-    const { wins } = evaluateGlobalWindow(window, totalBet * multiplier, i > 1, new Set())
-    if (wins.length === 0) break
+    const { rowWins } = evaluateRowWindow(window, totalBet * multiplier)
+    if (rowWins.length === 0) break
 
-    const resolved = wins.slice(0, 1)
     const removed: { reel: number; row: number }[] = []
 
-    for (const w of resolved) {
+    for (const w of rowWins) {
       for (const pos of w.positions) {
         const s = window[pos.reel][pos.row]
 
-        // Gold → Wild ONLY when hit
         if (s.isGold) {
           window[pos.reel][pos.row] = { kind: 'WILD' }
           continue
@@ -49,13 +47,13 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number) {
     refill(window, i)
     decayGold(window)
 
-    const win = resolved.reduce((sum, w) => sum + w.payout, 0)
+    const win = rowWins.reduce((sum, w) => sum + w.payout, 0)
     totalWin += win
 
     cascades.push({
       index: i,
       multiplier,
-      lineWins: resolved,
+      rowWins,
       win,
       removedPositions: removed,
       window: cloneWindow(window),

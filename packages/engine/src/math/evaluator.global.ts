@@ -3,19 +3,13 @@ import { PAYTABLE } from './paytable.js'
 
 type Position = { reel: number; row: number }
 
-const GROUP_BET_FACTOR = 0.008
-const MAX_COUNT_CAP = 8
+const GROUP_BET_FACTOR = 0.135
 
-/**
- * Minimum effective count by symbol.
- * High symbols: 3
- * Low symbols: 4 (refill only)
- */
-const MIN_COUNT_BY_SYMBOL: Record<SymbolKind, number> = {
-  J: 3,
-  Q: 3,
-  K: 3,
+const MIN_COUNT: Record<SymbolKind, number> = {
   A: 3,
+  K: 3,
+  Q: 3,
+  J: 3,
 
   SPADE: 4,
   HEART: 4,
@@ -27,105 +21,74 @@ const MIN_COUNT_BY_SYMBOL: Record<SymbolKind, number> = {
   EMPTY: 999,
 }
 
-interface Bucket {
-  kind: SymbolKind
-  base: Position[]
-  wilds: Position[]
-}
+export function evaluateRowWindow(window: Symbol[][], totalBet: number) {
+  const reelCount = window.length
+  const rowCount = window[0].length
 
-export function evaluateGlobalWindow(
-  window: Symbol[][],
-  totalBet: number,
-  isRefill: boolean,
-  wonSymbols: Set<SymbolKind>,
-) {
-  const buckets = new Map<SymbolKind, Bucket>()
-  const wildPool: Position[] = []
+  const rowWins = []
 
-  // Scan window
-  for (let r = 0; r < window.length; r++) {
-    for (let row = 0; row < window[r].length; row++) {
-      const s = window[r][row]
-      const pos = { reel: r, row }
+  for (let row = 0; row < rowCount; row++) {
+    const buckets = new Map<SymbolKind, Position[]>()
+    const wilds: Position[] = []
+
+    for (let reel = 0; reel < reelCount; reel++) {
+      const s = window[reel][row]
+      const pos = { reel, row }
 
       if (s.kind === 'EMPTY' || s.kind === 'SCATTER') continue
 
       if (s.kind === 'WILD') {
-        wildPool.push(pos)
+        wilds.push(pos)
         continue
       }
 
       if (!buckets.has(s.kind)) {
-        buckets.set(s.kind, { kind: s.kind, base: [], wilds: [] })
+        buckets.set(s.kind, [])
       }
 
-      buckets.get(s.kind)!.base.push(pos)
+      buckets.get(s.kind)!.push(pos)
     }
-  }
 
-  const payoutFor = (k: SymbolKind, c: number) => {
-    const min = MIN_COUNT_BY_SYMBOL[k] ?? 3
-    return c >= min ? (PAYTABLE[k]?.[Math.min(c, MAX_COUNT_CAP) - 1] ?? 0) : 0
-  }
+    let best: {
+      kind: SymbolKind
+      count: number
+      positions: Position[]
+      payout: number
+    } | null = null
 
-  const candidates = Array.from(buckets.values()).filter(b => {
-    if (wonSymbols.has(b.kind)) return false
+    for (const [kind, base] of buckets) {
+      const min = MIN_COUNT[kind]
+      const maxAssignable = base.length + wilds.length
 
-    const min = MIN_COUNT_BY_SYMBOL[b.kind] ?? 3
-    if (!isRefill && min > 3) return false
+      if (maxAssignable < min) continue
 
-    return b.base.length + wildPool.length >= min
-  })
+      // Try max possible count
+      const count = Math.min(maxAssignable, reelCount)
+      const payMult = PAYTABLE[kind]?.[count - 1] ?? 0
+      if (payMult <= 0) continue
 
-  const remainingWilds = [...wildPool]
+      const payout = payMult * totalBet * GROUP_BET_FACTOR
 
-  // Greedy wild allocation
-  while (remainingWilds.length > 0) {
-    let best: { bucket: Bucket; delta: number } | null = null
-
-    for (const b of candidates) {
-      const cur = b.base.length + b.wilds.length
-      const next = cur + 1
-      const delta = payoutFor(b.kind, next) - payoutFor(b.kind, cur)
-
-      if (delta > 0 && (!best || delta > best.delta)) {
-        best = { bucket: b, delta }
+      if (!best || payout > best.payout) {
+        best = {
+          kind,
+          count,
+          payout,
+          positions: [...base, ...wilds.slice(0, count - base.length)],
+        }
       }
     }
 
-    if (!best) break
-    best.bucket.wilds.push(remainingWilds.pop()!)
-  }
+    if (!best) continue
 
-  const wins = []
-
-  for (const b of candidates) {
-    const count = b.base.length + b.wilds.length
-    const min = MIN_COUNT_BY_SYMBOL[b.kind] ?? 3
-
-    // ✅ Allow ONE high-symbol 3-of-a-kind on initial board
-    if (!isRefill && min === 3 && count === 3) {
-      // allow, but do NOT allow repeats
-      if (wonSymbols.has(b.kind)) continue
-    }
-
-    if (count < min) continue
-
-    const mult = payoutFor(b.kind, count)
-    if (mult <= 0) continue
-
-    wins.push({
-      symbol: b.kind,
-      count,
-      payout: mult * totalBet * GROUP_BET_FACTOR,
-      positions: [...b.base, ...b.wilds],
+    rowWins.push({
+      row,
+      symbol: best.kind,
+      count: best.count,
+      payout: best.payout,
+      positions: best.positions,
     })
-
-    wonSymbols.add(b.kind)
   }
 
-  // Highest value first
-  wins.sort((a, b) => b.payout - a.payout)
-
-  return { wins }
+  return { rowWins }
 }

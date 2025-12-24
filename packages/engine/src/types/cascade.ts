@@ -1,7 +1,7 @@
-// /types/cascade.ts
 import { Symbol } from './symbol.js'
 
-export interface LineWin {
+export interface RowWin {
+  row: number
   symbol: string
   count: number
   payout: number
@@ -11,7 +11,7 @@ export interface LineWin {
 export interface CascadeStep {
   index: number
   multiplier: number
-  lineWins: LineWin[]
+  rowWins: RowWin[]
   win: number
   removedPositions: { reel: number; row: number }[]
   window: Symbol[][]

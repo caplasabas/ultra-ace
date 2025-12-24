@@ -9,6 +9,6 @@ export const REEL_WEIGHTS = {
   K: 4,
   A: 4,
 
-  WILD: 0,
+  WILD: 1,
   SCATTER: 0,
 }

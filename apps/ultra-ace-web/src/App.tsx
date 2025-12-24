@@ -29,7 +29,7 @@ export default function App() {
   ] as any)
 
   const winningPositions = new Set(
-    activeCascade?.lineWins.flatMap(lw => lw.positions.map(p => `${p.reel}-${p.row}`)) ?? [],
+    activeCascade?.rowWins.flatMap(lw => lw.positions.map(p => `${p.reel}-${p.row}`)) ?? [],
   )
 
   const windowForRender =
@@ -92,9 +92,7 @@ export default function App() {
 
         <div className="reels-stage">
           <div className="reels-clip">
-            <DimOverlay
-              active={phase === 'highlight' && Boolean(activeCascade?.lineWins?.length)}
-            />
+            <DimOverlay active={phase === 'highlight' && Boolean(activeCascade?.rowWins?.length)} />
             <div className="reels-row">
               {placeholderWindow.map((col, i) => (
                 <Reel

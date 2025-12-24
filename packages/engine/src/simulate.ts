@@ -30,12 +30,11 @@ for (let i = 0; i < spins; i++) {
     maxWin = Math.max(maxWin, outcome.win)
   }
 
-  // ⚠️ CRITICAL: skip cascade index 0 (seed)
   for (const c of outcome.cascades ?? []) {
     if (c.index === 0) continue
 
-    for (const lw of c.lineWins) {
-      symbolRtp[lw.symbol] = (symbolRtp[lw.symbol] || 0) + lw.payout
+    for (const rw of c.rowWins) {
+      symbolRtp[rw.symbol] = (symbolRtp[rw.symbol] || 0) + rw.payout
     }
   }
 }
