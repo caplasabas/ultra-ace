@@ -18,7 +18,7 @@
     --reel-gap: 20px;
 
     /* Dim overlay geometry */
-    --dim-top: 12px;
+    --dim-top: 37px;
 }
 
 /* =========================
@@ -40,7 +40,7 @@
 
 .game-frame {
     width: 430px;
-    height: min(88vh, 820px);
+    height: min(90vh, 900px);
 
     display: flex;
     flex-direction: column;
@@ -69,8 +69,9 @@
     position: relative; /* stacking root for dim */
     width: 100%;
     display: flex;
+
     justify-content: center;
-    padding: 18px 0;
+    padding: 25px 0 0 0;
     overflow: visible;
 }
 
@@ -91,7 +92,7 @@
     );
 
     overflow: hidden;
-    z-index: 1;
+
 }
 
 /* =========================
@@ -155,7 +156,7 @@
     width: var(--scaled-card-width);
     height: var(--scaled-card-height);
 
-    background: #e4e8ec;
+    /*background: #e4e8ec;*/
     border-radius: 6px;
 
     display: flex;
@@ -213,7 +214,7 @@
 @keyframes popOut {
     to {
         opacity: 0;
-        transform: translate3d(0, 140px, 0) scale(0);
+        transform: translate3d(0, 0px, 0) scale(0);
     }
 }
 
@@ -250,10 +251,10 @@
         transform: scale(1);
     }
     60% {
-        transform: scale(1.30);
+        transform: scale(1.15);
     }
     100% {
-        transform: scale(1.15);
+        transform: scale(1.05);
     }
 }
 
@@ -270,6 +271,13 @@
 /* =========================
    Dim Overlay (covers cards)
    ========================= */
+
+.dim-zone {
+    position: relative;
+    width: 100%;
+    flex: 1;
+    z-index: 0;
+}
 
 .dim {
     position: absolute;
@@ -302,7 +310,7 @@
 .bottom-container {
     width: 100%;
     height: 30vh;
-    padding: 0 0 20px 0;
+    padding: 0 0 40px 0;
 }
 
 /* =========================
@@ -310,10 +318,13 @@
    ========================= */
 
 .spin-btn {
-    display: flex;
-    margin: 0 auto;
-    font-size: 18px;
+    /*display: flex;*/
+    /*margin: 0 auto;*/
+
     border-radius: 100px;
+    justify-content: center;
+    align-items: center;
+    font-size: 10px;
 }
 
 .spin-btn:disabled {
@@ -327,8 +338,58 @@
 }
 
 .spin-btn.turbo {
-    opacity: 0.1;
+    height: 55px;
+    width: 55px;
+    opacity: 0.5;
 }
+
+.spin-btn.auto {
+    height: 55px;
+    width: 55px;
+}
+
+
+
+.spin-btn.spin-image {
+    width: 96px;
+    height: 96px;
+
+    background-image: url('./assets/images/spin.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+
+    border: none;
+    background-color: transparent;
+
+    cursor: pointer;
+    padding: 0;
+
+    transition:
+            transform 120ms ease,
+            filter 120ms ease,
+            opacity 120ms ease;
+}
+
+
+.spin-btn.spin-image:active:not(:disabled) {
+    transform: scale(0.94);
+    filter: brightness(0.9);
+}
+
+
+.spin-btn.spin-image:disabled {
+    opacity: 0.35;
+    filter: grayscale(0.6);
+    cursor: not-allowed;
+    transform: none;
+}
+
+
+.spin-btn.spin-image.active {
+    filter: drop-shadow(0 0 10px rgba(255, 60, 0, 0.8));
+}
+
 
 /* =========================
    Win Display
@@ -462,24 +523,6 @@
 
 
 /* =========================
-   GOLD SYMBOL (FLAT TINT)
-   ========================= */
-
-.card.gold .symbol-img {
-    filter:
-            sepia(1)
-            saturate(4.5)
-            hue-rotate(-10deg)
-            brightness(1.15)
-            contrast(1.05);
-}
-
-.card.gold {
-    outline: 2px solid rgba(255, 200, 60, 0.85);
-    outline-offset: -2px;
-}
-
-/* =========================
    Gold → Wild conversion
    ========================= */
 
@@ -502,27 +545,61 @@
     }
 }
 
+/* =========================
+   Gold Shimmer Overlay
+   ========================= */
+
+.card.gold .card-inner {
+    position: relative;
+    overflow: hidden;
+}
+
+.card.gold .card-inner::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+
+    background: linear-gradient(
+            120deg,
+            rgba(255,255,255,0) 42%,
+            rgba(255,255,255,0.35) 50%,
+            rgba(255,255,255,0) 58%
+    );
+
+    transform: translateX(-120%);
+    animation: goldShimmer 2.4s ease-in-out infinite;
+
+    z-index: 2; /* ABOVE image, BELOW highlight */
+}
+
+@keyframes goldShimmer {
+    0%   { transform: translateX(-120%); }
+    60%  { transform: translateX(120%); }
+    100% { transform: translateX(120%); }
+}
 
 /* =========================
    Gold → Wild Flip
    ========================= */
 
-.card.gold-to-wild {
+/* ✅ CORRECT: flip ONLY from back → wild */
+.card.flip-to-wild {
     animation: goldFlip 260ms ease-in-out;
     transform-style: preserve-3d;
 }
 
 @keyframes goldFlip {
     0% {
-        transform: rotateY(0deg) scale(1);
-        filter: brightness(1.3);
+        transform: rotateY(0deg);
+        filter: brightness(1.1);
     }
     50% {
-        transform: rotateY(90deg) scale(1.15);
+        transform: rotateY(90deg);
         filter: brightness(2);
     }
     100% {
-        transform: rotateY(0deg) scale(1);
+        transform: rotateY(0deg);
         filter: brightness(1);
     }
 }

@@ -56,6 +56,10 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
         const dirX = (reelIndex % 2 === 0 ? -1 : 1) * (6 + row * 1.5)
         const dirY = (row % 2 === 0 ? -1 : 1) * (6 + reelIndex * 1.2)
 
+        const imgSrc =
+          symbol.isGold && SYMBOL_MAP[symbol.kind]?.gold
+            ? SYMBOL_MAP[symbol.kind].gold
+            : SYMBOL_MAP[symbol.kind].normal
         return (
           <div
             key={symbol.id}
@@ -88,7 +92,7 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
                   : undefined
               }
             >
-              <img src={SYMBOL_MAP[symbol.kind]} className="symbol-img" draggable={false} />
+              <img src={imgSrc} className="symbol-img" draggable={false} />
             </div>
           </div>
         )

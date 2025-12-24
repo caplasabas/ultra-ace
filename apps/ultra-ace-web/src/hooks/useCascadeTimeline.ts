@@ -7,7 +7,6 @@ export type CascadePhase =
   | 'initialRefill'
   | 'highlight'
   | 'pop'
-  | 'cascadeRefillPrep' // 👈 NEW (paint buffer)
   | 'cascadeRefill'
   | 'settle'
 
@@ -34,7 +33,7 @@ function reducer(state: State, action: Action): State {
       return {
         phase: 'reelSweepOut',
         index: 0,
-        previous: action.cascades[0],
+        previous: state.previous ?? action.cascades[action.cascades.length - 1],
       }
 
     case 'NEXT':
@@ -102,16 +101,6 @@ export function useCascadeTimeline(cascades: CascadeStep[], spinId: number, onCo
 
       case 'pop':
         t = window.setTimeout(() => dispatch({ type: 'NEXT', phase: 'cascadeRefill' }), 260)
-        break
-
-      /* ----------------------------------------
-         👇 NEW: PAINT BUFFER (1 FRAME)
-      ---------------------------------------- */
-      case 'cascadeRefillPrep':
-        t = window.setTimeout(
-          () => dispatch({ type: 'NEXT', phase: 'cascadeRefill' }),
-          40, // ~1 frame @ 60hz
-        )
         break
 
       case 'cascadeRefill':
