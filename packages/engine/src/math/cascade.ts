@@ -1,6 +1,6 @@
 import { Symbol, SymbolKind } from '../types/symbol.js'
 import { CascadeStep } from '../types/cascade.js'
-import { evaluateRowWindow } from './evaluator.global.js'
+import { evaluateColumnWindow } from './evaluator.columns.js'
 import { GAME_CONFIG } from '../config/game.config.js'
 
 const BASE_WILD_CHANCE = [0.03, 0.05, 0.08, 0.12]
@@ -15,7 +15,7 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number) {
   cascades.push({
     index: 0,
     multiplier: 1,
-    rowWins: [],
+    lineWins: [],
     win: 0,
     removedPositions: [],
     window: cloneWindow(window),
@@ -25,12 +25,14 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number) {
     const multiplier =
       GAME_CONFIG.multiplierLadder[Math.min(i - 1, GAME_CONFIG.multiplierLadder.length - 1)]
 
-    const { rowWins } = evaluateRowWindow(window, totalBet * multiplier)
-    if (rowWins.length === 0) break
+    const { wins } = evaluateColumnWindow(window, totalBet * multiplier)
+    if (wins.length === 0) break
 
+    // Commercial standard: resolve ONE best win
+    const resolved = wins.slice(0, 1)
     const removed: { reel: number; row: number }[] = []
 
-    for (const w of rowWins) {
+    for (const w of resolved) {
       for (const pos of w.positions) {
         const s = window[pos.reel][pos.row]
 
@@ -44,16 +46,25 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number) {
       }
     }
 
-    refill(window, i)
+    /* ============================
+       🔑 GRAVITY (NEW)
+       ============================ */
+    applyGravity(window)
+
+    /* ============================
+       🔑 REFILL FROM TOP (CHANGED)
+       ============================ */
+    refillFromTop(window, i)
+
     decayGold(window)
 
-    const win = rowWins.reduce((sum, w) => sum + w.payout, 0)
+    const win = resolved.reduce((sum, w) => sum + w.payout, 0)
     totalWin += win
 
     cascades.push({
       index: i,
       multiplier,
-      rowWins,
+      lineWins: resolved,
       win,
       removedPositions: removed,
       window: cloneWindow(window),
@@ -64,54 +75,63 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number) {
 }
 
 /* ─────────────────────────────
-   Refill with decay
+   COLUMN GRAVITY (CRITICAL)
    ───────────────────────────── */
-function refill(window: Symbol[][], cascadeIndex: number) {
+function applyGravity(window: Symbol[][]) {
+  for (let reel = 0; reel < window.length; reel++) {
+    const col = window[reel]
+
+    const survivors = col.filter(s => s.kind !== 'EMPTY')
+    const empties = Array(col.length - survivors.length)
+      .fill(null)
+      .map(() => ({ kind: 'EMPTY' as SymbolKind }))
+
+    window[reel] = [...empties, ...survivors]
+  }
+}
+
+/* ─────────────────────────────
+   Refill ONLY empty top cells
+   ───────────────────────────── */
+function refillFromTop(window: Symbol[][], cascadeIndex: number) {
   const wildChance = BASE_WILD_CHANCE[Math.min(cascadeIndex, BASE_WILD_CHANCE.length - 1)]
 
-  for (let r = 0; r < window.length; r++) {
-    for (let row = 0; row < window[r].length; row++) {
-      if (window[r][row].kind === 'EMPTY') {
-        let symbol: Symbol
+  for (let reel = 0; reel < window.length; reel++) {
+    for (let row = 0; row < window[reel].length; row++) {
+      if (window[reel][row].kind !== 'EMPTY') continue
 
-        if (Math.random() < wildChance) {
-          symbol = { kind: 'WILD' }
-        } else {
-          symbol = GAME_CONFIG.cascadeFillPool[
-            Math.floor(Math.random() * GAME_CONFIG.cascadeFillPool.length)
-          ] as Symbol
-        }
+      let symbol: Symbol
 
-        if (
-          symbol.kind !== 'WILD' &&
-          symbol.kind !== 'SCATTER' &&
-          Math.random() < GOLD_CHANCE_REFILL
-        ) {
-          symbol = {
-            ...symbol,
-            isGold: true,
-            goldTTL: GOLD_TTL,
-          }
-        }
-
-        window[r][row] = symbol
+      if (Math.random() < wildChance) {
+        symbol = { kind: 'WILD' }
+      } else {
+        symbol = GAME_CONFIG.cascadeFillPool[
+          Math.floor(Math.random() * GAME_CONFIG.cascadeFillPool.length)
+        ] as Symbol
       }
+
+      if (
+        symbol.kind !== 'WILD' &&
+        symbol.kind !== 'SCATTER' &&
+        Math.random() < GOLD_CHANCE_REFILL
+      ) {
+        symbol = { ...symbol, isGold: true, goldTTL: GOLD_TTL }
+      }
+
+      window[reel][row] = symbol
     }
   }
 }
 
 /* ─────────────────────────────
-   Gold decay → Wild
+   Gold decay
    ───────────────────────────── */
-
 function decayGold(window: Symbol[][]) {
   for (let r = 0; r < window.length; r++) {
     for (let row = 0; row < window[r].length; row++) {
       const s = window[r][row]
-
       if (s.isGold && typeof s.goldTTL === 'number') {
         s.goldTTL--
-
         if (s.goldTTL <= 0) {
           delete s.isGold
           delete s.goldTTL
