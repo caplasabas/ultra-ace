@@ -7,9 +7,9 @@ export const PAYTABLE: Record<SymbolKind, number[]> = {
   Q: [0, 3, 20, 80, 400],
   J: [0, 2, 15, 60, 300],
 
-  SPADE: [0, 0, 2, 5, 15],
+  SPADE: [0, 0, 1.6, 4.0, 12.0],
   HEART: [0, 0, 2, 5, 15],
-  DIAMOND: [0, 0, 3, 6, 18],
+  DIAMOND: [0, 0, 2.4, 4.8, 14.4],
   CLUB: [0, 0, 3, 6, 18],
 
   WILD: [0, 0, 0, 0, 0],

@@ -3,7 +3,7 @@ import { PAYTABLE } from './paytable.js'
 
 type Position = { reel: number; row: number }
 
-const GROUP_BET_FACTOR = 0.135
+const GROUP_BET_FACTOR = 0.055
 
 const MIN_COUNT: Record<SymbolKind, number> = {
   A: 3,
@@ -11,10 +11,10 @@ const MIN_COUNT: Record<SymbolKind, number> = {
   Q: 3,
   J: 3,
 
-  SPADE: 4,
-  HEART: 4,
-  DIAMOND: 4,
-  CLUB: 4,
+  SPADE: 3,
+  HEART: 3,
+  DIAMOND: 3,
+  CLUB: 3,
 
   WILD: 999,
   SCATTER: 999,
