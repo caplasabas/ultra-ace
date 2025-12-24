@@ -1,10 +1,26 @@
+
+
 html,
 body,
 #root {
     height: 100%;
     width: 100%;
+
+    margin: 0;
+    padding: 0;
+
+    overflow: hidden;          /* disable scroll */
+    overscroll-behavior: none; /* disable bounce */
+    touch-action: manipulation;
     background-color: #1a1a1a;
 }
+
+* {
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+
+
 
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;

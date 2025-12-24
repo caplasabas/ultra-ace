@@ -1,5 +1,11 @@
 :root {
-    --card-scale: 1.15;
+    /* reference width of your original design */
+    --design-width: 430px;
+
+    /* scale factor (never zero, never NaN) */
+    --board-scale: min(1, calc(100vw / var(--design-width)));
+
+    --card-scale: calc(1.15 * var(--board-scale));
 
     --card-width: 64px;
     --card-height: 86px;
@@ -7,18 +13,20 @@
     --scaled-card-width: calc(var(--card-width) * var(--card-scale));
     --scaled-card-height: calc(var(--card-height) * var(--card-scale));
 
+    --reel-count: 5;
+    --reel-width: calc(73px * var(--board-scale));
+    --reel-gap: calc(10px * var(--board-scale));
+    --highlight-pad: calc(10px * var(--board-scale));
+
     --reel-height: calc(
             (4 * var(--scaled-card-height)) +
             (3 * 10px * var(--card-scale))
     );
 
-    --highlight-pad: 10px;
-    --reel-count: 5;
-    --reel-width: 73px;
-    --reel-gap: 20px;
+    --dim-top: calc(37px * var(--board-scale));
 
-    /* Dim overlay geometry */
-    --dim-top: 37px;
+    --reel-width-num: 73;
+    --reel-gap-num: 10;
 }
 
 /* =========================
@@ -26,12 +34,17 @@
    ========================= */
 
 .game-root {
+    position: fixed;
+    inset: 0;
+
+    width: 100vw;
     height: 100vh;
-    width: 100%;
+
     display: flex;
     justify-content: center;
     align-items: center;
-    position: relative;
+
+    overflow: hidden;
 }
 
 /* =========================
@@ -39,7 +52,13 @@
    ========================= */
 
 .game-frame {
-    width: 430px;
+    max-height: 100vh;
+    max-width: 100vw;
+
+    overflow: hidden;
+
+    width: min(430px, 100vw);
+
     height: min(90vh, 900px);
 
     display: flex;
@@ -601,5 +620,19 @@
     100% {
         transform: rotateY(0deg);
         filter: brightness(1);
+    }
+}
+
+/* Desktop / wide aspect */
+@media (min-aspect-ratio: 4/3) {
+    :root {
+        --reel-gap-num: 10;
+    }
+}
+
+/* Phone / tall aspect */
+@media (max-aspect-ratio: 4/3) {
+    :root {
+        --reel-gap-num: 5;
     }
 }

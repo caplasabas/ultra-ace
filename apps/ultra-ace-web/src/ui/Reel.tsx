@@ -32,8 +32,16 @@ const getCSSNumber = (name: string) =>
   parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name))
 
 export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Props) {
-  const reelWidth = getCSSNumber('--reel-width')
-  const reelGap = getCSSNumber('--reel-gap')
+  const scale =
+    parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--board-scale')) || 1
+
+  const reelWidth =
+    parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--reel-width-num')) *
+    scale
+
+  const reelGap =
+    parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--reel-gap-num')) *
+    scale
 
   const isInitialDeal = layer === 'new' && phase === 'initialRefill'
   const isCascadeRefill = layer === 'new' && phase === 'cascadeRefill'
@@ -44,7 +52,7 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
         .filter(Boolean)
         .join(' ')}
       style={{
-        left: reelIndex * ((reelWidth + reelGap) * 0.9),
+        left: reelIndex * (reelWidth + reelGap),
       }}
     >
       {symbols.map((symbol, row) => {
