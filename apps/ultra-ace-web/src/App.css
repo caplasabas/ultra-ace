@@ -3,7 +3,7 @@
     --design-width: 430px;
 
     /* scale factor (never zero, never NaN) */
-    --board-scale: min(1, calc(100vw / var(--design-width)));
+    --board-scale: min(1.03, calc(100vw / var(--design-width)));
 
     --card-scale: calc(1.15 * var(--board-scale));
 
@@ -20,13 +20,21 @@
 
     --reel-height: calc(
             (4 * var(--scaled-card-height)) +
-            (3 * 10px * var(--card-scale))
+            (3 * var(--card-gap))
     );
 
     --dim-top: calc(37px * var(--board-scale));
 
     --reel-width-num: 73;
     --reel-gap-num: 10;
+
+    --card-gap: calc(10px * var(--card-scale));
+
+    /* horizontal centering helper */
+    --reels-total-width: calc(
+            var(--reel-count) * var(--reel-width) +
+            (var(--reel-count) - 1) * var(--reel-gap)
+    );
 }
 
 /* =========================
@@ -59,7 +67,7 @@
 
     width: min(430px, 100vw);
 
-    height: min(90vh, 900px);
+    height: min(100vh, 900px);
 
     display: flex;
     flex-direction: column;
@@ -90,7 +98,7 @@
     display: flex;
 
     justify-content: center;
-    padding: 25px 0 0 0;
+    padding: 20px 0 0 0;
     overflow: visible;
 }
 
@@ -121,16 +129,14 @@
 .reels-row {
     position: absolute;
     top: calc(var(--highlight-pad) * 2);
-    left: var(--highlight-pad);
+    left: 50%;
+    transform: translateX(-50%);
 
-    width: calc(
-            var(--reel-count) * var(--reel-width) +
-            (var(--reel-count) - 1) * var(--reel-gap)
-    );
+    width: var(--reels-total-width);
     height: var(--reel-height);
+
     overflow: visible;
 }
-
 /* =========================
    Reel Container
    ========================= */
@@ -141,6 +147,7 @@
     height: var(--reel-height);
     top: 0;
     left: 0;
+
 }
 
 /* =========================
@@ -322,14 +329,14 @@
 
 .top-container {
     width: 100%;
-    height: 34vh;
-    /*padding:5px 0;*/
+    height: 30vh;
+    padding: 15px 0;
 }
 
 .bottom-container {
     width: 100%;
     height: 30vh;
-    padding: 0 0 40px 0;
+    padding: 20px 0 40px 0;
 }
 
 /* =========================
@@ -347,7 +354,7 @@
 }
 
 .spin-btn:disabled {
-    opacity: 0.5;
+    opacity: 0.8;
     cursor: not-allowed;
 }
 
@@ -398,8 +405,8 @@
 
 
 .spin-btn.spin-image:disabled {
-    opacity: 0.35;
-    filter: grayscale(0.6);
+    opacity: 0.65;
+    filter: grayscale(0.4);
     cursor: not-allowed;
     transform: none;
 }

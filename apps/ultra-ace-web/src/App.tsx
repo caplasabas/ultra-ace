@@ -91,7 +91,7 @@ export default function App() {
           </div>
         </div>
         <div className="dim-zone">
-          <DimOverlay active={phase === 'highlight' && Boolean(activeCascade?.lineWins?.length)} />
+          {/*<DimOverlay active={phase === 'highlight' && Boolean(activeCascade?.lineWins?.length)} />*/}
           <div className="reels-stage">
             <div className="reels-clip">
               <div className="reels-row">
@@ -147,7 +147,7 @@ export default function App() {
                 justifyContent: 'center',
                 gap: 15,
                 alignItems: 'center',
-                paddingTop: 10,
+                paddingTop: 5,
               }}
             >
               <button className={`spin-btn turbo`}>Turbo</button>

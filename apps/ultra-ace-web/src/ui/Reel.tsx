@@ -20,29 +20,12 @@ interface Props {
   layer: 'old' | 'new'
 }
 
-const CARD_HEIGHT = 86 * 1.15
-const GAP_Y = 5
-
 type CSSVars = CSSProperties & {
   '--hx'?: string
   '--hy'?: string
 }
 
-const getCSSNumber = (name: string) =>
-  parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name))
-
 export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Props) {
-  const scale =
-    parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--board-scale')) || 1
-
-  const reelWidth =
-    parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--reel-width-num')) *
-    scale
-
-  const reelGap =
-    parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--reel-gap-num')) *
-    scale
-
   const isInitialDeal = layer === 'new' && phase === 'initialRefill'
   const isCascadeRefill = layer === 'new' && phase === 'cascadeRefill'
 
@@ -52,7 +35,7 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
         .filter(Boolean)
         .join(' ')}
       style={{
-        left: reelIndex * (reelWidth + reelGap),
+        left: `calc(${reelIndex} * (var(--reel-width) + var(--reel-gap)))`,
       }}
     >
       {symbols.map((symbol, row) => {
@@ -82,7 +65,7 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
               .filter(Boolean)
               .join(' ')}
             style={{
-              top: row * (CARD_HEIGHT + GAP_Y),
+              top: `calc(${row} * (var(--scaled-card-height) + var(--card-gap)))`,
               animationDelay: isInitialDeal || isCascadeDeal ? `${delay}ms` : '0ms',
               zIndex: isWin ? 10 : 1,
             }}
