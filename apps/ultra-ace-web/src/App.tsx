@@ -66,7 +66,13 @@ export default function App() {
 
   const MULTIPLIERS = [1, 2, 3, 5]
 
-  const activeMultiplier = MULTIPLIERS[Math.min(cascadeIndex, MULTIPLIERS.length - 1)]
+  function getMultiplierIndex(cascadeIndex: number) {
+    if (cascadeIndex < 2) return 0
+    return Math.min(cascadeIndex - 1, MULTIPLIERS.length - 1)
+  }
+
+  const activeMultiplierIndex = getMultiplierIndex(cascadeIndex)
+  const activeMultiplier = MULTIPLIERS[activeMultiplierIndex]
 
   return (
     <div className="game-root">
@@ -75,18 +81,15 @@ export default function App() {
           <DebugHud info={debugInfo} />
 
           <div className="multiplier-strip">
-            {MULTIPLIERS.map(m => (
+            {MULTIPLIERS.map((m, i) => (
               <div
                 key={m}
-                className={[
-                  'multiplier-chip',
-                  m <= activeMultiplier && 'active',
-                  m === activeMultiplier && 'current',
-                ]
+                className={['multiplier-chip', i === activeMultiplierIndex && 'current']
                   .filter(Boolean)
                   .join(' ')}
               >
-                <h1>x{m}</h1>
+                <span className="multiplier-base">x{m}</span>
+                <span className="multiplier-face">x{m}</span>
               </div>
             ))}
           </div>

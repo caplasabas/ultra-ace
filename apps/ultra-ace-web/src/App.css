@@ -3,7 +3,7 @@
     --design-width: 430px;
 
     /* scale factor (never zero, never NaN) */
-    --board-scale: min(1.03, calc(100vw / var(--design-width)));
+    --board-scale: min(1.01, calc(100vw / var(--design-width)));
 
     --card-scale: calc(1.15 * var(--board-scale));
 
@@ -23,7 +23,7 @@
             (3 * var(--card-gap))
     );
 
-    --dim-top: calc(26px * var(--board-scale));
+    --dim-top: calc(55px * var(--board-scale));
 
     --reel-width-num: 73;
     --reel-gap-num: 10;
@@ -98,7 +98,7 @@
     display: flex;
 
     justify-content: center;
-    padding: 14px 0 0 0;
+    padding: 45px 0 0 0;
     overflow: visible;
 }
 
@@ -140,8 +140,8 @@
 
 .reels-row {
     position: absolute;
-    top: calc(var(--highlight-pad) * 2);
-    left: calc(var(--highlight-pad)/2);
+    top: calc(var(--highlight-pad) * 3);
+    left: calc(var(--highlight-pad));
 
 
     width: var(--reels-total-width);
@@ -452,7 +452,7 @@
 .top-container {
     width: 100%;
     height: 30vh;
-    padding: 15px 0;
+    padding: 5px 0;
 }
 
 .bottom-container {
@@ -566,105 +566,104 @@
 
 /* =========================
    Multiplier Strip
-   ========================= */
-
+*/
 .multiplier-strip {
 
-    width: 57%;
-    transform: translateX(30%);
+    width: 58%;
+    transform: translateX(36%) translateY(35%);
+
     align-self: center;
     display: flex;
     /*gap: 10px;*/
     justify-content: space-evenly;
-    padding: 8px 10px;
-    align-items: center;
-    border-radius: 20px;
 
-    /*background: rgba(0, 0, 0, 0.35);*/
-    /*backdrop-filter: blur(6px);*/
+    align-items: center;
+    /*border-radius: 20px;*/
+
+    /*background: linear-gradient(*/
+    /*        180deg,*/
+    /*        #f1c45a 0%,*/
+    /*        #d9a53a 50%,*/
+    /*        #b27b1e 100%*/
+    /*);*/
+
+    /*box-shadow:*/
+    /*        inset 0 2px 0 rgba(255,255,255,0.35),*/
+    /*        inset 0 -2px 0 rgba(120,60,0,0.35);*/
 
     z-index: 6; /* ABOVE dim, ABOVE reels */
     pointer-events: none;
 }
 
-/* =========================
-   Multiplier Chips
-   ========================= */
-
 .multiplier-chip {
-    min-width: 38px;
-    height: 28px;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-
-
-
-    color: #3a2a00;
-
-
-    transition:
-            transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
-            /*background 220ms ease,*/
-            color 220ms ease
-            /*box-shadow 220ms ease;*/
+    position: relative;
+    min-width: 46px;
+    height: 34px;
+    text-align: center;
 }
 
-.multiplier-chip h1 {
-    font-size: 28px;
-    font-weight: 700;
+.multiplier-base {
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 34px;
+
+    color: #2a170f; /* darker than before */
+    position: relative;
+    z-index: 1;
+
+
 }
 
+.multiplier-face {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
 
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 34px;
 
+    /* VERY SUBTLE GOLD FACE */
+    background: linear-gradient(
+            180deg,
+            #FFFFAA 0%,
+            #FEFF99 35%,
+            #fadd4d 55%,
+            #fec841 100%
+    );
 
-/* =========================
-   Active (≤ multiplier)
-   ========================= */
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
 
-.multiplier-chip.active {
-
-
-
-    /*box-shadow:*/
-    /*        0 4px 10px rgba(0, 0, 0, 0.35),*/
-    /*        inset 0 1px 0 rgba(255, 255, 255, 0.45);*/
+    opacity: 0;
 }
 
-/* =========================
-   Current Multiplier
-   ========================= */
+.multiplier-chip.current .multiplier-face {
+    opacity: 1;
 
-.multiplier-chip.current {
-    transform: scale(1.25);
-
-    color: rgb(255, 231, 174);
+    /*text-shadow:*/
+    /*        0 -1px 0 rgba(255, 255, 255, 0.35), !* top highlight *!*/
+    /*        0  1px 0 rgba(120, 50, 0, 0.75);    !* bottom depth *!*/
     animation: multiplierTick 240ms ease-out;
-    /*box-shadow:*/
-    /*        0 8px 18px rgba(0, 0, 0, 0.45),*/
-            /*inset 0 1px 0 rgba(255, 255, 255, 0.55);*/
 }
 
-.multiplier-chip.current h1 {
-    font-size: 28px;
-    font-weight: 700;
-
+.multiplier-chip.current .multiplier-base {
+    /* keep it, do NOT hide it */
+    color: #a61608;
+    /* single emboss shadow */
     text-shadow:
-            0 -1px 0 rgba(255, 60, 0, 0.45),  /* top highlight */
-            0  1px 0 rgba(45, 8, 2, 0.65);        /* bottom shadow */
-
-    /*border: 1px solid #ff3c00;*/
-    /*box-shadow:*/
-    /*        0 8px 18px rgba(0, 0, 0, 0.45),*/
-    /*inset 0 1px 0 rgba(255, 255, 255, 0.55);*/
+            0 2px 1px rgba(168, 22, 8, 0.9);
 }
 
-
+.multiplier-base,
+.multiplier-face {
+    line-height: 34px; /* match chip height */
+}
 
 @keyframes multiplierTick {
-    0%   { transform: scale(0.85); }
+    0%   { transform: scale(0.9); }
     60%  { transform: scale(1.35); }
     100% { transform: scale(1.25); }
 }
