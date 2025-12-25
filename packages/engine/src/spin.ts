@@ -38,7 +38,7 @@ export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
   const scatterCount = window.flat().filter(s => s.kind === 'SCATTER').length
 
   // scatterCount = isFreeGame ? scatterCount : 3
-  // 🔧 DEV: force scatter for faster testing
+  // // 🔧 DEV: force scatter for faster testing
   // if (!isFreeGame && GAME_CONFIG.devForceScatterChance > 0) {
   //   if (Math.random() < GAME_CONFIG.devForceScatterChance) {
   //     // force minimum trigger

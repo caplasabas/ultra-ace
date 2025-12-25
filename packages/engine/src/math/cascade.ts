@@ -1,8 +1,18 @@
+// src/math/cascade.ts
+
 import { Symbol } from '../types/symbol.js'
 import { CascadeStep } from '../types/cascade.js'
 import { evaluateColumnWindow } from './evaluator.columns.js'
 import { GAME_CONFIG } from '../config/game.config.js'
 import { getCascadeMultiplier } from './multiplier.js'
+
+import {
+  RED_WILD_CHANCE,
+  MAX_RED_PROPAGATION,
+  RED_PROPAGATION_DIRS,
+  BLOCKED_RED_WILD_KINDS,
+  DEV_FORCE_RED_WILD,
+} from '../config/wild.config.js'
 
 const GOLD_CHANCE_REFILL = 0.06
 const GOLD_TTL = 2
@@ -40,12 +50,32 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number, isFreeG
         const s = window[pos.reel][pos.row]
         const isEdge = pos.reel === 0 || pos.reel === window.length - 1
 
+        // ───────── GOLD CONVERSION ─────────
         if (s.isGold) {
-          window[pos.reel][pos.row] = isEdge ? { kind: 'EMPTY' } : { kind: 'WILD' }
-          if (isEdge) removed.push(pos)
+          if (isEdge) {
+            window[pos.reel][pos.row] = { kind: 'EMPTY' }
+            removed.push(pos)
+            continue
+          }
+
+          const isRed = DEV_FORCE_RED_WILD || Math.random() < RED_WILD_CHANCE
+
+          const wild: Symbol = {
+            kind: 'WILD',
+            isWild: true,
+            wildColor: isRed ? 'red' : 'blue',
+          }
+
+          window[pos.reel][pos.row] = wild
+
+          if (isRed) {
+            propagateRedWild(window, pos.reel, pos.row)
+          }
+
           continue
         }
 
+        // ───────── NORMAL REMOVAL ─────────
         window[pos.reel][pos.row] = { kind: 'EMPTY' }
         removed.push(pos)
       }
@@ -71,6 +101,43 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number, isFreeG
 
   return { totalWin, cascades }
 }
+
+// ────────────────────────────────────────────
+// RED WILD PROPAGATION
+// ────────────────────────────────────────────
+
+function propagateRedWild(window: Symbol[][], startReel: number, startRow: number) {
+  let propagated = 0
+
+  for (const { dx, dy } of RED_PROPAGATION_DIRS) {
+    if (propagated >= MAX_RED_PROPAGATION) break
+
+    const r = startReel + dx
+    const row = startRow + dy
+
+    if (r < 0 || r >= window.length || row < 0 || row >= window[r].length) {
+      continue
+    }
+
+    const target = window[r][row]
+
+    if (BLOCKED_RED_WILD_KINDS.has(target.kind)) {
+      continue
+    }
+
+    window[r][row] = {
+      kind: 'WILD',
+      isWild: true,
+      wildColor: 'red',
+    }
+
+    propagated++
+  }
+}
+
+// ────────────────────────────────────────────
+// REFILL & DECAY (unchanged)
+// ────────────────────────────────────────────
 
 function refillInPlace(window: Symbol[][]) {
   for (let r = 0; r < window.length; r++) {

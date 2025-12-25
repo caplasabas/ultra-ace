@@ -26,6 +26,7 @@ export function adaptWindow(
         isGold: symbol.isGold === true,
         goldTTL: symbol.goldTTL,
         goldToWild,
+        wildColor: symbol.wildColor,
       }
     }),
   )

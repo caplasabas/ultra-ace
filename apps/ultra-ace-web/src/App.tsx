@@ -93,7 +93,6 @@ export default function App() {
   }
 
   const activeMultiplierIndex = getMultiplierIndex(cascadeIndex)
-  const activeMultiplier = ladder[activeMultiplierIndex]
 
   return (
     <div className="game-root">

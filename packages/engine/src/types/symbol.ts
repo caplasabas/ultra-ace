@@ -15,4 +15,6 @@ export interface Symbol {
   kind: SymbolKind
   isGold?: boolean
   goldTTL?: number
+  isWild?: boolean
+  wildColor?: 'blue' | 'red'
 }

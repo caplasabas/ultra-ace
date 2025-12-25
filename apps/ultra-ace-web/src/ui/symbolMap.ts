@@ -24,6 +24,8 @@ import SCATTER from '../assets/symbols/SCATTER.png'
 
 import WILD from '../assets/symbols/WILD.png'
 
+import WILD_RED from '../assets/symbols/WILD_RED.png'
+
 export const SYMBOL_MAP: Record<string, { normal: string; gold?: string }> = {
   A: { normal: A, gold: A_GOLD },
   K: { normal: K, gold: K_GOLD },
@@ -40,5 +42,6 @@ export const SYMBOL_MAP: Record<string, { normal: string; gold?: string }> = {
   },
 
   WILD: { normal: WILD },
+  WILD_RED: { normal: WILD_RED },
   SCATTER: { normal: SCATTER },
 } as const

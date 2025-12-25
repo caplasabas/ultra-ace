@@ -10,6 +10,7 @@ export interface UISymbol {
   isGold?: boolean
   goldTTL?: number
   goldToWild?: boolean
+  wildColor?: string
 }
 
 interface Props {
@@ -42,6 +43,8 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
         const isWin = winningPositions.has(`${reelIndex}-${row}`)
         const isCascadeDeal = isCascadeRefill && symbol.isNew
 
+        const isWild = symbol.kind === 'WILD'
+        const isRedWild = isWild && symbol.wildColor === 'red'
         const isScatter = symbol.kind === 'SCATTER'
 
         const delay = reelIndex * 140 + (symbols.length - 1 - row) * 55 + row * 6
@@ -50,19 +53,31 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
         const dirY = (row % 2 === 0 ? -1 : 1) * (6 + reelIndex * 1.2)
 
         const imgSrc =
-          symbol.isGold && SYMBOL_MAP[symbol.kind]?.gold
-            ? SYMBOL_MAP[symbol.kind].gold
-            : SYMBOL_MAP[symbol.kind].normal
+          symbol.kind === 'WILD'
+            ? symbol.wildColor === 'red'
+              ? SYMBOL_MAP.WILD_RED.normal
+              : SYMBOL_MAP.WILD.normal
+            : symbol.isGold && SYMBOL_MAP[symbol.kind]?.gold
+              ? SYMBOL_MAP[symbol.kind].gold
+              : SYMBOL_MAP[symbol.kind].normal
+
         return (
           <div
             key={symbol.id}
             className={[
               'card',
+
               isScatter && 'scatter',
+
+              isWild && 'wild',
+              isRedWild && 'wild-red',
+
               symbol.isGold && 'gold',
               symbol.goldToWild && 'gold-to-wild',
+
               isInitialDeal && 'deal-initial',
               isCascadeDeal && 'deal',
+
               isWin && phase === 'pop' && 'pop',
             ]
               .filter(Boolean)
