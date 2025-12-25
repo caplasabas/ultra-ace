@@ -1,6 +1,7 @@
 import { useEngine } from './hooks/useEngine'
 import { Reel } from './ui/Reel'
 import { DimOverlay } from './ui/DimOverlay'
+import { WinOverlay } from './ui/WinOverlay'
 import { adaptWindow } from './game/adaptWindow'
 import { useCascadeTimeline } from './hooks/useCascadeTimeline'
 import { DebugHud } from './debug/DebugHud'
@@ -135,6 +136,10 @@ export default function App() {
                   ))}
               </div>
             </div>
+            <WinOverlay
+              amount={activeCascade?.win ?? 0}
+              phase={phase === 'highlight' || phase === 'pop' ? phase : null}
+            />
           </div>
 
           <div className="bottom-container">

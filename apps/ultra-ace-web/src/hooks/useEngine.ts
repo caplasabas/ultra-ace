@@ -33,9 +33,9 @@ export function useEngine() {
 
     setDebugInfo({
       seed,
-      reelStops: result.reelStops ?? [],
       bet,
       win: result?.win ?? 0,
+      cascadeWins: (result.cascades ?? []).map(c => c.win ?? 0),
     })
 
     setPendingWin(result.win ?? 0)

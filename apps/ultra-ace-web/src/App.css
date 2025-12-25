@@ -334,6 +334,117 @@
     background: rgba(0, 0, 0, 0.55);
 }
 
+.win-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 30;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.win-burst {
+    position: relative;
+    font-size: clamp(40px, 6.5vw, 72px);
+    font-weight: 900;
+    /*letter-spacing: -em;*/
+    transform-origin: center;
+}
+
+/* =========================
+   BACK GLOW (CENTER ONLY)
+   ========================= */
+.win-glow {
+    position: absolute;
+    inset: -5%;
+    z-index: 0;
+
+    background: radial-gradient(
+            circle at center,
+            rgba(246, 91, 35, 0.85) 0%,
+            rgba(255, 118, 20, 0.45) 30%,
+            rgba(255, 60, 0, 0.22) 48%,
+            rgba(255, 120, 0, 0.12) 60%
+    );
+
+    filter: blur(4px);
+}
+
+
+/* =========================
+   MAIN FACE (REAL GRADIENT)
+   ========================= */
+.win-face {
+    position: relative;
+    z-index: 2;
+
+    font-weight: 900;
+
+    /* GOLD GRADIENT — THIS WILL NOW SHOW */
+    background: linear-gradient(
+            180deg,
+            #fff86b 0%,
+            #ffd400 32%,
+            #ffb000 58%,
+            #ff8a00 78%,
+            #c64a00 100%
+    );
+
+    -webkit-background-clip: text;
+    background-clip: text;
+
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+
+    /* RED OUTLINE */
+    -webkit-text-stroke: 3px #b32a00;
+
+    /*!* DEPTH *!*/
+    /*text-shadow:*/
+    /*        0 2px 0 rgba(90, 30, 0, 0.85),*/
+    /*        0 6px 10px rgba(0, 0, 0, 0.35);*/
+}
+
+/* =========================
+   ANIMATIONS (unchanged)
+   ========================= */
+.win-burst.highlight {
+    animation: winPop 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.win-burst.pop {
+    animation: winDisappear 260ms ease-in forwards;
+}
+
+@keyframes winPop {
+    0% {
+        transform: scale(0.55);
+        opacity: 0;
+        letter-spacing: 0.04em;
+    }
+    45% {
+        transform: scale(1.55);
+        opacity: 1;
+        letter-spacing: -0.04em;
+    }
+    70% {
+        transform: scale(1.25);
+    }
+    100% {
+        transform: scale(1.35);
+        letter-spacing: -0.015em;
+    }
+}
+
+@keyframes winDisappear {
+    to {
+        opacity: 0;
+        transform: scale(0);
+    }
+}
+
+
 /* =========================
    UI Containers
    ========================= */
@@ -607,7 +718,7 @@
     transform: translateX(-120%);
     animation: goldShimmer 2.4s ease-in-out infinite;
 
-    z-index: 2; /* ABOVE image, BELOW highlight */
+    z-index: 20; /* ABOVE image, BELOW highlight */
 }
 
 @keyframes goldShimmer {
