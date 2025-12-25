@@ -23,7 +23,7 @@
             (3 * var(--card-gap))
     );
 
-    --dim-top: calc(55px * var(--board-scale));
+    --dim-top: calc(33px * var(--board-scale));
 
     --reel-width-num: 73;
     --reel-gap-num: 10;
@@ -98,7 +98,7 @@
     display: flex;
 
     justify-content: center;
-    padding: 45px 0 0 0;
+    padding: 10px 0 0 0;
     overflow: visible;
 }
 
@@ -452,7 +452,6 @@
 .top-container {
     width: 100%;
     height: 30vh;
-    padding: 5px 0;
 }
 
 .bottom-container {
@@ -570,29 +569,43 @@
 .multiplier-strip {
 
     width: 58%;
-    transform: translateX(36%) translateY(35%);
+    transform: translateX(36%) translateY(-60%);
 
     align-self: center;
     display: flex;
-    /*gap: 10px;*/
+
     justify-content: space-evenly;
 
     align-items: center;
-    /*border-radius: 20px;*/
-
-    /*background: linear-gradient(*/
-    /*        180deg,*/
-    /*        #f1c45a 0%,*/
-    /*        #d9a53a 50%,*/
-    /*        #b27b1e 100%*/
-    /*);*/
-
-    /*box-shadow:*/
-    /*        inset 0 2px 0 rgba(255,255,255,0.35),*/
-    /*        inset 0 -2px 0 rgba(120,60,0,0.35);*/
 
     z-index: 6; /* ABOVE dim, ABOVE reels */
     pointer-events: none;
+}
+
+/* =========================
+   Multiplier Strip – Free Spin Tint
+   ========================= */
+
+.multiplier-strip.free::before {
+    content: '';
+    position: absolute;
+    inset: -6px -12px;
+
+    background: linear-gradient(
+            180deg,
+            rgba(80, 0, 0, 0.75) 0%,
+            rgba(120, 0, 0, 0.85) 45%,
+            rgba(60, 0, 0, 0.75) 100%
+    );
+
+    border-radius: 22px;
+
+    box-shadow:
+            inset 0 1px 0 rgba(255, 120, 120, 0.18),
+            inset 0 -2px 0 rgba(40, 0, 0, 0.55),
+            0 6px 18px rgba(60, 0, 0, 0.75);
+
+    z-index: -1;
 }
 
 .multiplier-chip {
@@ -763,4 +776,170 @@
     :root {
         --reel-gap-num: 5;
     }
+}
+
+
+/* =========================
+   SCATTER — BASE IMAGE SIZE
+   ========================= */
+
+.card.scatter {
+    z-index: 12;
+}
+
+.card.scatter .symbol-img {
+    transform: scale(1.25); /* BASE SIZE — overlaps neighbors */
+    transform-origin: center;
+    position: relative;
+    z-index: 2;
+}
+
+/* =========================
+   SCATTER — IMAGE SHIMMER
+   ========================= */
+
+.card.scatter .symbol-img::after {
+    content: '';
+    position: absolute;
+    inset: -20%;
+    pointer-events: none;
+
+    background: linear-gradient(
+            120deg,
+            rgba(255,255,255,0) 40%,
+            rgba(255,255,255,0.45) 50%,
+            rgba(255,255,255,0) 60%
+    );
+
+    transform: translateX(-140%);
+    animation: scatterShimmer 3.2s ease-in-out infinite;
+
+    z-index: 5;
+}
+
+@keyframes scatterShimmer {
+    0%   { transform: translateX(-140%); }
+    55%  { transform: translateX(140%); }
+    100% { transform: translateX(140%); }
+}
+/* =========================
+   SCATTER — IMAGE HIGHLIGHT
+   ========================= */
+
+.card.scatter.highlight .symbol-img {
+    animation: scatterImagePulse 520ms ease-out forwards;
+
+    filter:
+            drop-shadow(0 0 14px rgba(255, 210, 120, 1))
+            drop-shadow(0 0 28px rgba(255, 160, 60, 0.7));
+}
+
+@keyframes scatterImagePulse {
+    0% {
+        transform: scale(1.5);
+    }
+    55% {
+        transform: scale(1.75);
+    }
+    100% {
+        transform: scale(1.6);
+    }
+}
+/* =========================
+   SCATTER — IDLE BREATHING
+   ========================= */
+
+.card.scatter:not(.highlight) .symbol-img {
+    animation: scatterIdle 900ms ease-in-out infinite;
+}
+
+@keyframes scatterIdle {
+    0% { transform: scale(1.25); }
+    50% { transform: scale(1.35); }
+    100% { transform: scale(1.25); }
+}
+
+/* =========================
+   Free Spins Banner
+   ========================= */
+
+
+.free-spin-banner {
+    transform: translateX(0%) translateY(-55%);
+    /*position: absolute;*/
+    /*top: 8px;*/
+    /*left: 50%;*/
+    /*transform: translateX(-50%);*/
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+
+    z-index: 25;
+    pointer-events: none;
+}
+
+/* Wrapper for layered text */
+.free-spin-text {
+    position: relative;
+    height: 34px;
+}
+
+/* BASE — dark engraved layer (same logic as multiplier-base) */
+.free-spin-base {
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 34px;
+
+    color: #2a170f;
+    position: relative;
+    z-index: 1;
+}
+
+/* FACE — gold gradient (same feel as multiplier-face) */
+.free-spin-face {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 34px;
+
+    background: linear-gradient(
+            180deg,
+            #FFFFAA 0%,
+            #FEFF99 35%,
+            #fadd4d 55%,
+            #fec841 100%
+    );
+
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+}
+
+/* Count — EXACT win overlay face style */
+.free-spin-count {
+    font-size: 32px;
+    font-weight: 900;
+
+    background: linear-gradient(
+            180deg,
+            #fffbe0 0%,
+            #ffe97a 30%,
+            #ffbf2f 55%,
+            #ff8c00 75%,
+            #c64a00 100%
+    );
+
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+
+    /*text-shadow:*/
+    /*        0 0 6px rgba(255, 120, 0, 0.9),*/
+    /*        0 1px 0 rgba(60, 10, 0, 0.85);*/
 }

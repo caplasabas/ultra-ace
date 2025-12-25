@@ -12,8 +12,18 @@ const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kin
 export default function App() {
   const [autoSpin, setAutoSpin] = useState(false)
 
-  const { cascades, spinId, spin, commitSpin, commitWin, spinning, debugInfo, totalWin } =
-    useEngine()
+  const {
+    cascades,
+    spinId,
+    spin,
+    commitSpin,
+    commitWin,
+    spinning,
+    isFreeGame,
+    freeSpinsLeft,
+    debugInfo,
+    totalWin,
+  } = useEngine()
 
   const { phase, activeCascade, previousCascade, cascadeIndex, isIdle } = useCascadeTimeline(
     cascades,
@@ -22,11 +32,11 @@ export default function App() {
   )
 
   const placeholderWindow = adaptWindow([
+    makePlaceholder('A'),
     makePlaceholder('K'),
     makePlaceholder('Q'),
     makePlaceholder('J'),
     makePlaceholder('SPADE'),
-    makePlaceholder('CLUB'),
   ] as any)
 
   const winningPositions = new Set(
@@ -58,21 +68,32 @@ export default function App() {
   }, [autoSpin, isReady, spin])
 
   useEffect(() => {
+    if (!isFreeGame) return
+    if (!isIdle) return
+    if (freeSpinsLeft <= 0) return
+
+    spin()
+  }, [isFreeGame, isIdle, freeSpinsLeft, spin])
+
+  useEffect(() => {
     if (phase !== 'highlight') return
     if (!activeCascade?.win) return
 
     commitWin(activeCascade.win)
   }, [phase])
 
-  const MULTIPLIERS = [1, 2, 3, 5]
+  const BASE_MULTIPLIERS = [1, 2, 3, 5]
+  const FREE_MULTIPLIERS = [2, 4, 6, 10]
+
+  const ladder = isFreeGame ? FREE_MULTIPLIERS : BASE_MULTIPLIERS
 
   function getMultiplierIndex(cascadeIndex: number) {
     if (cascadeIndex < 2) return 0
-    return Math.min(cascadeIndex - 1, MULTIPLIERS.length - 1)
+    return Math.min(cascadeIndex - 1, ladder.length - 1)
   }
 
   const activeMultiplierIndex = getMultiplierIndex(cascadeIndex)
-  const activeMultiplier = MULTIPLIERS[activeMultiplierIndex]
+  const activeMultiplier = ladder[activeMultiplierIndex]
 
   return (
     <div className="game-root">
@@ -80,8 +101,17 @@ export default function App() {
         <div className="top-container">
           <DebugHud info={debugInfo} />
 
-          <div className="multiplier-strip">
-            {MULTIPLIERS.map((m, i) => (
+          <div className="free-spin-banner">
+            <div className="free-spin-text">
+              <span className="free-spin-base">FREE SPINS</span>
+              <span className="free-spin-face">FREE SPINS</span>
+            </div>
+
+            <span className="free-spin-count">{freeSpinsLeft}</span>
+          </div>
+
+          <div className={`multiplier-strip ${isFreeGame ? 'free' : ''}`}>
+            {ladder.map((m, i) => (
               <div
                 key={m}
                 className={['multiplier-chip', i === activeMultiplierIndex && 'current']
@@ -162,13 +192,14 @@ export default function App() {
 
               <button
                 className={`spin-btn spin-image ${autoSpin ? 'active' : ''}`}
-                disabled={!isReady}
+                disabled={!isReady || isFreeGame}
                 onClick={spin}
                 aria-label="Spin"
               />
 
               <button
                 className={`spin-btn auto ${autoSpin ? 'active' : ''}`}
+                disabled={isFreeGame}
                 onClick={() => setAutoSpin(!autoSpin)}
               >
                 {autoSpin ? 'STOP' : 'AUTO'}

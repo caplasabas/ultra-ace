@@ -1,0 +1,50 @@
+import { Symbol } from '../types/symbol.js'
+
+export const REELS_FREE: Symbol[][] = [
+  [
+    { kind: 'SPADE' },
+    { kind: 'HEART' },
+    { kind: 'CLUB' },
+    { kind: 'DIAMOND' },
+    { kind: 'J' },
+    { kind: 'Q' },
+    { kind: 'K' },
+  ],
+  [
+    { kind: 'SPADE' },
+    { kind: 'HEART' },
+    { kind: 'CLUB' },
+    { kind: 'DIAMOND' },
+    { kind: 'J' },
+    { kind: 'Q' },
+    { kind: 'SCATTER' },
+  ],
+  [
+    { kind: 'SPADE' },
+    { kind: 'HEART' },
+    { kind: 'CLUB' },
+    { kind: 'DIAMOND' },
+    { kind: 'J' },
+    { kind: 'Q' },
+    { kind: 'K' },
+    { kind: 'WILD' },
+  ],
+  [
+    { kind: 'SPADE' },
+    { kind: 'HEART' },
+    { kind: 'CLUB' },
+    { kind: 'DIAMOND' },
+    { kind: 'J' },
+    { kind: 'Q' },
+    { kind: 'SCATTER' },
+  ],
+  [
+    { kind: 'SPADE' },
+    { kind: 'HEART' },
+    { kind: 'CLUB' },
+    { kind: 'DIAMOND' },
+    { kind: 'J' },
+    { kind: 'Q' },
+    { kind: 'K' },
+  ],
+]

@@ -42,6 +42,8 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
         const isWin = winningPositions.has(`${reelIndex}-${row}`)
         const isCascadeDeal = isCascadeRefill && symbol.isNew
 
+        const isScatter = symbol.kind === 'SCATTER'
+
         const delay = reelIndex * 140 + (symbols.length - 1 - row) * 55 + row * 6
 
         const dirX = (reelIndex % 2 === 0 ? -1 : 1) * (6 + row * 1.5)
@@ -56,6 +58,7 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
             key={symbol.id}
             className={[
               'card',
+              isScatter && 'scatter',
               symbol.isGold && 'gold',
               symbol.goldToWild && 'gold-to-wild',
               isInitialDeal && 'deal-initial',
@@ -77,9 +80,9 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
               style={
                 isWin && phase === 'highlight'
                   ? ({
-                    '--hx': `${dirX}px`,
-                    '--hy': `${dirY}px`,
-                  } as CSSVars)
+                      '--hx': `${dirX}px`,
+                      '--hy': `${dirY}px`,
+                    } as CSSVars)
                   : undefined
               }
             >

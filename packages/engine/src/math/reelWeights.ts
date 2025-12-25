@@ -10,5 +10,5 @@ export const REEL_WEIGHTS = {
   A: 4,
 
   WILD: 0,
-  SCATTER: 0,
+  SCATTER: 0.015,
 }

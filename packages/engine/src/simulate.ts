@@ -1,62 +1,88 @@
 // src/simulate.ts
-
 import { spin } from './spin.js'
 import { createRNG } from './rng.js'
 import { SIMULATION_CONFIG } from './config/simulate.config.js'
 
 const { spins, betPerSpin, seed, lines } = SIMULATION_CONFIG
-
 const rng = createRNG(seed)
 
-// 📊 Stats
+// ───────────── Stats ─────────────
 let totalBet = 0
-let totalWin = 0
+
+let baseWin = 0
+let freeWin = 0
+
 let hitCount = 0
 let maxWin = 0
+let freeSpins = 0
 
-const symbolRtp: Record<string, number> = {}
+const baseSymbolRtp: Record<string, number> = {}
+const freeSymbolRtp: Record<string, number> = {}
 
 for (let i = 0; i < spins; i++) {
+  // ── BASE SPIN ──
   const outcome = spin(rng, {
     betPerSpin,
     lines,
+    isFreeGame: false,
   })
 
   totalBet += outcome.bet
-  totalWin += outcome.win
+  baseWin += outcome.win
 
-  if (outcome.win > 0) {
-    hitCount++
-    maxWin = Math.max(maxWin, outcome.win)
-  }
+  if (outcome.win > 0) hitCount++
+  maxWin = Math.max(maxWin, outcome.win)
+
+  freeSpins += outcome.freeSpinsAwarded ?? 0
+
   for (const c of outcome.cascades ?? []) {
-    if (c.lineWins.length === 0) continue
+    for (const lw of c.lineWins) {
+      baseSymbolRtp[lw.symbol] = (baseSymbolRtp[lw.symbol] || 0) + lw.payout * c.multiplier
+    }
+  }
 
-    for (const rw of c.lineWins) {
-      symbolRtp[rw.symbol] = (symbolRtp[rw.symbol] || 0) + rw.payout
+  // ── FREE SPINS ──
+  while (freeSpins > 0) {
+    freeSpins--
+
+    const fs = spin(rng, {
+      betPerSpin,
+      lines,
+      isFreeGame: true,
+    })
+
+    freeWin += fs.win
+    maxWin = Math.max(maxWin, fs.win)
+
+    for (const c of fs.cascades ?? []) {
+      for (const lw of c.lineWins) {
+        freeSymbolRtp[lw.symbol] = (freeSymbolRtp[lw.symbol] || 0) + lw.payout * c.multiplier
+      }
     }
   }
 }
 
-// 📈 Final metrics
-const rtp = totalBet > 0 ? totalWin / totalBet : 0
+// ───────────── Final Metrics ─────────────
+const totalWin = baseWin + freeWin
+const baseRtp = baseWin / totalBet
+const freeRtp = freeWin / totalBet
+const totalRtp = totalWin / totalBet
 
-const symbolRtpPct: Record<string, string> = {}
-for (const s in symbolRtp) {
-  symbolRtpPct[s] = ((symbolRtp[s] / totalBet) * 100).toFixed(2) + '%'
+function pct(v: number) {
+  return ((v / totalBet) * 100).toFixed(2) + '%'
 }
 
 console.log({
   spins,
   totalBet,
+  baseWin,
+  freeWin,
   totalWin,
-  rtp: `${(rtp * 100).toFixed(2)}%`,
+  baseRtp: `${(baseRtp * 100).toFixed(2)}%`,
+  freeRtp: `${(freeRtp * 100).toFixed(2)}%`,
+  totalRtp: `${(totalRtp * 100).toFixed(2)}%`,
   hitRate: `${((hitCount / spins) * 100).toFixed(2)}%`,
   maxWin,
-  symbolRtp: symbolRtpPct,
+  baseSymbolRtp: Object.fromEntries(Object.entries(baseSymbolRtp).map(([s, v]) => [s, pct(v)])),
+  freeSymbolRtp: Object.fromEntries(Object.entries(freeSymbolRtp).map(([s, v]) => [s, pct(v)])),
 })
-
-// // 🎯 TARGET BAND (commercial-feeling)
-// if (rtp < 0.88 || rtp > 0.96) {
-//   throw new Error(`RTP out of bounds: ${(rtp * 100).toFixed(2)}%`)
-// }

@@ -22,9 +22,10 @@ export function DebugHud({ info }: Props) {
 
   return (
     <div style={styles.container}>
-      <div style={styles.line}>Seed: {info?.seed}</div>
-      <div style={styles.line}>Bet: {info?.bet}</div>
+      {/*<div style={styles.line}>Seed: {info?.seed}</div>*/}
       <div style={styles.line}>Wins: [{cascadeWinArray}]</div>
+      <div style={styles.line}>Bet: {info?.bet}</div>
+
       <div style={styles.line}>Total Win: {info?.win.toFixed(2)}</div>
     </div>
   )
@@ -38,7 +39,7 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: 'monospace',
     zIndex: 1000,
     width: 'fit-content',
-    margin: '0 auto',
+    // margin: '0 auto',
   },
   line: {
     color: '#0f0',

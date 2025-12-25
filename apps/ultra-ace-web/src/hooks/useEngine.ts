@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { spin, createRNG } from '@ultra-ace/engine'
-import type { CascadeStep } from '@ultra-ace/engine'
+import type { CascadeStep, SpinOutcome } from '@ultra-ace/engine'
 import { DebugSpinInfo } from 'src/debug/DebugHud'
 
 export function useEngine() {
@@ -14,31 +14,39 @@ export function useEngine() {
   const [spinId, setSpinId] = useState(0)
   const [debugInfo, setDebugInfo] = useState<DebugSpinInfo | undefined>(undefined)
 
+  // 🔑 NEW
+  const [isFreeGame, setIsFreeGame] = useState(false)
+  const [freeSpinsLeft, setFreeSpinsLeft] = useState(0)
+
+  const seed = new Date().toISOString()
+  const rng = createRNG(seed)
+  const bet = 5
+
   function spinNow() {
     if (spinning) return
     setSpinning(true)
 
-    const seed = new Date().toISOString()
-    const rng = createRNG(seed)
-
-    const bet = 5
-
-    const result = spin(rng, {
+    const outcome: SpinOutcome = spin(rng, {
       betPerSpin: bet,
       lines: 5,
+      isFreeGame,
     })
 
-    setPendingCascades(result.cascades ?? [])
+    setPendingCascades(outcome.cascades ?? [])
     setSpinId(id => id + 1)
-
     setDebugInfo({
       seed,
       bet,
-      win: result?.win ?? 0,
-      cascadeWins: (result.cascades ?? []).map(c => c.win ?? 0),
+      win: outcome?.win ?? 0,
+      cascadeWins: (outcome.cascades ?? []).map(c => c.win ?? 0),
     })
+    setPendingWin(outcome.win ?? 0)
 
-    setPendingWin(result.win ?? 0)
+    // 🎯 SCATTER → FREE SPINS (base game only)
+    if (!isFreeGame && outcome.freeSpinsAwarded > 0) {
+      setIsFreeGame(true)
+      setFreeSpinsLeft(outcome.freeSpinsAwarded)
+    }
   }
 
   function commitWin(amount: number) {
@@ -51,6 +59,18 @@ export function useEngine() {
     setCommittedCascades(pendingCascades)
     setPendingCascades(null)
     setSpinning(false)
+
+    // 🔁 FREE SPIN LOOP
+    if (isFreeGame) {
+      setFreeSpinsLeft(v => {
+        const next = v - 1
+        if (next <= 0) {
+          setIsFreeGame(false)
+          return 0
+        }
+        return next
+      })
+    }
   }
 
   return {
@@ -59,9 +79,13 @@ export function useEngine() {
     spinId,
     spin: spinNow,
     commitSpin,
-    debugInfo,
     totalWin,
     pendingWin,
     commitWin,
+    debugInfo,
+
+    // 🔑 EXPOSE
+    isFreeGame,
+    freeSpinsLeft,
   }
 }
