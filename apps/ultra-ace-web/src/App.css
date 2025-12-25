@@ -98,7 +98,7 @@
     display: flex;
 
     justify-content: center;
-    padding: 10px 0 0 0;
+    padding: 20px 0 0 0;
     overflow: visible;
 }
 
@@ -569,7 +569,7 @@
 .multiplier-strip {
 
     width: 58%;
-    transform: translateX(36%) translateY(-60%);
+    transform: translateX(36%) translateY(-45%);
 
     align-self: center;
     display: flex;
