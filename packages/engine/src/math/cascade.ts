@@ -1,21 +1,21 @@
-// src/math/cascade.ts
-
 import { Symbol } from '../types/symbol.js'
 import { CascadeStep } from '../types/cascade.js'
 import { evaluateColumnWindow } from './evaluator.columns.js'
 import { GAME_CONFIG } from '../config/game.config.js'
 import { getCascadeMultiplier } from './multiplier.js'
-
 import {
   RED_WILD_CHANCE,
-  MAX_RED_PROPAGATION,
-  RED_PROPAGATION_DIRS,
-  BLOCKED_RED_WILD_KINDS,
+  BIG_JOKER_MIN,
+  BIG_JOKER_MAX,
   DEV_FORCE_RED_WILD,
+  DEV_FORCE_BIG_JOKER,
+  BLOCKED_JOKER_KINDS,
 } from '../config/wild.config.js'
 
 const GOLD_CHANCE_REFILL = 0.06
 const GOLD_TTL = 2
+const MAX_PAYOUT = 2_000_000
+const MAX_MULTIPLIER = 10_000
 
 export function runCascades(initialWindow: Symbol[][], totalBet: number, isFreeGame: boolean) {
   const window = cloneWindow(initialWindow)
@@ -39,18 +39,27 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number, isFreeG
       GAME_CONFIG.multiplierLadderFree,
     )
 
+    if (multiplier >= MAX_MULTIPLIER) break
+
     const { wins } = evaluateColumnWindow(window, totalBet)
     if (wins.length === 0) break
 
-    const resolved = wins.slice(0, 1)
+    const removedSet = new Set<string>()
     const removed: { reel: number; row: number }[] = []
 
-    for (const w of resolved) {
+    let baseWin = 0
+
+    for (const w of wins) {
+      baseWin += w.payout
+
       for (const pos of w.positions) {
+        const key = `${pos.reel}-${pos.row}`
+        if (removedSet.has(key)) continue
+        removedSet.add(key)
+
         const s = window[pos.reel][pos.row]
         const isEdge = pos.reel === 0 || pos.reel === window.length - 1
 
-        // ───────── GOLD CONVERSION ─────────
         if (s.isGold) {
           if (isEdge) {
             window[pos.reel][pos.row] = { kind: 'EMPTY' }
@@ -58,41 +67,38 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number, isFreeG
             continue
           }
 
-          const isRed = DEV_FORCE_RED_WILD || Math.random() < RED_WILD_CHANCE
+          const isRed = DEV_FORCE_RED_WILD || DEV_FORCE_BIG_JOKER || Math.random() < RED_WILD_CHANCE
 
-          const wild: Symbol = {
+          window[pos.reel][pos.row] = {
             kind: 'WILD',
             isWild: true,
             wildColor: isRed ? 'red' : 'blue',
           }
 
-          window[pos.reel][pos.row] = wild
-
           if (isRed) {
-            propagateRedWild(window, pos.reel, pos.row)
+            propagateBigJoker(window)
           }
 
           continue
         }
 
-        // ───────── NORMAL REMOVAL ─────────
         window[pos.reel][pos.row] = { kind: 'EMPTY' }
         removed.push(pos)
       }
     }
 
+    const win = baseWin * multiplier
+    totalWin += win
+
+    if (totalWin >= MAX_PAYOUT) break
+
     refillInPlace(window)
     decayGold(window)
-
-    const baseWin = resolved.reduce((s, w) => s + w.payout, 0)
-    const win = baseWin * multiplier
-
-    totalWin += win
 
     cascades.push({
       index: i,
       multiplier,
-      lineWins: resolved,
+      lineWins: wins,
       win,
       removedPositions: removed,
       window: cloneWindow(window),
@@ -102,42 +108,35 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number, isFreeG
   return { totalWin, cascades }
 }
 
-// ────────────────────────────────────────────
-// RED WILD PROPAGATION
-// ────────────────────────────────────────────
+// ───────── BIG JOKER ─────────
 
-function propagateRedWild(window: Symbol[][], startReel: number, startRow: number) {
-  let propagated = 0
+function propagateBigJoker(window: Symbol[][]) {
+  const candidates: { reel: number; row: number }[] = []
 
-  for (const { dx, dy } of RED_PROPAGATION_DIRS) {
-    if (propagated >= MAX_RED_PROPAGATION) break
-
-    const r = startReel + dx
-    const row = startRow + dy
-
-    if (r < 0 || r >= window.length || row < 0 || row >= window[r].length) {
-      continue
+  for (let reel = 1; reel <= 4; reel++) {
+    for (let row = 0; row < window[reel].length; row++) {
+      const s = window[reel][row]
+      if (!BLOCKED_JOKER_KINDS.has(s.kind)) {
+        candidates.push({ reel, row })
+      }
     }
+  }
 
-    const target = window[r][row]
+  shuffle(candidates)
 
-    if (BLOCKED_RED_WILD_KINDS.has(target.kind)) {
-      continue
-    }
+  const count = BIG_JOKER_MIN + Math.floor(Math.random() * (BIG_JOKER_MAX - BIG_JOKER_MIN + 1))
 
-    window[r][row] = {
+  for (let i = 0; i < Math.min(count, candidates.length); i++) {
+    const { reel, row } = candidates[i]
+    window[reel][row] = {
       kind: 'WILD',
       isWild: true,
       wildColor: 'red',
     }
-
-    propagated++
   }
 }
 
-// ────────────────────────────────────────────
-// REFILL & DECAY (unchanged)
-// ────────────────────────────────────────────
+// ───────── REFILL / DECAY ─────────
 
 function refillInPlace(window: Symbol[][]) {
   for (let r = 0; r < window.length; r++) {
@@ -175,4 +174,11 @@ function decayGold(window: Symbol[][]) {
 
 function cloneWindow(w: Symbol[][]): Symbol[][] {
   return w.map(c => c.map(s => ({ ...s })))
+}
+
+function shuffle<T>(arr: T[]) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
 }

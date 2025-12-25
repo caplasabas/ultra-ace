@@ -3,9 +3,9 @@ import { PAYTABLE } from './paytable.js'
 
 type Position = { reel: number; row: number }
 
-const GROUP_BET_FACTOR = 0.013
 const MIN_COLUMNS = 3
 const MAX_COLUMNS = 5
+const BET_REFERENCE = 0.6
 
 const WILD_ALLOWED_COLUMNS = new Set([1, 2, 3])
 
@@ -15,7 +15,7 @@ export function evaluateColumnWindow(window: Symbol[][], totalBet: number) {
 
   const wins = []
 
-  // Candidates must come from column 0 (NO wilds allowed)
+  // Symbols must originate from reel 0
   const startSymbols = new Set<SymbolKind>()
 
   for (let row = 0; row < rowCount; row++) {
@@ -30,21 +30,21 @@ export function evaluateColumnWindow(window: Symbol[][], totalBet: number) {
     const positions: Position[] = []
 
     for (let reel = 0; reel < reelCount; reel++) {
-      let columnMatched = false
+      let matched = false
 
       for (let row = 0; row < rowCount; row++) {
         const s = window[reel][row]
 
         if (s.kind === symbol) {
-          columnMatched = true
+          matched = true
           positions.push({ reel, row })
         } else if (s.kind === 'WILD' && WILD_ALLOWED_COLUMNS.has(reel)) {
-          columnMatched = true
+          matched = true
           positions.push({ reel, row })
         }
       }
 
-      if (!columnMatched) break
+      if (!matched) break
 
       columns++
       if (columns === MAX_COLUMNS) break
@@ -55,7 +55,7 @@ export function evaluateColumnWindow(window: Symbol[][], totalBet: number) {
     const payMult = PAYTABLE[symbol]?.[columns - 1] ?? 0
     if (payMult <= 0) continue
 
-    const payout = payMult * totalBet * GROUP_BET_FACTOR
+    const payout = (payMult / BET_REFERENCE) * totalBet
 
     wins.push({
       symbol,

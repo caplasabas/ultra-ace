@@ -1,14 +1,13 @@
-// src/config/wild.config.ts
+export const RED_WILD_CHANCE = 0.12
 
-export const RED_WILD_CHANCE = 0.09
-export const MAX_RED_PROPAGATION = 2
+// Big Joker replaces 1–4 symbols
+export const BIG_JOKER_MIN = 1
+export const BIG_JOKER_MAX = 4
 
-// DEV — force every gold → red wild (demo only)
+// Debug flags
 export const DEV_FORCE_RED_WILD = false
+export const DEV_FORCE_BIG_JOKER = false
+export const DEV_FORCE_FREE_RETRIGGER = false
 
-export const RED_PROPAGATION_DIRS = [
-  { dx: 1, dy: 0 }, // RIGHT
-  { dx: 0, dy: 1 }, // DOWN
-]
-
-export const BLOCKED_RED_WILD_KINDS = new Set(['SCATTER', 'WILD'])
+// Big Joker cannot overwrite these
+export const BLOCKED_JOKER_KINDS = new Set(['SCATTER', 'WILD'])
