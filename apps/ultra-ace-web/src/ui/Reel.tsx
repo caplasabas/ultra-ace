@@ -77,9 +77,9 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
               style={
                 isWin && phase === 'highlight'
                   ? ({
-                      '--hx': `${dirX}px`,
-                      '--hy': `${dirY}px`,
-                    } as CSSVars)
+                    '--hx': `${dirX}px`,
+                    '--hy': `${dirY}px`,
+                  } as CSSVars)
                   : undefined
               }
             >

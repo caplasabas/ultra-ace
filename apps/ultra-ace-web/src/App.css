@@ -23,12 +23,12 @@
             (3 * var(--card-gap))
     );
 
-    --dim-top: calc(37px * var(--board-scale));
+    --dim-top: calc(26px * var(--board-scale));
 
     --reel-width-num: 73;
     --reel-gap-num: 10;
 
-    --card-gap: calc(10px * var(--card-scale));
+    --card-gap: calc(3px * var(--card-scale));
 
     /* horizontal centering helper */
     --reels-total-width: calc(
@@ -98,7 +98,7 @@
     display: flex;
 
     justify-content: center;
-    padding: 20px 0 0 0;
+    padding: 14px 0 0 0;
     overflow: visible;
 }
 
@@ -115,7 +115,7 @@
     );
     height: calc(
             var(--reel-height) +
-            var(--highlight-pad) * 2
+            var(--highlight-pad) * 5
     );
 
     overflow: hidden;
@@ -126,15 +126,26 @@
    Reel Row
    ========================= */
 
+/*.reels-row {*/
+/*    position: absolute;*/
+/*    top: calc(var(--highlight-pad) * 2);*/
+/*    left: 50%;*/
+/*    transform: translateX(-50%);*/
+
+/*    width: var(--reels-total-width);*/
+/*    height: var(--reel-height);*/
+
+/*    overflow: visible;*/
+/*}*/
+
 .reels-row {
     position: absolute;
     top: calc(var(--highlight-pad) * 2);
-    left: 50%;
-    transform: translateX(-50%);
+    left: calc(var(--highlight-pad)/2);
+
 
     width: var(--reels-total-width);
     height: var(--reel-height);
-
     overflow: visible;
 }
 /* =========================
@@ -354,7 +365,7 @@
 }
 
 .spin-btn:disabled {
-    opacity: 0.8;
+
     cursor: not-allowed;
 }
 
