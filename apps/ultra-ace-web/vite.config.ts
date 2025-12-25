@@ -4,6 +4,9 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    allowedHosts: ['localhost', 'nontenurially-backbreaking-olga.ngrok-free.app'],
+  },
 
   resolve: {
     alias: {

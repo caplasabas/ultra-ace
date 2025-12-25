@@ -29,9 +29,8 @@ for (let i = 0; i < spins; i++) {
     hitCount++
     maxWin = Math.max(maxWin, outcome.win)
   }
-
   for (const c of outcome.cascades ?? []) {
-    if (c.index === 0) continue
+    if (c.lineWins.length === 0) continue
 
     for (const rw of c.lineWins) {
       symbolRtp[rw.symbol] = (symbolRtp[rw.symbol] || 0) + rw.payout

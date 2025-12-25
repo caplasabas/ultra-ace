@@ -24,7 +24,7 @@ export function DebugHud({ info }: Props) {
     <div style={styles.container}>
       <div style={styles.line}>Seed: {info?.seed}</div>
       <div style={styles.line}>Bet: {info?.bet}</div>
-      <div style={styles.line}>Cascade Wins: [{cascadeWinArray}]</div>
+      <div style={styles.line}>Wins: [{cascadeWinArray}]</div>
       <div style={styles.line}>Total Win: {info?.win.toFixed(2)}</div>
     </div>
   )

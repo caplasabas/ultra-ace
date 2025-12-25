@@ -3,6 +3,7 @@ import { Symbol } from '../types/symbol.js'
 import { CascadeStep } from '../types/cascade.js'
 import { evaluateColumnWindow } from './evaluator.columns.js'
 import { GAME_CONFIG } from '../config/game.config.js'
+import { getCascadeMultiplier } from './multiplier.js'
 
 const GOLD_CHANCE_REFILL = 0.06
 const GOLD_TTL = 2
@@ -12,6 +13,7 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number) {
   let totalWin = 0
   const cascades: CascadeStep[] = []
 
+  // Base spin (index 0)
   cascades.push({
     index: 0,
     multiplier: 1,
@@ -22,25 +24,21 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number) {
   })
 
   for (let i = 1; i <= GAME_CONFIG.maxCascades; i++) {
-    const multiplier =
-      GAME_CONFIG.multiplierLadder[Math.min(i - 1, GAME_CONFIG.multiplierLadder.length - 1)]
+    const multiplier = getCascadeMultiplier(i)
 
-    const { wins } = evaluateColumnWindow(window, totalBet * multiplier)
+    // 🔑 evaluate using BASE bet only
+    const { wins } = evaluateColumnWindow(window, totalBet)
     if (wins.length === 0) break
 
-    // Commercial rule: resolve ONLY best win
     const resolved = wins.slice(0, 1)
     const removed: { reel: number; row: number }[] = []
 
-    /* ============================
-       1️⃣ REMOVE WINNING SYMBOLS
-       ============================ */
+    /* 1️⃣ REMOVE WINNING SYMBOLS */
     for (const w of resolved) {
       for (const pos of w.positions) {
         const s = window[pos.reel][pos.row]
         const isEdgeColumn = pos.reel === 0 || pos.reel === window.length - 1
 
-        // GOLD → WILD (only in columns 2–4)
         if (s.isGold) {
           if (!isEdgeColumn) {
             window[pos.reel][pos.row] = { kind: 'WILD' }
@@ -56,17 +54,17 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number) {
       }
     }
 
-    /* ============================
-       2️⃣ REFILL EMPTY SLOTS IN PLACE
-       ============================ */
+    /* 2️⃣ REFILL */
     refillInPlace(window)
 
-    /* ============================
-       3️⃣ GOLD DECAY
-       ============================ */
+    /* 3️⃣ GOLD DECAY */
     decayGold(window)
 
-    const win = resolved.reduce((sum, w) => sum + w.payout, 0)
+    const RTP_SCALAR = 0.97
+
+    const baseWin = resolved.reduce((sum, w) => sum + w.payout, 0)
+    const win = baseWin * multiplier * RTP_SCALAR
+
     totalWin += win
 
     cascades.push({
