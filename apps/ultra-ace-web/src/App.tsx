@@ -105,14 +105,13 @@ export default function App() {
     if (!isIdle) return
     if (freeSpinsLeft <= 0) return
 
-    const t = setTimeout(
-      () => {
+    if (freeSpinsLeft > 9) {
+      setAutoSpin(false)
+    } else {
+      const t = setTimeout(() => {
         spin()
-      },
-      freeSpinsLeft >= 9 ? 600 : 0,
-    )
-
-    return () => clearTimeout(t)
+      }, 300)
+    }
   }, [isFreeGame, isIdle, freeSpinsLeft, spin])
 
   useEffect(() => {
@@ -234,7 +233,7 @@ export default function App() {
 
               <button
                 className={`spin-btn spin-image ${autoSpin ? 'active' : ''}`}
-                disabled={!isReady || isFreeGame}
+                disabled={!isReady || (isFreeGame && freeSpinsLeft < 10)}
                 onClick={spin}
                 aria-label="Spin"
               />

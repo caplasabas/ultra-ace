@@ -99,9 +99,20 @@ export function useCascadeTimeline(cascades: CascadeStep[], spinId: number, onCo
         }, 900)
         break
 
-      case 'highlight':
-        t = window.setTimeout(() => dispatch({ type: 'NEXT', phase: 'pop' }), 1500)
+      case 'highlight': {
+        const hasLineWins = activeCascade?.lineWins?.length
+        const hasScatterWin =
+          activeCascade?.window?.flat().filter(s => s.kind === 'SCATTER').length >= 3
+
+        t = window.setTimeout(() => {
+          if (hasScatterWin && !hasLineWins) {
+            dispatch({ type: 'NEXT', phase: 'settle' })
+          } else {
+            dispatch({ type: 'NEXT', phase: 'pop' })
+          }
+        }, 1200)
         break
+      }
 
       case 'pop':
         t = window.setTimeout(() => dispatch({ type: 'NEXT', phase: 'cascadeRefill' }), 260)
