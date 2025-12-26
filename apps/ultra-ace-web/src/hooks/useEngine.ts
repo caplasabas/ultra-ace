@@ -18,6 +18,8 @@ export function useEngine() {
   const [isFreeGame, setIsFreeGame] = useState(false)
   const [freeSpinsLeft, setFreeSpinsLeft] = useState(0)
 
+  const [pendingFreeSpins, setPendingFreeSpins] = useState(0)
+
   const seed = new Date().toISOString()
   const rng = createRNG(seed)
   const bet = 5
@@ -43,10 +45,9 @@ export function useEngine() {
     })
     setPendingWin(outcome.win ?? 0)
 
-    // 🎯 SCATTER → FREE SPINS (base game only)
+    // // 🎯 SCATTER → FREE SPINS (base game only)
     if (!isFreeGame && outcome.freeSpinsAwarded > 0) {
-      setIsFreeGame(true)
-      setFreeSpinsLeft(outcome.freeSpinsAwarded)
+      setPendingFreeSpins(outcome.freeSpinsAwarded)
     }
   }
 
@@ -60,6 +61,13 @@ export function useEngine() {
     setCommittedCascades(pendingCascades)
     setPendingCascades(null)
     setSpinning(false)
+
+    if (!isFreeGame && pendingFreeSpins > 0) {
+      setIsFreeGame(true)
+      setFreeSpinsLeft(pendingFreeSpins)
+      setPendingFreeSpins(0)
+      return
+    }
 
     // 🔁 FREE SPIN LOOP
     if (isFreeGame) {

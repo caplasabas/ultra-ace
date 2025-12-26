@@ -53,9 +53,28 @@ export default function App() {
     makePlaceholder('SPADE'),
   ] as any)
 
-  const winningPositions = new Set(
-    activeCascade?.lineWins.flatMap(lw => lw.positions.map(p => `${p.reel}-${p.row}`)) ?? [],
-  )
+  const hasScatterWin =
+    activeCascade &&
+    activeCascade.window &&
+    activeCascade.window.flat().filter(s => s.kind === 'SCATTER').length >= 3
+
+  const winningPositions = new Set<string>()
+
+  // normal symbol wins
+  activeCascade?.lineWins?.forEach(lw => {
+    lw.positions.forEach(p => winningPositions.add(`${p.reel}-${p.row}`))
+  })
+
+  // scatter win (no lineWins)
+  if (hasScatterWin && activeCascade?.window) {
+    activeCascade.window.forEach((col, reel) => {
+      col.forEach((s, row) => {
+        if (s.kind === 'SCATTER') {
+          winningPositions.add(`${reel}-${row}`)
+        }
+      })
+    })
+  }
 
   const windowForRender =
     phase === 'highlight' || phase === 'pop' ? previousCascade?.window : activeCascade?.window
@@ -86,7 +105,14 @@ export default function App() {
     if (!isIdle) return
     if (freeSpinsLeft <= 0) return
 
-    spin()
+    const t = setTimeout(
+      () => {
+        spin()
+      },
+      freeSpinsLeft >= 9 ? 600 : 0,
+    )
+
+    return () => clearTimeout(t)
   }, [isFreeGame, isIdle, freeSpinsLeft, spin])
 
   useEffect(() => {

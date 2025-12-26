@@ -98,6 +98,109 @@
     display: flex;
 
     justify-content: center;
+    padding: 20px 0 0 0;
+    overflow: visible;
+}:root {
+     /* reference width of your original design */
+     --design-width: 430px;
+
+     /* scale factor (never zero, never NaN) */
+     --board-scale: min(1.01, calc(100vw / var(--design-width)));
+
+     --card-scale: calc(1.15 * var(--board-scale));
+
+     --card-width: 64px;
+     --card-height: 86px;
+
+     --scaled-card-width: calc(var(--card-width) * var(--card-scale));
+     --scaled-card-height: calc(var(--card-height) * var(--card-scale));
+
+     --reel-count: 5;
+     --reel-width: calc(73px * var(--board-scale));
+     --reel-gap: calc(10px * var(--board-scale));
+     --highlight-pad: calc(10px * var(--board-scale));
+
+     --reel-height: calc(
+             (4 * var(--scaled-card-height)) +
+             (3 * var(--card-gap))
+     );
+
+     --dim-top: calc(33px * var(--board-scale));
+
+     --reel-width-num: 73;
+     --reel-gap-num: 10;
+
+     --card-gap: calc(3px * var(--card-scale));
+
+     /* horizontal centering helper */
+     --reels-total-width: calc(
+             var(--reel-count) * var(--reel-width) +
+             (var(--reel-count) - 1) * var(--reel-gap)
+     );
+ }
+
+/* =========================
+   Root – centers frame
+   ========================= */
+
+.game-root {
+    position: fixed;
+    inset: 0;
+
+    width: 100vw;
+    height: 100vh;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    overflow: hidden;
+}
+
+/* =========================
+   Phone-style Frame
+   ========================= */
+
+.game-frame {
+    max-height: 100vh;
+    max-width: 100vw;
+
+    overflow: hidden;
+
+    width: min(430px, 100vw);
+
+    height: min(100vh, 900px);
+
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+
+    box-sizing: border-box;
+    padding: 5px 0;
+
+
+    background-image: url('./assets/images/bg-frame.png');
+    background-size: 100% 100%;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-color: #0f3e4b;
+    background-origin: content-box;
+    background-clip: content-box;
+    will-change: background-image;
+}
+
+/* =========================
+   Reel Stage
+   ========================= */
+
+.reels-stage {
+    position: relative; /* stacking root for dim */
+    width: 100%;
+    display: flex;
+
+    justify-content: center;
+    padding: 20px 0 0 0;
     overflow: visible;
 }
 
@@ -106,7 +209,6 @@
    ========================= */
 
 .reels-clip {
-    transform: translateY(7%);
     position: relative;
     width: calc(
             var(--reel-count) * var(--reel-width) +
@@ -117,6 +219,924 @@
             var(--reel-height) +
             var(--highlight-pad) * 7
     );
+
+    overflow: hidden;
+
+}
+
+/* =========================
+   Reel Row
+   ========================= */
+
+/*.reels-row {*/
+/*    position: absolute;*/
+/*    top: calc(var(--highlight-pad) * 2);*/
+/*    left: 50%;*/
+/*    transform: translateX(-50%);*/
+
+/*    width: var(--reels-total-width);*/
+/*    height: var(--reel-height);*/
+
+/*    overflow: visible;*/
+/*}*/
+
+.reels-row {
+    position: absolute;
+    top: calc(var(--highlight-pad) * 3);
+    left: calc(var(--highlight-pad));
+
+
+    width: var(--reels-total-width);
+    height: var(--reel-height);
+    overflow: visible;
+}
+/* =========================
+   Reel Container
+   ========================= */
+
+.reel {
+    position: absolute;
+    width: var(--reel-width);
+    height: var(--reel-height);
+    top: 0;
+    left: 0;
+
+}
+
+/* =========================
+   OLD reels sweep out
+   ========================= */
+
+.reel.sweep-out-old {
+    animation: oldReelDown 500ms cubic-bezier(0.3, 0.0, 0.6, 1) forwards;
+}
+
+@keyframes oldReelDown {
+    0% {
+        transform: translate3d(0, 0%, 0);
+        filter: blur(0px);
+    }
+    40% {
+        filter: blur(3px);
+    }
+    100% {
+        transform: translate3d(0, 140%, 0);
+        filter: blur(8px);
+        opacity: 0;
+    }
+}
+/* =========================
+   Cards
+   ========================= */
+
+.card {
+    position: absolute;
+
+    width: var(--scaled-card-width);
+    height: var(--scaled-card-height);
+
+    /*background: #e4e8ec;*/
+    border-radius: 6px;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    will-change: transform, opacity;
+    transform: translate3d(0, 0, 0);
+    z-index: 2; /* BELOW dim */
+}
+
+/* =========================
+   Initial / Cascade Deal
+   ========================= */
+
+.card.deal {
+    animation: dealIn 320ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-fill-mode: both;
+}
+
+@keyframes dealIn {
+    from {
+        opacity: 0;
+        transform: translate3d(0, -120%, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+.card.deal-initial {
+    opacity: 0;
+    animation: dealInitial 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+@keyframes dealInitial {
+    from {
+        opacity: 0;
+        transform: translateY(-320px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* =========================
+   Pop / Remove
+   ========================= */
+
+.card.pop {
+    animation: popOut 220ms ease-in forwards;
+}
+
+@keyframes popOut {
+    to {
+        opacity: 0;
+        transform: translate3d(0, 0px, 0) scale(0);
+    }
+}
+
+/* =========================
+   Card Inner (highlight layer)
+   ========================= */
+
+.card-inner {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* =========================
+   Highlight (ABOVE dim)
+   ========================= */
+
+.card.highlight {
+    z-index: 4;
+}
+
+.card-inner.highlight {
+    position: relative;
+    z-index: 4;
+
+    animation: highlightPulse 380ms ease-out forwards;
+    box-shadow: 0 0 18px rgba(255, 216, 77, 0.9);
+}
+
+@keyframes highlightPulse {
+    0% {
+        transform: scale(1);
+    }
+    60% {
+        transform: scale(1.15);
+    }
+    100% {
+        transform: scale(1.05);
+    }
+}
+
+/* =========================
+   Symbols
+   ========================= */
+
+.symbol-img {
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+/* =========================
+   Dim Overlay (covers cards)
+   ========================= */
+
+.dim-zone {
+    position: relative;
+    width: 100%;
+    flex: 1;
+    z-index: 0;
+}
+
+.dim {
+    position: absolute;
+    top: var(--dim-top);
+    left: 0;
+    right: 0;
+    bottom: 0;
+
+    background: rgba(0, 0, 0, 0);
+    pointer-events: none;
+
+    transition: background 250ms ease;
+    z-index: 3; /* BETWEEN cards and highlight */
+}
+
+.dim.active {
+    background: rgba(0, 0, 0, 0.55);
+}
+
+.win-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 30;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.win-burst {
+    position: relative;
+    font-size: clamp(52px, 7vw, 84px);
+    font-weight: 900;
+    /*letter-spacing: -em;*/
+    transform-origin: center;
+}
+
+/* =========================
+   BACK GLOW (CENTER ONLY)
+   ========================= */
+.win-glow {
+    position: absolute;
+    inset: -5%;
+    z-index: 0;
+
+    background: radial-gradient(
+            circle at center,
+            rgba(206, 161, 46, 0.88) 0%,
+            rgba(255, 115, 0, 0.53) 30%,
+            rgba(255, 138, 0, 0.22) 48%,
+            rgba(255, 120, 0, 0.12) 60%
+    );
+
+    filter: blur(4px);
+}
+
+
+/* =========================
+   MAIN FACE (REAL GRADIENT)
+   ========================= */
+.win-face {
+    position: relative;
+    z-index: 2;
+
+    font-weight: 900;
+
+    /* GOLD GRADIENT — THIS WILL NOW SHOW */
+    background: linear-gradient(
+            180deg,
+            #fff86b 0%,
+            #ffd400 32%,
+            #ffb000 58%,
+            #ff8a00 78%,
+            #c64a00 100%
+    );
+
+    -webkit-background-clip: text;
+    background-clip: text;
+
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+
+    /* RED OUTLINE */
+    -webkit-text-stroke: 3px #b32a00;
+
+    /*!* DEPTH *!*/
+    /*text-shadow:*/
+    /*        0 2px 0 rgba(90, 30, 0, 0.85),*/
+    /*        0 6px 10px rgba(0, 0, 0, 0.35);*/
+}
+
+/* =========================
+   ANIMATIONS (unchanged)
+   ========================= */
+.win-burst.highlight {
+    animation: winPop 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.win-burst.pop {
+    animation: winDisappear 260ms ease-in forwards;
+}
+
+@keyframes winPop {
+    0% {
+        transform: scale(0.55);
+        opacity: 0;
+        letter-spacing: 0.04em;
+    }
+    45% {
+        transform: scale(1.75);
+        opacity: 1;
+        letter-spacing: -0.04em;
+    }
+    70% {
+        transform: scale(1.55);
+    }
+    100% {
+        transform: scale(1.45);
+        letter-spacing: -0.015em;
+    }
+}
+
+@keyframes winDisappear {
+    to {
+        opacity: 0;
+        transform: scale(0);
+    }
+}
+
+
+/* =========================
+   UI Containers
+   ========================= */
+
+.top-container {
+    width: 100%;
+    height: 30vh;
+}
+
+.bottom-container {
+    width: 100%;
+    height: 30vh;
+    padding: 20px 0 40px 0;
+}
+
+/* =========================
+   Buttons
+   ========================= */
+
+.spin-btn {
+    /*display: flex;*/
+    /*margin: 0 auto;*/
+
+    border-radius: 100px;
+    justify-content: center;
+    align-items: center;
+    font-size: 10px;
+}
+
+.spin-btn:disabled {
+
+    cursor: not-allowed;
+}
+
+.spin-btn.active {
+    background-color: #d33;
+    color: #fff;
+}
+
+.spin-btn.turbo {
+    height: 55px;
+    width: 55px;
+    opacity: 0.5;
+}
+.spin-btn.audio {
+    font-size: 28px;   /* ← increase this */
+    width: 48px;
+    height: 48px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+.spin-btn.auto {
+    height: 55px;
+    width: 55px;
+}
+
+
+
+.spin-btn.spin-image {
+    width: 96px;
+    height: 96px;
+
+    background-image: url('./assets/images/spin.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+
+    border: none;
+    background-color: transparent;
+
+    cursor: pointer;
+    padding: 0;
+
+    transition:
+            transform 120ms ease,
+            filter 120ms ease
+    /*opacity 120ms ease;*/
+}
+
+
+.spin-btn.spin-image:active:not(:disabled) {
+    transform: scale(0.94);
+    filter: brightness(0.9);
+}
+
+
+.spin-btn.spin-image:disabled {
+    opacity: 0.65;
+    filter: grayscale(0.4);
+    cursor: not-allowed;
+    transform: none;
+}
+
+
+.spin-btn.spin-image.active {
+    filter: drop-shadow(0 0 10px rgba(255, 60, 0, 0.8));
+}
+
+
+/* =========================
+   Win Display
+   ========================= */
+
+.win-display {
+    height: 32px;
+    margin-bottom: 8px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.win-amount {
+    font-size: 20px;
+    font-weight: 700;
+    color: #ffd84d;
+    text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
+}
+
+.win-placeholder {
+    font-size: 18px;
+    opacity: 0.4;
+}
+
+/* =========================
+   Multiplier Strip
+*/
+.multiplier-strip {
+
+    width: 58%;
+    transform: translateX(36%) translateY(-45%);
+
+    align-self: center;
+    display: flex;
+
+    justify-content: space-evenly;
+
+    align-items: center;
+
+    z-index: 6; /* ABOVE dim, ABOVE reels */
+    pointer-events: none;
+}
+
+/* =========================
+   Multiplier Strip – Free Spin Tint
+   ========================= */
+
+.multiplier-strip.free::before {
+    content: '';
+    position: absolute;
+    inset: -6px -12px;
+
+    background: linear-gradient(
+            180deg,
+            rgba(80, 0, 0, 0.75) 0%,
+            rgba(120, 0, 0, 0.85) 45%,
+            rgba(60, 0, 0, 0.75) 100%
+    );
+
+    border-radius: 22px;
+
+    box-shadow:
+            inset 0 1px 0 rgba(255, 120, 120, 0.18),
+            inset 0 -2px 0 rgba(40, 0, 0, 0.55),
+            0 6px 18px rgba(60, 0, 0, 0.75);
+
+    z-index: -1;
+}
+
+.multiplier-chip {
+    position: relative;
+    min-width: 46px;
+    height: 34px;
+    text-align: center;
+}
+
+.multiplier-base {
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 34px;
+
+    color: #2a170f; /* darker than before */
+    position: relative;
+    z-index: 1;
+
+
+}
+
+.multiplier-face {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 34px;
+
+    /* VERY SUBTLE GOLD FACE */
+    background: linear-gradient(
+            180deg,
+            #FFFFAA 0%,
+            #FEFF99 35%,
+            #fadd4d 55%,
+            #fec841 100%
+    );
+
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+
+    opacity: 0;
+}
+
+.multiplier-chip.current .multiplier-face {
+    opacity: 1;
+
+    /*text-shadow:*/
+    /*        0 -1px 0 rgba(255, 255, 255, 0.35), !* top highlight *!*/
+    /*        0  1px 0 rgba(120, 50, 0, 0.75);    !* bottom depth *!*/
+    animation: multiplierTick 240ms ease-out;
+}
+
+.multiplier-chip.current .multiplier-base {
+    /* keep it, do NOT hide it */
+    color: #a61608;
+    /* single emboss shadow */
+    text-shadow:
+            0 2px 1px rgba(168, 22, 8, 0.9);
+}
+
+.multiplier-base,
+.multiplier-face {
+    line-height: 34px; /* match chip height */
+}
+
+@keyframes multiplierTick {
+    0%   { transform: scale(0.9); }
+    60%  { transform: scale(1.35); }
+    100% { transform: scale(1.25); }
+}
+
+
+/* =========================
+   Gold → Wild conversion
+   ========================= */
+
+.card.gold-to-wild {
+    animation: goldToWild 220ms ease-out;
+}
+
+@keyframes goldToWild {
+    0% {
+        transform: scale(1);
+        filter: brightness(1.4);
+    }
+    60% {
+        transform: scale(1.25);
+        filter: brightness(2);
+    }
+    100% {
+        transform: scale(1);
+        filter: brightness(1);
+    }
+}
+
+/* =========================
+   Gold Shimmer Overlay
+   ========================= */
+
+.card.gold .card-inner {
+    position: relative;
+    overflow: hidden;
+}
+
+.card.gold .card-inner::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+
+    background: linear-gradient(
+            120deg,
+            rgba(255,255,255,0) 42%,
+            rgba(255,255,255,0.35) 50%,
+            rgba(255,255,255,0) 58%
+    );
+
+    transform: translateX(-120%);
+    animation: goldShimmer 2.4s ease-in-out infinite;
+
+    z-index: 20; /* ABOVE image, BELOW highlight */
+}
+
+@keyframes goldShimmer {
+    0%   { transform: translateX(-120%); }
+    60%  { transform: translateX(120%); }
+    100% { transform: translateX(120%); }
+}
+
+/* =========================
+   Gold → Wild Flip
+   ========================= */
+
+/* ✅ CORRECT: flip ONLY from back → wild */
+.card.flip-to-wild {
+    animation: goldFlip 260ms ease-in-out;
+    transform-style: preserve-3d;
+}
+
+@keyframes goldFlip {
+    0% {
+        transform: rotateY(0deg);
+        filter: brightness(1.1);
+    }
+    50% {
+        transform: rotateY(90deg);
+        filter: brightness(2);
+    }
+    100% {
+        transform: rotateY(0deg);
+        filter: brightness(1);
+    }
+}
+
+/* Desktop / wide aspect */
+@media (min-aspect-ratio: 4/3) {
+    :root {
+        --reel-gap-num: 10;
+    }
+}
+
+/* Phone / tall aspect */
+@media (max-aspect-ratio: 4/3) {
+    :root {
+        --reel-gap-num: 5;
+    }
+}
+
+
+.card.wild .symbol-img {
+    transform: scale(1.15);
+    transform-origin: center;
+    position: relative;
+    z-index: 2;
+}
+
+/* 🔴 RED WILD */
+
+.card.wild-red {
+    z-index: 9;
+}
+
+.card.wild-red .symbol-img {
+    transform: scale(1.2);
+    filter:
+            drop-shadow(0 0 5px rgba(255, 60, 60, 0.9))
+            drop-shadow(0 0 10px rgba(255, 0, 0, 0.6));
+}
+
+/* Spawn / propagation pop */
+.card.wild-red.deal .symbol-img {
+    animation: redWildSpawn 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes redWildSpawn {
+    0% {
+        transform: scale(0.65);
+        opacity: 0;
+    }
+    60% {
+        transform: scale(1.45);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1.2);
+    }
+}
+
+/* Idle breathing */
+.card.wild-red:not(.pop) .symbol-img {
+    animation: redWildIdle 1200ms ease-in-out infinite;
+}
+
+@keyframes redWildIdle {
+    0%   { transform: scale(1.1); }
+    50%  { transform: scale(1.15); }
+    100% { transform: scale(1.1); }
+}
+
+/* =========================
+   SCATTER — BASE IMAGE SIZE
+   ========================= */
+
+.card.scatter {
+    z-index: 30;
+}
+
+.card.scatter .symbol-img {
+    transform: scale(1.25); /* BASE SIZE — overlaps neighbors */
+    transform-origin: center;
+    position: relative;
+    z-index: 2;
+    filter:
+            drop-shadow(0 0 7px rgba(255, 233, 122, 0.9))
+            drop-shadow(0 0 16px rgba(255, 140, 0, 0.6));
+}
+
+/* =========================
+   SCATTER — IMAGE SHIMMER
+   ========================= */
+
+.card.scatter .symbol-img::after {
+    content: '';
+    position: absolute;
+    inset: -20%;
+    pointer-events: none;
+
+    background: linear-gradient(
+            120deg,
+            rgba(255,255,255,0) 40%,
+            rgba(255,255,255,0.45) 50%,
+            rgba(255,255,255,0) 60%
+    );
+
+    transform: translateX(-140%);
+    animation: scatterShimmer 3.2s ease-in-out infinite;
+
+    z-index: 5;
+}
+
+@keyframes scatterShimmer {
+    0%   { transform: translateX(-140%); }
+    55%  { transform: translateX(140%); }
+    100% { transform: translateX(140%); }
+}
+/* =========================
+   SCATTER — IMAGE HIGHLIGHT
+   ========================= */
+
+.card.scatter.highlight .symbol-img {
+    animation: scatterImagePulse 520ms ease-out forwards;
+
+    filter:
+            drop-shadow(0 0 14px rgba(255, 210, 120, 1))
+            drop-shadow(0 0 28px rgba(255, 160, 60, 0.7));
+}
+
+@keyframes scatterImagePulse {
+    0% {
+        transform: scale(1.5);
+    }
+    55% {
+        transform: scale(1.75);
+    }
+    100% {
+        transform: scale(1.6);
+    }
+}
+/* =========================
+   SCATTER — IDLE BREATHING
+   ========================= */
+
+.card.scatter:not(.highlight) .symbol-img {
+    animation: scatterIdle 900ms ease-in-out infinite;
+}
+
+@keyframes scatterIdle {
+    0% { transform: scale(1.25); }
+    50% { transform: scale(1.35); }
+    100% { transform: scale(1.25); }
+}
+
+/* =========================
+   Free Spins Banner
+   ========================= */
+
+
+.free-spin-banner {
+    transform: translateX(0%) translateY(-55%);
+    /*position: absolute;*/
+    /*top: 8px;*/
+    /*left: 50%;*/
+    /*transform: translateX(-50%);*/
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+
+    z-index: 25;
+    pointer-events: none;
+}
+
+.free-spin-text.base {
+    margin-top: 4px;
+    padding-bottom: 10px;
+    transform: scale(1.25);
+}
+
+/* Wrapper for layered text */
+.free-spin-text {
+    position: relative;
+    height: 34px;
+}
+
+/* BASE — dark engraved layer (same logic as multiplier-base) */
+.free-spin-base {
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 34px;
+
+    color: #2a170f;
+    position: relative;
+    z-index: 1;
+}
+
+/* FACE — gold gradient (same feel as multiplier-face) */
+.free-spin-face {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 34px;
+
+    background: linear-gradient(
+            180deg,
+            #FFFFAA 0%,
+            #FEFF99 35%,
+            #fadd4d 55%,
+            #fec841 100%
+    );
+
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+}
+
+/* Count — EXACT win overlay face style */
+.free-spin-count {
+    font-size: 32px;
+    font-weight: 900;
+
+    background: linear-gradient(
+            180deg,
+            #fffbe0 0%,
+            #ffe97a 30%,
+            #ffbf2f 55%,
+            #ff8c00 75%,
+            #c64a00 100%
+    );
+
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+
+    /*text-shadow:*/
+    /*        0 0 6px rgba(255, 120, 0, 0.9),*/
+    /*        0 1px 0 rgba(60, 10, 0, 0.85);*/
+}
+
+
+/* =========================
+   Reel Clip (mask + stacking root)
+   ========================= */
+
+.reels-clip {
+    position: relative;
+
+    width: calc(
+            var(--reel-count) * var(--reel-width) +
+            (var(--reel-count) - 1) * var(--reel-gap) +
+            var(--highlight-pad) * 2
+    );
+    height: calc(
+            var(--reel-height) +
+            var(--highlight-pad) * 7
+    );
+
+  margin-top: 10px;
 
     overflow: hidden;
 
@@ -528,7 +1548,7 @@
     transition:
             transform 120ms ease,
             filter 120ms ease
-            /*opacity 120ms ease;*/
+    /*opacity 120ms ease;*/
 }
 
 
@@ -557,7 +1577,7 @@
 
 .win-display {
     height: 32px;
-    margin-top: 15px;
+    margin-bottom: 8px;
 
     display: flex;
     align-items: center;
@@ -565,11 +1585,10 @@
 }
 
 .win-amount {
-    font-size: 24px;
+    font-size: 20px;
     font-weight: 700;
     color: #ffd84d;
     text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
-
 }
 
 .win-placeholder {

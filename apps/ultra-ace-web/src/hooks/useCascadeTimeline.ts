@@ -87,7 +87,11 @@ export function useCascadeTimeline(cascades: CascadeStep[], spinId: number, onCo
 
       case 'initialRefill':
         t = window.setTimeout(() => {
-          if (nextCascade?.lineWins?.length) {
+          const hasSymbolWin = nextCascade?.lineWins?.length
+          const hasScatterWin =
+            nextCascade?.window?.flat().filter(s => s.kind === 'SCATTER').length >= 3
+
+          if (hasSymbolWin || hasScatterWin) {
             dispatch({ type: 'ADVANCE', cascades })
           } else {
             dispatch({ type: 'NEXT', phase: 'settle' })
