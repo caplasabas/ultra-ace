@@ -177,7 +177,7 @@ export default function App() {
 
           <div className="bottom-container">
             <div className="win-display">
-              <span className="win-amount">Win: {formatPeso(activeCascade?.win ?? 0)}</span>
+              <span className="win-amount">Win: {formatPeso(totalWin ?? 0)}</span>
             </div>
             <div
               style={{

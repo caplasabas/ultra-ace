@@ -24,6 +24,7 @@ export function useEngine() {
 
   function spinNow() {
     if (spinning) return
+    setTotalWin(0)
     setSpinning(true)
 
     const outcome: SpinOutcome = spin(rng, {
