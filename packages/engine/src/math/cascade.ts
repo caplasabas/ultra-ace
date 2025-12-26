@@ -13,7 +13,7 @@ import {
 } from '../config/wild.config.js'
 
 const GOLD_CHANCE_REFILL = 0.06
-const GOLD_TTL = 2
+const GOLD_TTL = 0
 const MAX_PAYOUT = 2_000_000
 const MAX_MULTIPLIER = 10_000
 
@@ -93,7 +93,7 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number, isFreeG
     if (totalWin >= MAX_PAYOUT) break
 
     refillInPlace(window)
-    decayGold(window)
+    // decayGold(window)
 
     cascades.push({
       index: i,
@@ -157,20 +157,20 @@ function refillInPlace(window: Symbol[][]) {
     }
   }
 }
-
-function decayGold(window: Symbol[][]) {
-  for (const col of window) {
-    for (const s of col) {
-      if (s.isGold && typeof s.goldTTL === 'number') {
-        s.goldTTL--
-        if (s.goldTTL <= 0) {
-          delete s.isGold
-          delete s.goldTTL
-        }
-      }
-    }
-  }
-}
+//
+// function decayGold(window: Symbol[][]) {
+//   for (const col of window) {
+//     for (const s of col) {
+//       if (s.isGold && typeof s.goldTTL === 'number') {
+//         s.goldTTL--
+//         if (s.goldTTL <= 0) {
+//           delete s.isGold
+//           delete s.goldTTL
+//         }
+//       }
+//     }
+//   }
+// }
 
 function cloneWindow(w: Symbol[][]): Symbol[][] {
   return w.map(c => c.map(s => ({ ...s })))

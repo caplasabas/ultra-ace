@@ -7,8 +7,8 @@ import { GAME_CONFIG } from './config/game.config.js'
 import { DEV_FORCE_FREE_RETRIGGER } from './config/wild.config.js'
 import type { Symbol } from './types/symbol.js'
 
-const GOLD_CHANCE_INITIAL = 0.04
-const GOLD_TTL = 2
+const GOLD_CHANCE_INITIAL = 0.03
+const GOLD_TTL = 0
 const FORBIDDEN_GOLD_REELS = new Set([0, 4])
 
 export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
