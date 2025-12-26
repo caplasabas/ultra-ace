@@ -6,6 +6,7 @@ import { adaptWindow } from './game/adaptWindow'
 import { useCascadeTimeline } from './hooks/useCascadeTimeline'
 import { DebugHud } from './debug/DebugHud'
 import { useEffect, useState } from 'react'
+import { formatPeso } from '@ultra-ace/engine'
 
 const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kind }))
 
@@ -176,7 +177,7 @@ export default function App() {
 
           <div className="bottom-container">
             <div className="win-display">
-              <span className="win-amount">Win: {totalWin.toFixed(2)}</span>
+              <span className="win-amount">Win: {formatPeso(totalWin)}</span>
             </div>
             <div
               style={{

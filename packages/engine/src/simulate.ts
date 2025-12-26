@@ -2,6 +2,7 @@
 import { spin } from './spin.js'
 import { createRNG } from './rng.js'
 import { SIMULATION_CONFIG } from './config/simulate.config.js'
+import { formatPeso } from './utils/currency.js'
 
 const { spins, betPerSpin, seed, lines } = SIMULATION_CONFIG
 const rng = createRNG(seed)
@@ -73,16 +74,16 @@ function pct(v: number) {
 }
 
 console.log({
-  spins,
-  totalBet,
-  baseWin,
-  freeWin,
-  totalWin,
+  spins: formatPeso(spins, false, true),
+  totalBet: formatPeso(totalBet),
+  baseWin: formatPeso(baseWin),
+  freeWin: formatPeso(freeWin),
+  totalWin: formatPeso(totalWin),
   baseRtp: `${(baseRtp * 100).toFixed(2)}%`,
   freeRtp: `${(freeRtp * 100).toFixed(2)}%`,
   totalRtp: `${(totalRtp * 100).toFixed(2)}%`,
   hitRate: `${((hitCount / spins) * 100).toFixed(2)}%`,
-  maxWin,
+  maxWin: formatPeso(maxWin),
   baseSymbolRtp: Object.fromEntries(Object.entries(baseSymbolRtp).map(([s, v]) => [s, pct(v)])),
   freeSymbolRtp: Object.fromEntries(Object.entries(freeSymbolRtp).map(([s, v]) => [s, pct(v)])),
 })

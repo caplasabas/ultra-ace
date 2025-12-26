@@ -6,6 +6,7 @@
 export { spin } from './spin.js'
 export { createRNG } from './rng.js'
 
+export { formatPeso } from './utils'
 // ─────────────────────────────────────────────
 // Game configuration / constants
 // ─────────────────────────────────────────────

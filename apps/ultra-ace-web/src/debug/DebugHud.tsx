@@ -1,4 +1,5 @@
 import { CSSProperties } from 'react'
+import { formatPeso } from '@ultra-ace/engine'
 
 export interface DebugSpinInfo {
   seed: string
@@ -16,7 +17,7 @@ export function DebugHud({ info }: Props) {
     info?.cascadeWins && info.cascadeWins.length > 1
       ? info.cascadeWins
           .slice(1) // ⬅ start from cascade #2
-          .map(w => w.toFixed(2))
+          .map(w => formatPeso(w))
           .join(', ')
       : '—'
 
@@ -26,7 +27,7 @@ export function DebugHud({ info }: Props) {
       <div style={styles.line}>Wins: [{cascadeWinArray}]</div>
       <div style={styles.line}>Bet: {info?.bet}</div>
 
-      <div style={styles.line}>Total Win: {info?.win.toFixed(2)}</div>
+      <div style={styles.line}>Total Win: {formatPeso(info?.win ?? 0)}</div>
     </div>
   )
 }
