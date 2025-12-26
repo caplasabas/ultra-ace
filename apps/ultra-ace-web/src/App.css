@@ -98,7 +98,6 @@
     display: flex;
 
     justify-content: center;
-    padding: 20px 0 0 0;
     overflow: visible;
 }
 
@@ -107,6 +106,7 @@
    ========================= */
 
 .reels-clip {
+    transform: translateY(7%);
     position: relative;
     width: calc(
             var(--reel-count) * var(--reel-width) +
@@ -140,7 +140,7 @@
 
 .reels-row {
     position: absolute;
-    top: calc(var(--highlight-pad) * 3);
+    top: calc(var(--highlight-pad) * 1.5);
     left: calc(var(--highlight-pad));
 
 
@@ -557,7 +557,7 @@
 
 .win-display {
     height: 32px;
-    margin-bottom: 8px;
+    margin-top: 15px;
 
     display: flex;
     align-items: center;
@@ -565,10 +565,11 @@
 }
 
 .win-amount {
-    font-size: 20px;
+    font-size: 24px;
     font-weight: 700;
     color: #ffd84d;
     text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
+
 }
 
 .win-placeholder {
