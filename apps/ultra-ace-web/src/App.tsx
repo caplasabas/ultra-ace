@@ -102,12 +102,12 @@ export default function App() {
           <DebugHud info={debugInfo} />
 
           <div className="free-spin-banner">
-            <div className="free-spin-text">
-              <span className="free-spin-base">FREE SPINS</span>
-              <span className="free-spin-face">FREE SPINS</span>
+            <div className={`free-spin-text ${!isFreeGame ? 'base' : ''}`}>
+              <span className="free-spin-base">{isFreeGame ? 'FREE SPINS' : 'SuperAce'}</span>
+              <span className="free-spin-face">{isFreeGame ? 'FREE SPINS' : 'SuperAce'}</span>
             </div>
 
-            <span className="free-spin-count">{freeSpinsLeft}</span>
+            <span className="free-spin-count">{isFreeGame && freeSpinsLeft}</span>
           </div>
 
           <div className={`multiplier-strip ${isFreeGame ? 'free' : ''}`}>
@@ -177,7 +177,7 @@ export default function App() {
 
           <div className="bottom-container">
             <div className="win-display">
-              <span className="win-amount">Win: {formatPeso(totalWin)}</span>
+              <span className="win-amount">Win: {formatPeso(activeCascade?.win ?? 0)}</span>
             </div>
             <div
               style={{

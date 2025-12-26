@@ -85,7 +85,7 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
             style={{
               top: `calc(${row} * (var(--scaled-card-height) + var(--card-gap)))`,
               animationDelay: isInitialDeal || isCascadeDeal ? `${delay}ms` : '0ms',
-              zIndex: isWin ? 10 : 1,
+              zIndex: phase === 'highlight' && isWin ? 10 : 1,
             }}
           >
             <div

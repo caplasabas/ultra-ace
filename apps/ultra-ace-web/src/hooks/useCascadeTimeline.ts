@@ -110,7 +110,7 @@ export function useCascadeTimeline(cascades: CascadeStep[], spinId: number, onCo
           } else {
             dispatch({ type: 'NEXT', phase: 'settle' })
           }
-        }, 1100)
+        }, 800)
         break
 
       case 'settle':
