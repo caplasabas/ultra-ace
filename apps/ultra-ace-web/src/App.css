@@ -490,7 +490,19 @@
     width: 55px;
     opacity: 0.5;
 }
+.spin-btn.audio {
+    font-size: 28px;   /* ← increase this */
+    width: 48px;
+    height: 48px;
 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
 .spin-btn.auto {
     height: 55px;
     width: 55px;

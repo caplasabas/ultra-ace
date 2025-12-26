@@ -204,7 +204,7 @@ export default function App() {
               <button className="spin-btn audio" onClick={() => setAudioOn(v => !v)}>
                 {audioOn ? '🔊' : '🔇'}
               </button>
-              <button className={`spin-btn turbo`}>Turbo</button>
+              {/*<button className={`spin-btn turbo`}>Turbo</button>*/}
 
               <button
                 className={`spin-btn spin-image ${autoSpin ? 'active' : ''}`}
