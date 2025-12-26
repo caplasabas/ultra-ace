@@ -247,6 +247,7 @@ export default function App() {
                   gap: 15,
                   alignItems: 'center',
                   paddingTop: 10,
+                  marginTop: -10,
                 }}
               >
                 <button className="spin-btn audio" onClick={() => setAudioOn(v => !v)}>
