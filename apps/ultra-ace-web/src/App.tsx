@@ -7,11 +7,24 @@ import { useCascadeTimeline } from './hooks/useCascadeTimeline'
 import { DebugHud } from './debug/DebugHud'
 import { useEffect, useState } from 'react'
 import { formatPeso } from '@ultra-ace/engine'
+import { useBackgroundAudio } from './audio/useBackgroundAudio'
+import BGM from './assets/audio/bgm.mp3'
 
 const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kind }))
 
 export default function App() {
   const [autoSpin, setAutoSpin] = useState(false)
+
+  const [audioOn, setAudioOn] = useState(() => {
+    const saved = localStorage.getItem('audioOn')
+    return saved ? saved === 'true' : true
+  })
+
+  useEffect(() => {
+    localStorage.setItem('audioOn', String(audioOn))
+  }, [audioOn])
+
+  useBackgroundAudio(BGM, audioOn, 0.4)
 
   const {
     cascades,
@@ -188,6 +201,9 @@ export default function App() {
                 paddingTop: 10,
               }}
             >
+              <button className="spin-btn audio" onClick={() => setAudioOn(v => !v)}>
+                {audioOn ? '🔊' : '🔇'}
+              </button>
               <button className={`spin-btn turbo`}>Turbo</button>
 
               <button
