@@ -15,8 +15,8 @@
 
     --reel-count: 5;
     --reel-width: calc(73px * var(--board-scale));
-    --reel-gap: calc(10px * var(--board-scale));
-    --highlight-pad: calc(10px * var(--board-scale));
+    --reel-gap: calc(11px * var(--board-scale));
+    --highlight-pad: calc(8px * var(--board-scale));
 
     --reel-height: calc(
             (4 * var(--scaled-card-height)) +
@@ -88,7 +88,7 @@
     overflow: visible;
     margin-top: -0.5vh;
 
-    height: 55vh;
+    height: 54.2vh;
 }
 
 /* =========================
@@ -270,7 +270,7 @@
     z-index: 4;
 
     animation: highlightPulse 380ms ease-out forwards;
-    box-shadow: 0 0 18px rgba(255, 216, 77, 0.9);
+    box-shadow: 0 0 16px rgba(255, 216, 77, 0.9);
 }
 
 @keyframes highlightPulse {
@@ -484,7 +484,7 @@
     cursor: not-allowed;
 }
 
-.spin-btn.active {
+.spin-btn.auto.active {
     background-color: #500000;
     color: #ffd84d;
     font-weight: bold;
