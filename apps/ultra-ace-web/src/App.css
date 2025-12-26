@@ -86,9 +86,9 @@
 
     /*justify-content: center;*/
     overflow: visible;
-    margin-top: -0.5vh;
+    margin-top: -0.8vh;
 
-    height: 54.2vh;
+    height: 53vh;
 }
 
 /* =========================
@@ -104,7 +104,7 @@
     );
     height: calc(
             var(--reel-height) +
-            var(--highlight-pad) * 7
+            var(--highlight-pad) * 5
     );
 
     overflow: hidden;
@@ -651,11 +651,11 @@
    Multiplier Strip
 */
 .multiplier-strip {
-
+    position: relative;
     width: 58%;
     /*margin: 0 auto;*/
 
-    margin-bottom: 1.5vh;
+    /*margin-top: 1.5vh;*/
     /*transform: translateX(36%) translateY(10%);*/
 
     align-self: center;
@@ -667,6 +667,7 @@
 
     z-index: 6; /* ABOVE dim, ABOVE reels */
     pointer-events: none;
+
 }
 
 /* =========================
@@ -676,7 +677,7 @@
 .multiplier-strip.free::before {
     content: '';
     position: absolute;
-    inset: -6px -12px;
+    inset: -7px -12px;
 
     background: linear-gradient(
             180deg,
@@ -755,6 +756,7 @@
     /* single emboss shadow */
     text-shadow:
             0 2px 1px rgba(168, 22, 8, 0.9);
+    z-index: 2;
 }
 
 .multiplier-base,
@@ -1026,6 +1028,7 @@
     transform: scale(1.35);
     font-weight: bold;
     letter-spacing: -0.05em;
+    margin-top: -0.75rem;
 }
 
 /* Wrapper for layered text */
