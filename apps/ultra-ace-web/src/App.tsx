@@ -252,7 +252,10 @@ export default function App() {
                 <button className="spin-btn audio" onClick={() => setAudioOn(v => !v)}>
                   {audioOn ? '🔊' : '🔇'}
                 </button>
-                {/*<button className={`spin-btn turbo`}>Turbo</button>*/}
+
+                <div className="bet-display">
+                  Bet: <span className="bet-amount">{formatPeso(bet ?? 0)}</span>
+                </div>
 
                 <button
                   className={`spin-btn spin-image ${autoSpin ? 'active' : ''}`}
@@ -269,6 +272,10 @@ export default function App() {
                   onClick={() => setAutoSpin(!autoSpin)}
                 >
                   {autoSpin ? 'STOP' : 'AUTO'}
+                </button>
+
+                <button className={`spin-btn turbo`} disabled={true}>
+                  Turbo
                 </button>
               </div>
               <div className="balance-display">

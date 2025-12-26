@@ -497,14 +497,16 @@
 }
 
 .spin-btn.active {
-    background-color: #d33;
-    color: #fff;
+    background-color: #500000;
+    color: #ffd84d;
+    font-weight: bold;
 }
 
 .spin-btn.turbo {
-    height: 55px;
-    width: 55px;
+    height: 40px;
+    width: 40px;
     opacity: 0.5;
+    font-size: 8px;
 }
 .spin-btn.audio {
     font-size: 28px;   /* ← increase this */
@@ -520,10 +522,12 @@
     cursor: pointer;
 }
 .spin-btn.auto {
-    height: 55px;
-    width: 55px;
+    height: 35px;
+    width: 35px;
+    font-size: 7px;
+    background-color: #ffd84d;
+    color: #500000;
 }
-
 
 
 .spin-btn.spin-image {
@@ -584,15 +588,7 @@
 }
 
 
-.add-btn {
-    border-radius: 100px;
-    width: 40px;
-    height: 40px;
-    font-size:10px;
-    margin-left: 5px;
-    border: 1px solid #ffd84d;
-    background-color: transparent;
-}
+
 
 
 .win-amount {
@@ -607,6 +603,16 @@
     opacity: 0.4;
 }
 
+
+.add-btn {
+    border-radius: 100px;
+    width: 40px;
+    height: 40px;
+    font-size:10px;
+    margin-left: 5px;
+    border: 1px solid #ffd84d;
+    background-color: transparent;
+}
 
 
 /* =========================
@@ -631,6 +637,23 @@
 .balance-placeholder {
     font-size: 18px;
     opacity: 0.4;
+}
+
+
+
+.bet-display {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    font-size: 13px;
+    color: white;
+
+}
+
+.bet-amount {
+    color: #ffd84d;
+    text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
 }
 
 /* =========================
