@@ -7,6 +7,8 @@ export function useEngine() {
   const [committedCascades, setCommittedCascades] = useState<CascadeStep[]>([])
   const [pendingCascades, setPendingCascades] = useState<CascadeStep[] | null>(null)
 
+  const [bet, setBet] = useState(5)
+  const [balance, setBalance] = useState(1000)
   const [totalWin, setTotalWin] = useState(0)
   const [pendingWin, setPendingWin] = useState(0)
 
@@ -22,10 +24,9 @@ export function useEngine() {
 
   const seed = new Date().toISOString()
   const rng = createRNG(seed)
-  const bet = 5
 
   function spinNow() {
-    if (spinning) return
+    if (spinning || balance < bet || balance === 0) return
     setTotalWin(0)
     setSpinning(true)
 
@@ -34,6 +35,8 @@ export function useEngine() {
       lines: 5,
       isFreeGame,
     })
+
+    setBalance(balance - bet)
 
     setPendingCascades(outcome.cascades ?? [])
     setSpinId(id => id + 1)
@@ -88,6 +91,10 @@ export function useEngine() {
     spinId,
     spin: spinNow,
     commitSpin,
+    balance,
+    setBalance,
+    bet,
+    setBet,
     totalWin,
     pendingWin,
     commitWin,

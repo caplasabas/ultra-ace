@@ -36,7 +36,7 @@ const styles: Record<string, CSSProperties> = {
   container: {
     position: 'absolute',
     top: 0,
-    left: 0,
+    // left: 0,
     padding: 8,
     backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: 6,

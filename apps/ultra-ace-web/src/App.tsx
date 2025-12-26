@@ -46,6 +46,10 @@ export default function App() {
     freeSpinsLeft,
     debugInfo,
     totalWin,
+    balance,
+    setBalance,
+    bet,
+    setBet,
   } = useEngine()
 
   const { phase, activeCascade, previousCascade, cascadeIndex, isIdle } = useCascadeTimeline(
@@ -128,6 +132,8 @@ export default function App() {
     if (!activeCascade?.win) return
 
     commitWin(activeCascade.win)
+
+    setBalance(balance + (activeCascade?.win ?? 0))
   }, [phase])
 
   const BASE_MULTIPLIERS = [1, 2, 3, 5]
@@ -232,7 +238,7 @@ export default function App() {
 
             <div className="bottom-container">
               <div className="win-display">
-                <span className="win-amount">Win: {formatPeso(totalWin ?? 0)}</span>
+                WIN: <span className="win-amount"> {formatPeso(totalWin ?? 0)}</span>
               </div>
               <div
                 style={{
@@ -250,17 +256,25 @@ export default function App() {
 
                 <button
                   className={`spin-btn spin-image ${autoSpin ? 'active' : ''}`}
-                  disabled={!isReady || (isFreeGame && freeSpinsLeft < 10)}
+                  disabled={
+                    !isReady || balance === 0 || balance < bet || (isFreeGame && freeSpinsLeft < 10)
+                  }
                   onClick={spin}
                   aria-label="Spin"
                 />
 
                 <button
                   className={`spin-btn auto ${autoSpin ? 'active' : ''}`}
-                  disabled={isFreeGame}
+                  disabled={isFreeGame || balance === 0 || balance < bet}
                   onClick={() => setAutoSpin(!autoSpin)}
                 >
                   {autoSpin ? 'STOP' : 'AUTO'}
+                </button>
+              </div>
+              <div className="balance-display">
+                BALANCE: <span className="balance-amount">{formatPeso(balance ?? 0)}</span>
+                <button className="add-btn" onClick={() => setBalance(balance + 20)}>
+                  +{formatPeso(20)}
                 </button>
               </div>
             </div>
