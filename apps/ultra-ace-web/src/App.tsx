@@ -89,6 +89,21 @@ export default function App() {
     })
   }
 
+  if (activeCascade?.window) {
+    activeCascade.window.forEach((col, reel) => {
+      if (reel !== 4) return
+
+      col.forEach((s, row) => {
+        if (s.kind !== 'WILD') return
+
+        // highlight only if same row has a real win earlier
+        if (winningPositions.has(`3-${row}`) || winningPositions.has(`2-${row}`)) {
+          winningPositions.add(`4-${row}`) // UI-only
+        }
+      })
+    })
+  }
+
   const windowForRender =
     phase === 'highlight' || phase === 'pop' ? previousCascade?.window : activeCascade?.window
 

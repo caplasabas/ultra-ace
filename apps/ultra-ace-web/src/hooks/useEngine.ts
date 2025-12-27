@@ -36,7 +36,9 @@ export function useEngine() {
       isFreeGame,
     })
 
-    setBalance(balance - bet)
+    if (!isFreeGame) {
+      setBalance(balance - bet)
+    }
 
     setPendingCascades(outcome.cascades ?? [])
     setSpinId(id => id + 1)
