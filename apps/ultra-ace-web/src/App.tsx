@@ -228,6 +228,7 @@ export default function App() {
                     [
                       'initialRefill',
                       'cascadeRefill',
+                      'postGoldTransform',
                       'highlight',
                       'pop',
                       'settle',

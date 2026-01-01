@@ -13,8 +13,15 @@ export type SymbolKind =
 
 export interface Symbol {
   kind: SymbolKind
+
+  /* GOLD */
   isGold?: boolean
   goldTTL?: number
+
+  /* WILD */
   isWild?: boolean
   wildColor?: 'blue' | 'red'
+
+  /* 🔑 UI-ONLY METADATA */
+  fromGold?: boolean
 }

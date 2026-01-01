@@ -12,7 +12,7 @@ import {
   BLOCKED_JOKER_KINDS,
 } from '../config/wild.config.js'
 
-const GOLD_CHANCE_REFILL = 0.06
+const GOLD_CHANCE_REFILL = 1
 const GOLD_TTL = 0
 const MAX_PAYOUT = 2_000_000
 const MAX_MULTIPLIER = 10_000
@@ -46,7 +46,6 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number, isFreeG
 
     const removedSet = new Set<string>()
     const removed: { reel: number; row: number }[] = []
-
     let baseWin = 0
 
     for (const w of wins) {
@@ -60,6 +59,7 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number, isFreeG
         const s = window[pos.reel][pos.row]
         const isEdge = pos.reel === 0 || pos.reel === window.length - 1
 
+        /* ───────── GOLD → WILD (IMMEDIATE) ───────── */
         if (s.isGold) {
           if (isEdge) {
             window[pos.reel][pos.row] = { kind: 'EMPTY' }
@@ -73,15 +73,16 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number, isFreeG
             kind: 'WILD',
             isWild: true,
             wildColor: isRed ? 'red' : 'blue',
+
+            // 🔑 UI animation hook
+            fromGold: true,
           }
 
-          if (isRed) {
-            propagateBigJoker(window)
-          }
-
+          if (isRed) propagateBigJoker(window)
           continue
         }
 
+        /* ───────── NORMAL REMOVAL ───────── */
         window[pos.reel][pos.row] = { kind: 'EMPTY' }
         removed.push(pos)
       }
@@ -89,11 +90,9 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number, isFreeG
 
     const win = baseWin * multiplier
     totalWin += win
-
     if (totalWin >= MAX_PAYOUT) break
 
     refillInPlace(window)
-    // decayGold(window)
 
     cascades.push({
       index: i,
@@ -108,7 +107,7 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number, isFreeG
   return { totalWin, cascades }
 }
 
-// ───────── BIG JOKER ─────────
+/* ───────── BIG JOKER ───────── */
 
 function propagateBigJoker(window: Symbol[][]) {
   const candidates: { reel: number; row: number }[] = []
@@ -136,7 +135,7 @@ function propagateBigJoker(window: Symbol[][]) {
   }
 }
 
-// ───────── REFILL / DECAY ─────────
+/* ───────── REFILL ───────── */
 
 function refillInPlace(window: Symbol[][]) {
   for (let r = 0; r < window.length; r++) {
@@ -157,20 +156,6 @@ function refillInPlace(window: Symbol[][]) {
     }
   }
 }
-//
-// function decayGold(window: Symbol[][]) {
-//   for (const col of window) {
-//     for (const s of col) {
-//       if (s.isGold && typeof s.goldTTL === 'number') {
-//         s.goldTTL--
-//         if (s.goldTTL <= 0) {
-//           delete s.isGold
-//           delete s.goldTTL
-//         }
-//       }
-//     }
-//   }
-// }
 
 function cloneWindow(w: Symbol[][]): Symbol[][] {
   return w.map(c => c.map(s => ({ ...s })))

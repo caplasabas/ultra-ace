@@ -29,6 +29,7 @@ type CSSVars = CSSProperties & {
 export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Props) {
   const isInitialDeal = layer === 'new' && phase === 'initialRefill'
   const isCascadeRefill = layer === 'new' && phase === 'cascadeRefill'
+  const isFlipPhase = phase === 'postGoldTransform'
 
   return (
     <div
@@ -43,20 +44,23 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
         const isWin = winningPositions.has(`${reelIndex}-${row}`)
         const isCascadeDeal = isCascadeRefill && symbol.isNew
 
-        const isWild = symbol.kind === 'WILD'
-        const isRedWild = isWild && symbol.wildColor === 'red'
-        const isScatter = symbol.kind === 'SCATTER'
+        const isBack = symbol.kind === 'BACK'
+        const shouldFlip = isFlipPhase && symbol.goldToWild === true
 
         const delay = reelIndex * 140 + (symbols.length - 1 - row) * 55 + row * 6
 
-        const dirX = (reelIndex % 2 === 0 ? -1 : 1) * (6 + row * 1.5)
-        const dirY = (row % 2 === 0 ? -1 : 1) * (6 + reelIndex * 1.2)
+        /* ----------------------------------
+           IMAGE RESOLUTION (KEY FIX)
+        ---------------------------------- */
 
-        const imgSrc =
-          symbol.kind === 'WILD'
-            ? symbol.wildColor === 'red'
-              ? SYMBOL_MAP.WILD_RED.normal
-              : SYMBOL_MAP.WILD.normal
+        const showWildFace = shouldFlip
+
+        const imgSrc = showWildFace
+          ? symbol.wildColor === 'red'
+            ? SYMBOL_MAP.WILD_RED.normal
+            : SYMBOL_MAP.WILD.normal
+          : isBack
+            ? SYMBOL_MAP.BACK.normal
             : symbol.isGold && SYMBOL_MAP[symbol.kind]?.gold
               ? SYMBOL_MAP[symbol.kind].gold
               : SYMBOL_MAP[symbol.kind].normal
@@ -67,18 +71,19 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
             className={[
               'card',
 
-              isScatter && 'scatter',
-
-              isWild && 'wild',
-              isRedWild && 'wild-red',
+              isBack && 'back',
+              showWildFace && 'wild',
+              showWildFace && symbol.wildColor === 'red' && 'wild-red',
 
               symbol.isGold && 'gold',
-              symbol.goldToWild && 'gold-to-wild',
 
               isInitialDeal && 'deal-initial',
               isCascadeDeal && 'deal',
 
               isWin && phase === 'pop' && 'pop',
+
+              // ✅ flip happens on SAME NODE
+              shouldFlip && 'flip-to-wild',
             ]
               .filter(Boolean)
               .join(' ')}
@@ -89,14 +94,18 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
             }}
           >
             <div
-              className={['card-inner', isWin && phase === 'highlight' && 'highlight']
+              className={[
+                'card-inner',
+                isBack && isCascadeRefill && 'highlight',
+                isWin && phase === 'highlight' && 'highlight',
+              ]
                 .filter(Boolean)
                 .join(' ')}
               style={
                 isWin && phase === 'highlight'
                   ? ({
-                      '--hx': `${dirX}px`,
-                      '--hy': `${dirY}px`,
+                      '--hx': `${(reelIndex % 2 ? 1 : -1) * 6}px`,
+                      '--hy': `${(row % 2 ? 1 : -1) * 6}px`,
                     } as CSSVars)
                   : undefined
               }

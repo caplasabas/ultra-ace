@@ -8,6 +8,7 @@ export type CascadePhase =
   | 'highlight'
   | 'pop'
   | 'cascadeRefill'
+  | 'postGoldTransform' // ✅ NEW
   | 'settle'
 
 interface State {
@@ -33,7 +34,7 @@ function reducer(state: State, action: Action): State {
       return {
         phase: 'reelSweepOut',
         index: 0,
-        previous: state.previous ?? action.cascades[action.cascades.length - 1],
+        previous: action.cascades[action.cascades.length - 1],
       }
 
     case 'NEXT':
@@ -87,11 +88,8 @@ export function useCascadeTimeline(cascades: CascadeStep[], spinId: number, onCo
 
       case 'initialRefill':
         t = window.setTimeout(() => {
-          const hasSymbolWin = nextCascade?.lineWins?.length
-          const hasScatterWin =
-            nextCascade?.window?.flat().filter(s => s.kind === 'SCATTER').length >= 3
-
-          if (hasSymbolWin || hasScatterWin) {
+          const hasWin = nextCascade?.lineWins?.length
+          if (hasWin) {
             dispatch({ type: 'ADVANCE', cascades })
           } else {
             dispatch({ type: 'NEXT', phase: 'settle' })
@@ -99,20 +97,11 @@ export function useCascadeTimeline(cascades: CascadeStep[], spinId: number, onCo
         }, 900)
         break
 
-      case 'highlight': {
-        const hasLineWins = activeCascade?.lineWins?.length
-        const hasScatterWin =
-          activeCascade?.window?.flat().filter(s => s.kind === 'SCATTER').length >= 3
-
+      case 'highlight':
         t = window.setTimeout(() => {
-          if (hasScatterWin && !hasLineWins) {
-            dispatch({ type: 'NEXT', phase: 'settle' })
-          } else {
-            dispatch({ type: 'NEXT', phase: 'pop' })
-          }
+          dispatch({ type: 'NEXT', phase: 'pop' })
         }, 1200)
         break
-      }
 
       case 'pop':
         t = window.setTimeout(() => dispatch({ type: 'NEXT', phase: 'cascadeRefill' }), 260)
@@ -120,12 +109,32 @@ export function useCascadeTimeline(cascades: CascadeStep[], spinId: number, onCo
 
       case 'cascadeRefill':
         t = window.setTimeout(() => {
-          if (cascades[state.index + 1]?.lineWins?.length) {
+          const hasGoldToWild =
+            activeCascade?.window?.some((col, r) =>
+              col.some((s, c) => {
+                const prev = previousCascade?.window?.[r]?.[c]
+                return prev?.isGold === true && s.kind === 'WILD'
+              }),
+            ) ?? false
+
+          if (hasGoldToWild) {
+            dispatch({ type: 'NEXT', phase: 'postGoldTransform' })
+          } else if (nextCascade?.lineWins?.length) {
             dispatch({ type: 'ADVANCE', cascades })
           } else {
             dispatch({ type: 'NEXT', phase: 'settle' })
           }
         }, 1100)
+        break
+
+      case 'postGoldTransform':
+        t = window.setTimeout(() => {
+          if (nextCascade?.lineWins?.length) {
+            dispatch({ type: 'ADVANCE', cascades })
+          } else {
+            dispatch({ type: 'NEXT', phase: 'settle' })
+          }
+        }, 420)
         break
 
       case 'settle':

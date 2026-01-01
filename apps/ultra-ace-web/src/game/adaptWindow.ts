@@ -21,10 +21,18 @@ export function adaptWindow(
 
       return {
         id: `${reelIndex}-${row}`,
-        kind: symbol.kind,
+
+        // 🔒 LOCKED VISUAL KIND
+        // BACK stays BACK through the entire flip
+        kind: goldToWild ? 'BACK' : symbol.kind,
+
         isNew: removedSet.has(`${reelIndex}-${row}`),
-        isGold: symbol.isGold === true,
+
+        // GOLD never returns after BACK
+        isGold: symbol.isGold === true && !goldToWild,
         goldTTL: symbol.goldTTL,
+
+        // 🔑 metadata only
         goldToWild,
         wildColor: symbol.wildColor,
       }
