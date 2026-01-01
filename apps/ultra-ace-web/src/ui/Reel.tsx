@@ -44,6 +44,8 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
         const isWin = winningPositions.has(`${reelIndex}-${row}`)
         const isCascadeDeal = isCascadeRefill && symbol.isNew
 
+        const isScatter = symbol.kind === 'SCATTER'
+
         const isBack = symbol.kind === 'BACK'
         const shouldFlip = isFlipPhase && symbol.goldToWild === true
 
@@ -77,6 +79,7 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
 
               symbol.isGold && 'gold',
 
+              isScatter && 'scatter',
               isInitialDeal && 'deal-initial',
               isCascadeDeal && 'deal',
 
