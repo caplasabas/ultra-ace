@@ -26,15 +26,13 @@ export function adaptWindow(
        * 🔒 GOLD → WILD is a ONE-TIME TRANSITION
        * Flip ONLY during postGoldTransform
        */
-      const shouldFlip = wasGold === true && becameWild === true && phase === 'postGoldTransform'
+      const shouldFlip = wasGold && becameWild && phase === 'postGoldTransform'
 
       /**
        * 🔒 BACK is shown ONLY before flip
        */
       const visualKind =
-        wasGold === true && becameWild === true && phase !== 'postGoldTransform'
-          ? 'BACK'
-          : symbol.kind
+        wasGold && becameWild && phase !== 'postGoldTransform' ? 'BACK' : symbol.kind
 
       /**
        * 🔒 Once flipped, the wild is SETTLED forever

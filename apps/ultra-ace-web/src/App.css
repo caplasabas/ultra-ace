@@ -47,6 +47,11 @@
     );
 }
 
+.font-plasma {
+    font-family: 'Plasma', system-ui, sans-serif;
+    letter-spacing: -0.04em;
+}
+
 /* =========================
    Root – centers frame
    ========================= */
@@ -450,6 +455,7 @@
     font-weight: 900;
     /*letter-spacing: -em;*/
     transform-origin: center;
+    transform: scale(1.85);
 }
 
 /* =========================
@@ -457,19 +463,33 @@
    ========================= */
 .win-glow {
     position: absolute;
-    inset: -5%;
+    width: 175px;
+    height: 175px;
+
+    left: 50%;
+    top: 46%;
+
+    /*transform: translate(-50%, -50%);*/
+
+    border-radius: 50%;
     z-index: 0;
 
     background: radial-gradient(
             circle at center,
-            rgba(206, 161, 46, 0.88) 0%,
-            rgba(255, 115, 0, 0.53) 30%,
-            rgba(255, 138, 0, 0.22) 48%,
-            rgba(255, 120, 0, 0.12) 60%
+            rgba(206, 161, 46, 0.95) 0%,
+            rgba(255, 145, 0, 0.75) 28%,
+            rgba(255, 120, 0, 0.45) 45%,
+            rgba(255, 100, 0, 0.2) 60%,
+            rgba(255, 100, 0, 0.0) 75%
     );
 
-    filter: blur(4px);
+    filter: blur(6px);
+    pointer-events: none;
+    transform:
+            translate(-50%, -50%)
+            scale(calc(1 / var(--win-scale, 1)));
 }
+
 
 
 /* =========================
@@ -510,7 +530,7 @@
    ANIMATIONS (unchanged)
    ========================= */
 .win-burst.highlight {
-    animation: winPop 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation: winPop 680ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .win-burst.pop {
@@ -519,21 +539,24 @@
 
 @keyframes winPop {
     0% {
+        --win-scale: 0.55;
         transform: scale(0.55);
-        opacity: 0;
-        letter-spacing: 0.04em;
     }
-    45% {
-        transform: scale(1.75);
-        opacity: 1;
-        letter-spacing: -0.04em;
+    38% {
+        --win-scale: 1.85;
+        transform: scale(1.85);
     }
-    70% {
-        transform: scale(1.55);
+    55% {
+        --win-scale: 1.45;
+        transform: scale(1.45);
+    }
+    72% {
+        --win-scale: 1.65;
+        transform: scale(1.65);
     }
     100% {
+        --win-scale: 1.45;
         transform: scale(1.45);
-        letter-spacing: -0.015em;
     }
 }
 
@@ -694,17 +717,23 @@
     gap: 5px;
     font-size: 20px;
     font-weight: 700;
-    color: white;
+    color: #ffd84d;
+    text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
 }
 
 
 
 
 
+.win-amount,
+.win-face {
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.04em;
+}
 .win-amount {
 
-    color: #ffd84d;
-    text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
+    color: white;
+
 
 }
 
@@ -735,14 +764,16 @@
     justify-content: center;
     gap: 5px;
     font-size: 13px;
-    color: white;
+
+    color: #ffd84d;
+    text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
     margin-top: -0.5rem;
 
 }
 
 .balance-amount {
-    color: #ffd84d;
-    text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
+    color: white;
+    font-weight: bold;
 }
 
 .balance-placeholder {
@@ -763,7 +794,7 @@
 }
 
 .bet-amount {
-    color: #ffd84d;
+    color: white;
     text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
 }
 
@@ -883,6 +914,7 @@
 
 .multiplier-base,
 .multiplier-face {
+    font-family: 'Orbitron', sans-serif;
     line-height: 34px; /* match chip height */
 }
 
@@ -1144,12 +1176,63 @@
     pointer-events: none;
 }
 
+
+.superace-base {
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 34px;
+
+    color: #2a170f; /* same dark bronze as multiplier base */
+    position: relative;
+    z-index: 1;
+
+    /* ⬇️ THIS IS THE IMPORTANT PART */
+    text-shadow:
+            0 2px 1px rgba(90, 20, 5, 0.85);
+}
+
+.superace-face {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 34px;
+
+    background: linear-gradient(
+            180deg,
+            #f8f8e2 0%,
+            #FEFF99 35%,
+            #f5c389 55%,
+            #f1a457 100%
+    );
+
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+}
+
+.free-spin-text.base .superace-base {
+    color: #a61608;
+    text-shadow:
+            0 2px 1px rgba(168, 22, 8, 0.9);
+}
+
+
+
+.superace-base,
+.superace-face {
+    letter-spacing: -0.045em;
+}
+
 .free-spin-text.base {
     /*margin-top: 4px;*/
     padding-bottom: 2.5vh;
     transform: scale(1.35);
     font-weight: bold;
-    letter-spacing: -0.05em;
+    letter-spacing: -0.045em;
     /*margin-top: -0.25rem;*/
 }
 
@@ -1157,6 +1240,11 @@
 .free-spin-text {
     position: relative;
     height: 34px;
+}
+.free-spin-base,
+.free-spin-face {
+    font-family: 'Orbitron', sans-serif;
+    letter-spacing: -0.045em;
 }
 
 /* BASE — dark engraved layer (same logic as multiplier-base) */
@@ -1182,10 +1270,10 @@
 
     background: linear-gradient(
             180deg,
-            #FFFFAA 0%,
+            #f8f8e2 0%,
             #FEFF99 35%,
-            #fadd4d 55%,
-            #fec841 100%
+            #f5c389 55%,
+            #f1a457 100%
     );
 
     -webkit-background-clip: text;

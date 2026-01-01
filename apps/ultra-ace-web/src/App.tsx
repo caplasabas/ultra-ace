@@ -172,9 +172,14 @@ export default function App() {
             {DEV && <DebugHud info={debugInfo} />}
 
             <div className="free-spin-banner">
-              <div className={`free-spin-text ${!isFreeGame ? 'base' : ''}`}>
-                <span className="free-spin-base">{isFreeGame ? 'FREE SPINS' : 'SuperAce'}</span>
-                <span className="free-spin-face">{isFreeGame ? 'FREE SPINS' : 'SuperAce'}</span>
+              <div className={`free-spin-text font-plasma ${!isFreeGame ? 'base' : ''}`}>
+                <span className="free-spin-base superace-base">
+                  {isFreeGame ? 'FREE SPINS' : 'SuperAce'}
+                </span>
+
+                <span className="free-spin-face superace-face">
+                  {isFreeGame ? 'FREE SPINS' : 'SuperAce'}
+                </span>
               </div>
 
               <span className="free-spin-count">{isFreeGame && freeSpinsLeft}</span>
@@ -272,7 +277,7 @@ export default function App() {
                 </button>
 
                 <div className="bet-display">
-                  Bet: <span className="bet-amount">{formatPeso(bet ?? 0)}</span>
+                  Bet: <span className="bet-amount">{formatPeso(bet ?? 0, true, false)}</span>
                 </div>
 
                 <button
@@ -297,9 +302,9 @@ export default function App() {
                 </button>
               </div>
               <div className="balance-display">
-                BALANCE: <span className="balance-amount">{formatPeso(balance ?? 0)}</span>
+                Balance <span className="balance-amount">{formatPeso(balance ?? 0)}</span>
                 <button className="add-btn" onClick={() => setBalance(balance + 20)}>
-                  +{formatPeso(20)}
+                  +{formatPeso(20, true, false)}
                 </button>
               </div>
             </div>
