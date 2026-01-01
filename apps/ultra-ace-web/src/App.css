@@ -1471,12 +1471,12 @@
             #5c1200 100%
     );
 
-    -webkit-mask-image: url('./assets/images/scorch_01.png');
+    -webkit-mask-image: url('../assets/images/scorch_01.png');
     -webkit-mask-repeat: no-repeat;
     -webkit-mask-position: center;
     -webkit-mask-size: contain;
 
-    mask-image: url('./assets/images/scorch_01.png');
+    mask-image: url('../assets/images/scorch_01.png');
     mask-repeat: no-repeat;
     mask-position: center;
     mask-size: contain;

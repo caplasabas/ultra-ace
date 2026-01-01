@@ -2,6 +2,8 @@ import './reel.css'
 import type { CascadePhase } from '../hooks/useCascadeTimeline'
 import { SYMBOL_MAP } from './symbolMap'
 import { CSSProperties } from 'react'
+import scorchCore from '../assets/vfx/scorch_02.png'
+import scorchRays from '../assets/vfx/scorch_01.png'
 
 export interface UISymbol {
   id: string
@@ -155,8 +157,8 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
             {/* Highlight underlay */}
             {isWin && phase === 'highlight' && (
               <div className="scorch-under">
-                <img src="/src/assets/vfx/scorch_02.png" className="scorch core" />
-                <img src="/src/assets/vfx/scorch_01.png" className="scorch rays" />
+                <img src={scorchCore} className="scorch core" />
+                <img src={scorchRays} className="scorch rays" />
               </div>
             )}
           </div>
