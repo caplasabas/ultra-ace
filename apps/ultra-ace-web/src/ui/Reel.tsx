@@ -100,7 +100,7 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
                 isScatter && 'scatter',
                 isInitialDeal && 'deal-initial',
                 isCascadeDeal && 'deal',
-                isWin && phase === 'pop' && 'pop',
+                isWin && phase === 'pop' && !symbol.isGold && 'pop',
                 shouldFlip && 'flip-to-wild',
               ]
                 .filter(Boolean)

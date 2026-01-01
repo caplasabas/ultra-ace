@@ -1342,3 +1342,10 @@
         opacity: 0;
     }
 }
+
+
+/* Winning GOLD should persist during pop */
+/*.card.gold {*/
+/*    opacity: 1 !important;*/
+/*    transform: translate3d(0, 0, 0) scale(1) !important;*/
+/*}*/

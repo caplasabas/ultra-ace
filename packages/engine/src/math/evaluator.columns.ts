@@ -52,7 +52,13 @@ export function evaluateColumnWindow(window: Symbol[][], totalBet: number) {
 
     if (columns < MIN_COLUMNS) continue
 
-    const payMult = PAYTABLE[symbol]?.[columns - 1] ?? 0
+    const paytable = PAYTABLE[symbol]
+    if (!paytable) continue
+
+    const payIndex = columns === 3 ? 2 : columns === 4 ? 3 : columns === 5 ? 4 : -1
+    if (payIndex < 0) continue
+
+    const payMult = paytable[payIndex]
     if (payMult <= 0) continue
 
     const payout = (payMult / BET_REFERENCE) * totalBet
