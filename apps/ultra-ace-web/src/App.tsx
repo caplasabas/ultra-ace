@@ -113,6 +113,7 @@ export default function App() {
       windowForRender,
       phase === 'cascadeRefill' ? activeCascade?.removedPositions : undefined,
       previousCascade?.window,
+      phase,
     )
 
   const isReady = isIdle && !spinning

@@ -35,6 +35,16 @@
             var(--reel-count) * var(--reel-width) +
             (var(--reel-count) - 1) * var(--reel-gap)
     );
+
+    --gold-energy: linear-gradient(
+            180deg,
+            #fff2a6 0%,
+            #ffd34d 22%,
+            #ffad00 45%,
+            #ff7a00 65%,
+            #d84a00 82%,
+            #7a1a00 100%
+    );
 }
 
 /* =========================
@@ -245,6 +255,13 @@
     }
 }
 
+.card-shell {
+    position: absolute;
+    width: var(--scaled-card-width);
+    height: var(--scaled-card-height);
+    pointer-events: none;
+}
+
 /* =========================
    Card Inner (highlight layer)
    ========================= */
@@ -271,6 +288,64 @@
 
     animation: highlightPulse 380ms ease-out forwards;
     box-shadow: 0 0 16px rgba(255, 216, 77, 0.9);
+}
+
+.card-inner.highlight::before {
+    content: '';
+    position: absolute;
+    inset: -55%;
+    pointer-events: none;
+    z-index: -1;
+
+    background-image: url('./assets/images/scorch_02.png');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+
+    /* GOLD / ORANGE COLORIZATION */
+    filter:
+            sepia(1)
+            hue-rotate(-12deg)
+            saturate(3.2)
+            brightness(0.85)
+            contrast(1.4)
+            blur(1.2px);
+
+    opacity: 0.9;
+    mix-blend-mode: screen;
+}
+
+.card-inner.highlight::after {
+    content: '';
+    position: absolute;
+    inset: -75%;
+    pointer-events: none;
+    z-index: -2;
+
+    /* COLOR SOURCE */
+    background:
+            linear-gradient(
+                    180deg,
+                    #fcef2c 0%,
+                    #ffae00 32%,
+                    #ff7300 58%,
+                    #ff5900 78%,
+                    #c64a00 100%
+            );
+
+    /* USE PNG AS MASK */
+    -webkit-mask-image: url('./assets/images/scorch_01.png');
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+
+    mask-image: url('./assets/images/scorch_03.png');
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+
+    opacity: 1;
+    filter: blur(1.2px);
 }
 
 @keyframes highlightPulse {
@@ -435,6 +510,17 @@
     }
 }
 
+
+@keyframes scorchPop {
+    0% {
+        transform: scale(0.45);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1.35);
+        opacity: 0;
+    }
+}
 
 /* =========================
    UI Containers
@@ -871,7 +957,7 @@
 
 
 .card.wild .symbol-img {
-    transform: scale(1.35);
+    transform: scale(1.15);
     transform-origin: center;
     position: relative;
     z-index: 2;
@@ -1128,6 +1214,7 @@
     box-shadow: 0 0 14px rgba(255, 210, 120, 0.75);
 }
 
+
 @keyframes backPulse {
     0%   { transform: scale(1); }
     50%  { transform: scale(1.18); }
@@ -1160,6 +1247,98 @@
     }
     100% {
         transform: rotateY(0deg);
-        filter: brightness(1.35);
+        filter: brightness(1.15);
+    }
+}
+
+/* =========================
+   SCORCH VFX — UNDER CARD
+   ========================= */
+
+.scorch-under {
+    position: absolute;
+    inset: -60%;
+    pointer-events: none;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.scorch-under .scorch {
+    position: absolute;
+    width: 120%;
+    height: 120%;
+    opacity: 0.9;
+    filter: brightness(1.2);
+}
+
+.scorch-under .core {
+    animation: scorchPulse 420ms ease-out forwards;
+}
+
+.scorch-under .rays {
+    transform: scale(1.1);
+    opacity: 0.85;
+}
+
+@keyframes scorchPulse {
+    0% {
+        transform: scale(0.85);
+        opacity: 0;
+    }
+    45% {
+        transform: scale(1.1);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1.05);
+        opacity: 0.95;
+    }
+}
+/* =========================
+   SCORCH VFX — POP BURST
+   ========================= */
+.scorch-pop {
+    position: absolute;
+    inset: -90%;
+    pointer-events: none;
+    z-index: 60;
+}
+
+.scorch-pop-mask {
+    width: 100%;
+    height: 100%;
+
+    background: linear-gradient(
+            180deg,
+            #ffe55a 0%,
+            #ffb300 30%,
+            #ff7a00 55%,
+            #c63a00 75%,
+            #5c1200 100%
+    );
+
+    -webkit-mask-image: url('./assets/images/scorch_01.png');
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+
+    mask-image: url('./assets/images/scorch_01.png');
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+
+    animation: scorchPopDetached 260ms ease-out forwards;
+}
+
+@keyframes scorchPopDetached {
+    0% {
+        transform: scale(0.45);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1.45);
+        opacity: 0;
     }
 }

@@ -10,7 +10,7 @@ export interface UISymbol {
   isGold?: boolean
   goldTTL?: number
   goldToWild?: boolean
-  wildColor?: string
+  wildColor?: 'red' | 'blue'
 }
 
 interface Props {
@@ -24,6 +24,30 @@ interface Props {
 type CSSVars = CSSProperties & {
   '--hx'?: string
   '--hy'?: string
+}
+
+/* ----------------------------------------
+   🔒 SINGLE SOURCE OF TRUTH FOR SYMBOL IMAGE
+---------------------------------------- */
+function resolveSymbolImage(symbol: UISymbol): string {
+  if (symbol.kind === 'BACK') {
+    return SYMBOL_MAP.BACK.normal
+  }
+
+  if (symbol.kind === 'WILD') {
+    if (symbol.wildColor === 'red') {
+      return SYMBOL_MAP.WILD_RED.normal
+    }
+
+    // explicit blue wild (never implicit)
+    return SYMBOL_MAP.WILD.normal
+  }
+
+  if (symbol.isGold && SYMBOL_MAP[symbol.kind]?.gold) {
+    return SYMBOL_MAP[symbol.kind].gold as never
+  }
+
+  return SYMBOL_MAP[symbol.kind].normal
 }
 
 export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Props) {
@@ -43,78 +67,77 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
       {symbols.map((symbol, row) => {
         const isWin = winningPositions.has(`${reelIndex}-${row}`)
         const isCascadeDeal = isCascadeRefill && symbol.isNew
-
         const isScatter = symbol.kind === 'SCATTER'
-
         const isBack = symbol.kind === 'BACK'
         const shouldFlip = isFlipPhase && symbol.goldToWild === true
 
         const delay = reelIndex * 140 + (symbols.length - 1 - row) * 55 + row * 6
 
-        /* ----------------------------------
-           IMAGE RESOLUTION (KEY FIX)
-        ---------------------------------- */
-
-        const showWildFace = shouldFlip
-
-        const imgSrc = showWildFace
-          ? symbol.wildColor === 'red'
-            ? SYMBOL_MAP.WILD_RED.normal
-            : SYMBOL_MAP.WILD.normal
-          : isBack
-            ? SYMBOL_MAP.BACK.normal
-            : symbol.isGold && SYMBOL_MAP[symbol.kind]?.gold
-              ? SYMBOL_MAP[symbol.kind].gold
-              : SYMBOL_MAP[symbol.kind].normal
+        const imgSrc = resolveSymbolImage(symbol)
 
         return (
           <div
             key={symbol.id}
-            className={[
-              'card',
-
-              isBack && 'back',
-              showWildFace && 'wild',
-              showWildFace && symbol.wildColor === 'red' && 'wild-red',
-
-              symbol.isGold && 'gold',
-
-              isScatter && 'scatter',
-              isInitialDeal && 'deal-initial',
-              isCascadeDeal && 'deal',
-
-              isWin && phase === 'pop' && 'pop',
-
-              // ✅ flip happens on SAME NODE
-              shouldFlip && 'flip-to-wild',
-            ]
-              .filter(Boolean)
-              .join(' ')}
+            className="card-shell"
             style={{
               top: `calc(${row} * (var(--scaled-card-height) + var(--card-gap)))`,
-              animationDelay: isInitialDeal || isCascadeDeal ? `${delay}ms` : '0ms',
-              zIndex: phase === 'highlight' && isWin ? 10 : 1,
             }}
           >
+            {/* POP VFX — detached */}
+            {isWin && phase === 'pop' && (
+              <div className="scorch-pop">
+                <div className="scorch-pop-mask" />
+              </div>
+            )}
+
             <div
               className={[
-                'card-inner',
-                isBack && isCascadeRefill && 'highlight',
-                isWin && phase === 'highlight' && 'highlight',
+                'card',
+                isBack && 'back',
+                symbol.kind === 'WILD' && 'wild',
+                symbol.kind === 'WILD' && symbol.wildColor === 'red' && 'wild-red',
+                symbol.isGold && 'gold',
+                isScatter && 'scatter',
+                isInitialDeal && 'deal-initial',
+                isCascadeDeal && 'deal',
+                isWin && phase === 'pop' && 'pop',
+                shouldFlip && 'flip-to-wild',
               ]
                 .filter(Boolean)
                 .join(' ')}
-              style={
-                isWin && phase === 'highlight'
-                  ? ({
-                      '--hx': `${(reelIndex % 2 ? 1 : -1) * 6}px`,
-                      '--hy': `${(row % 2 ? 1 : -1) * 6}px`,
-                    } as CSSVars)
-                  : undefined
-              }
+              style={{
+                animationDelay: isInitialDeal || isCascadeDeal ? `${delay}ms` : '0ms',
+                zIndex: phase === 'highlight' && isWin ? 10 : 1,
+              }}
             >
-              <img src={imgSrc} className="symbol-img" draggable={false} />
+              <div
+                className={[
+                  'card-inner',
+                  isBack && isCascadeRefill && 'highlight',
+                  isWin && phase === 'highlight' && 'highlight',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                style={
+                  isWin && phase === 'highlight'
+                    ? ({
+                        '--hx': `${(reelIndex % 2 ? 1 : -1) * 6}px`,
+                        '--hy': `${(row % 2 ? 1 : -1) * 6}px`,
+                      } as CSSVars)
+                    : undefined
+                }
+              >
+                <img src={imgSrc} className="symbol-img" draggable={false} />
+              </div>
             </div>
+
+            {/* Highlight underlay */}
+            {isWin && phase === 'highlight' && (
+              <div className="scorch-under">
+                <img src="/src/assets/vfx/scorch_02.png" className="scorch core" />
+                <img src="/src/assets/vfx/scorch_01.png" className="scorch rays" />
+              </div>
+            )}
           </div>
         )
       })}
