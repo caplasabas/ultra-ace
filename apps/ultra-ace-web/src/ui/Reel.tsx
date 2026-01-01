@@ -91,10 +91,10 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
 
         return (
           <div
-            key={symbol.id}
             className="card-shell"
             style={{
               top: `calc(${row} * (var(--scaled-card-height) + var(--card-gap)))`,
+              zIndex: isWin && phase === 'highlight' ? 20 : 1,
             }}
           >
             {/* POP VFX */}
@@ -129,7 +129,6 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
                 .join(' ')}
               style={{
                 animationDelay: isInitialDeal || isCascadeDeal ? `${delay}ms` : '0ms',
-                zIndex: phase === 'highlight' && isWin ? 10 : 1,
               }}
             >
               <div

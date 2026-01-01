@@ -119,7 +119,7 @@
     );
     height: calc(
             var(--reel-height) +
-            var(--highlight-pad) * 5
+            var(--highlight-pad) * 8
     );
 
     overflow-x: hidden;
@@ -207,7 +207,7 @@
 
     will-change: transform, opacity;
     transform: translate3d(0, 0, 0);
-    z-index: 2; /* BELOW dim */
+    z-index: 1; /* BELOW dim */
 }
 
 /* =========================
@@ -266,6 +266,7 @@
     width: var(--scaled-card-width);
     height: var(--scaled-card-height);
     pointer-events: none;
+    z-index: 1;
 }
 
 /* =========================
@@ -293,10 +294,22 @@
     z-index: 12;
 
     animation: highlightPulse 380ms ease-out forwards;
-    box-shadow: 0 0 16px rgba(255, 216, 77, 0.9);
+    /*box-shadow: 0 0 16px rgba(255, 216, 77, 0.9);*/
+    box-shadow:
+            0 0 14px rgba(250, 226, 161, 0.85),
+            0 0 28px rgba(255, 210, 29, 0.65),
+            0 0 46px rgba(252, 171, 50, 0.51);
 
 }
 
+.scorch-under .rays {
+    transform: scaleX(1.35) scaleY(0.95);
+    filter:
+            brightness(1.25)
+            saturate(1.4)
+            drop-shadow(0 0 18px rgba(255, 140, 30, 0.85));
+
+}
 .card-inner.highlight::before {
     content: '';
     position: absolute;
@@ -463,33 +476,38 @@
    ========================= */
 .win-glow {
     position: absolute;
-    width: 175px;
-    height: 175px;
+    width: 130px;
+    height: 130px;
 
     left: 50%;
     top: 46%;
-
-    /*transform: translate(-50%, -50%);*/
-
+    transform: translate(-50%, -50%) scaleX(1.45);
     border-radius: 50%;
     z-index: 0;
 
     background: radial-gradient(
             circle at center,
-            rgba(206, 161, 46, 0.95) 0%,
-            rgba(255, 145, 0, 0.75) 28%,
-            rgba(255, 120, 0, 0.45) 45%,
-            rgba(255, 100, 0, 0.2) 60%,
-            rgba(255, 100, 0, 0.0) 75%
+            /*rgba(255, 200, 90, 0.75) 0%,*/
+            rgba(255, 164, 60, 0.65) 0%,
+            rgba(246, 130, 28, 0.41) 32%,
+            rgba(255, 110, 20, 0.15) 45%,
+            rgba(255, 90, 10, 0.02) 55%,
+            rgba(255, 80, 0, 0.0) 85%
     );
 
-    filter: blur(6px);
+    will-change: transform, opacity;
+    backface-visibility: hidden;
     pointer-events: none;
-    transform:
-            translate(-50%, -50%)
-            scale(calc(1 / var(--win-scale, 1)));
 }
 
+.win-glow::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: inherit;
+    filter: blur(4px);
+}
 
 
 /* =========================
@@ -531,6 +549,16 @@
    ========================= */
 .win-burst.highlight {
     animation: winPop 680ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.win-burst.highlight .win-glow {
+    animation: glowStabilize 680ms linear forwards;
+}
+
+@keyframes glowStabilize {
+    to {
+        --inv-scale: calc(1 / var(--win-scale));
+    }
 }
 
 .win-burst.pop {
@@ -604,6 +632,7 @@
     justify-content: space-between;
 
     align-items: center;
+    z-index: 30;
     /*height: 30vh;*/
     /*padding: 20px 0 40px 0;*/
     /*background-color: red;*/
@@ -719,6 +748,7 @@
     font-weight: 700;
     color: #ffd84d;
     text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
+    z-index: 30;
 }
 
 
@@ -1379,9 +1409,9 @@
 
 .scorch-under {
     position: absolute;
-    inset: -60%;
+    inset: -50%;
     pointer-events: none;
-    z-index: 1;
+    z-index: 0;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -1389,8 +1419,8 @@
 
 .scorch-under .scorch {
     position: absolute;
-    width: 120%;
-    height: 120%;
+    width: 108%;
+    height: 108%;
     opacity: 0.9;
     filter: brightness(1.2);
 }
@@ -1401,7 +1431,7 @@
 
 .scorch-under .rays {
     transform: scale(1.1);
-    opacity: 0.85;
+    opacity: 0.95;
 }
 
 @keyframes scorchPulse {
