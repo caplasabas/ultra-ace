@@ -2,8 +2,6 @@ import './reel.css'
 import type { CascadePhase } from '../hooks/useCascadeTimeline'
 import { SYMBOL_MAP } from './symbolMap'
 import { CSSProperties } from 'react'
-import scorchCore from '../assets/vfx/scorch_02.png'
-import scorchRays from '../assets/vfx/scorch_01.png'
 
 export interface UISymbol {
   id: string
@@ -37,15 +35,10 @@ type CSSVars = CSSProperties & {
    🔒 SINGLE SOURCE OF TRUTH FOR SYMBOL IMAGE
 ---------------------------------------- */
 function resolveSymbolImage(symbol: UISymbol): string {
-  if (symbol.kind === 'BACK') {
-    return SYMBOL_MAP.BACK.normal
-  }
+  if (symbol.kind === 'BACK') return SYMBOL_MAP.BACK.normal
 
   if (symbol.kind === 'WILD') {
-    if (symbol.wildColor === 'red') {
-      return SYMBOL_MAP.WILD_RED.normal
-    }
-    return SYMBOL_MAP.WILD.normal
+    return symbol.wildColor === 'red' ? SYMBOL_MAP.WILD_RED.normal : SYMBOL_MAP.WILD.normal
   }
 
   if (symbol.isGold && SYMBOL_MAP[symbol.kind]?.gold) {
@@ -73,22 +66,14 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
         const isScatter = symbol.kind === 'SCATTER'
         const isBack = symbol.kind === 'BACK'
 
-        /**
-         * 🔒 Deal animation ONLY for true refill symbols
-         */
         const isCascadeDeal =
           isCascadeRefill &&
           symbol.isNew === true &&
           symbol.isPersisted !== true &&
           symbol.isSettledWild !== true
 
-        /**
-         * 🔒 Flip ONLY once (latched)
-         */
         const shouldFlip = symbol.goldToWild === true
-
         const delay = reelIndex * 140 + (symbols.length - 1 - row) * 55 + row * 6
-
         const imgSrc = resolveSymbolImage(symbol)
 
         return (
@@ -102,29 +87,22 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
             {/* POP VFX */}
             {isWin && phase === 'pop' && (
               <div className="scorch-pop">
-                <div className="scorch-pop-mask" />
+                <div className="scorch-atlas pop" />
               </div>
             )}
 
             <div
               className={[
                 'card',
-
                 isBack && 'back',
-
                 symbol.kind === 'WILD' && 'wild',
                 symbol.kind === 'WILD' && symbol.wildColor === 'red' && 'wild-red',
-
                 symbol.isGold && 'gold',
                 isScatter && 'scatter',
-
                 isInitialDeal && 'deal-initial',
                 isCascadeDeal && 'deal',
-
                 isWin && phase === 'pop' && !symbol.isGold && 'pop',
-
                 shouldFlip && 'flip-to-wild',
-
                 symbol.isSettledWild && 'settled',
               ]
                 .filter(Boolean)
@@ -154,11 +132,11 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
               </div>
             </div>
 
-            {/* Highlight underlay */}
+            {/* 🔥 Highlight underlay (ATLAS) */}
             {isWin && phase === 'highlight' && (
               <div className="scorch-under">
-                <img src={scorchCore} className="scorch core" />
-                <img src={scorchRays} className="scorch rays" />
+                <div className="scorch-atlas core" />
+                <div className="scorch-atlas rays" />
               </div>
             )}
           </div>
