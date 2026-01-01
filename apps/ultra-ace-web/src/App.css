@@ -337,12 +337,12 @@
             );
 
     /* USE PNG AS MASK */
-    -webkit-mask-image: url('./assets/images/scorch_01.png');
+    -webkit-mask-image: url('./assets/images/scorch_02.png');
     -webkit-mask-repeat: no-repeat;
     -webkit-mask-position: center;
     -webkit-mask-size: contain;
 
-    mask-image: url('./assets/images/scorch_03.png');
+    mask-image: url('./assets/images/scorch_01.png');
     mask-repeat: no-repeat;
     mask-position: center;
     mask-size: contain;
@@ -372,7 +372,7 @@
                 blur(1px)
                 brightness(1)
                 saturate(1);
-        transform: scale(0.98) rotate(0deg);
+        transform: scale(0.78) rotate(0deg);
     }
 
     50% {
@@ -381,7 +381,7 @@
                 blur(1.2px)
                 brightness(1.15)
                 saturate(1.15);
-        transform: scale(1.02) rotate(0.3deg);
+        transform: scale(92) rotate(0.3deg);
     }
 
     100% {
@@ -390,7 +390,7 @@
                 blur(1px)
                 brightness(1)
                 saturate(1);
-        transform: scale(0.98) rotate(0deg);
+        transform: scale(0.78) rotate(0deg);
     }
 }
 

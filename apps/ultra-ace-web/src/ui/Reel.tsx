@@ -6,9 +6,14 @@ import { CSSProperties } from 'react'
 export interface UISymbol {
   id: string
   kind: string
+
   isNew?: boolean
+  isPersisted?: boolean
+  isSettledWild?: boolean
+
   isGold?: boolean
   goldTTL?: number
+
   goldToWild?: boolean
   wildColor?: 'red' | 'blue'
 }
@@ -38,8 +43,6 @@ function resolveSymbolImage(symbol: UISymbol): string {
     if (symbol.wildColor === 'red') {
       return SYMBOL_MAP.WILD_RED.normal
     }
-
-    // explicit blue wild (never implicit)
     return SYMBOL_MAP.WILD.normal
   }
 
@@ -53,7 +56,6 @@ function resolveSymbolImage(symbol: UISymbol): string {
 export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Props) {
   const isInitialDeal = layer === 'new' && phase === 'initialRefill'
   const isCascadeRefill = layer === 'new' && phase === 'cascadeRefill'
-  const isFlipPhase = phase === 'postGoldTransform'
 
   return (
     <div
@@ -66,10 +68,22 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
     >
       {symbols.map((symbol, row) => {
         const isWin = winningPositions.has(`${reelIndex}-${row}`)
-        const isCascadeDeal = isCascadeRefill && symbol.isNew
         const isScatter = symbol.kind === 'SCATTER'
         const isBack = symbol.kind === 'BACK'
-        const shouldFlip = isFlipPhase && symbol.goldToWild === true
+
+        /**
+         * 🔒 Deal animation ONLY for true refill symbols
+         */
+        const isCascadeDeal =
+          isCascadeRefill &&
+          symbol.isNew === true &&
+          symbol.isPersisted !== true &&
+          symbol.isSettledWild !== true
+
+        /**
+         * 🔒 Flip ONLY once (latched)
+         */
+        const shouldFlip = symbol.goldToWild === true
 
         const delay = reelIndex * 140 + (symbols.length - 1 - row) * 55 + row * 6
 
@@ -83,7 +97,7 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
               top: `calc(${row} * (var(--scaled-card-height) + var(--card-gap)))`,
             }}
           >
-            {/* POP VFX — detached */}
+            {/* POP VFX */}
             {isWin && phase === 'pop' && (
               <div className="scorch-pop">
                 <div className="scorch-pop-mask" />
@@ -93,15 +107,23 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
             <div
               className={[
                 'card',
+
                 isBack && 'back',
+
                 symbol.kind === 'WILD' && 'wild',
                 symbol.kind === 'WILD' && symbol.wildColor === 'red' && 'wild-red',
+
                 symbol.isGold && 'gold',
                 isScatter && 'scatter',
+
                 isInitialDeal && 'deal-initial',
                 isCascadeDeal && 'deal',
+
                 isWin && phase === 'pop' && !symbol.isGold && 'pop',
+
                 shouldFlip && 'flip-to-wild',
+
+                symbol.isSettledWild && 'settled',
               ]
                 .filter(Boolean)
                 .join(' ')}

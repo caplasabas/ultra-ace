@@ -19,25 +19,54 @@ export function adaptWindow(
     col.map((symbol, row) => {
       const prev = previousWindow?.[reelIndex]?.[row]
 
-      const goldToWild = prev?.isGold === true && prev.kind !== 'WILD' && symbol.kind === 'WILD'
+      const wasGold = prev?.isGold === true
+      const becameWild = symbol.kind === 'WILD'
 
-      // 🔒 visual lock: BACK until flip phase
-      const visualKind = goldToWild && phase !== 'postGoldTransform' ? 'BACK' : symbol.kind
+      /**
+       * 🔒 GOLD → WILD is a ONE-TIME TRANSITION
+       * Flip ONLY during postGoldTransform
+       */
+      const shouldFlip = wasGold === true && becameWild === true && phase === 'postGoldTransform'
+
+      /**
+       * 🔒 BACK is shown ONLY before flip
+       */
+      const visualKind =
+        wasGold === true && becameWild === true && phase !== 'postGoldTransform'
+          ? 'BACK'
+          : symbol.kind
+
+      /**
+       * 🔒 Once flipped, the wild is SETTLED forever
+       */
+      const isSettledWild = becameWild && (phase === 'postGoldTransform' || prev?.kind === 'WILD')
+
+      /**
+       * 🔒 Persisted = symbol existed and was NOT removed
+       */
+      const isPersisted =
+        prev !== undefined && prev.kind !== 'EMPTY' && !removedSet.has(`${reelIndex}-${row}`)
 
       return {
         id: `${reelIndex}-${row}`,
-
         kind: visualKind,
 
+        // true ONLY for actual cascade refill
         isNew: removedSet.has(`${reelIndex}-${row}`),
 
-        // gold never returns after BACK
-        isGold: symbol.isGold === true && !goldToWild,
+        // blocks re-deal animations
+        isPersisted,
+
+        // gold never returns after transform
+        isGold: false,
         goldTTL: symbol.goldTTL,
 
-        // metadata only
-        goldToWild,
+        // 🔑 animation latch
+        goldToWild: shouldFlip,
         wildColor: symbol.wildColor,
+
+        // 🔑 FINAL STATE LATCH (CRITICAL)
+        isSettledWild,
       }
     }),
   )
