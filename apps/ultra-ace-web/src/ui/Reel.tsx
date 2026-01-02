@@ -72,6 +72,9 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
           symbol.isPersisted !== true &&
           symbol.isSettledWild !== true
 
+        const isGoldLocked = symbol.isGold === true || symbol.goldTTL !== undefined
+        const isGoldWin = isGoldLocked && isWin && phase === 'pop'
+
         const shouldFlip = symbol.goldToWild === true
         const delay = reelIndex * 140 + (symbols.length - 1 - row) * 55 + row * 6
         const imgSrc = resolveSymbolImage(symbol)
@@ -97,11 +100,15 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
                 isBack && 'back',
                 symbol.kind === 'WILD' && 'wild',
                 symbol.kind === 'WILD' && symbol.wildColor === 'red' && 'wild-red',
-                symbol.isGold && 'gold',
+                isGoldLocked && 'gold',
                 isScatter && 'scatter',
                 isInitialDeal && 'deal-initial',
                 isCascadeDeal && 'deal',
-                isWin && phase === 'pop' && !symbol.isGold && 'pop',
+
+                // 🔑 MUTUALLY EXCLUSIVE
+                isWin && phase === 'pop' && !isGoldLocked && 'pop',
+                isGoldWin && 'gold-pop-lock',
+
                 shouldFlip && 'flip-to-wild',
                 symbol.isSettledWild && 'settled',
               ]

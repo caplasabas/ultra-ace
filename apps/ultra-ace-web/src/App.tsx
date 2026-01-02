@@ -174,11 +174,11 @@ export default function App() {
             <div className="free-spin-banner">
               <div className={`free-spin-text font-plasma ${!isFreeGame ? 'base' : ''}`}>
                 <span className="free-spin-base superace-base">
-                  {isFreeGame ? 'FREE SPINS' : 'SuperAce'}
+                  {isFreeGame ? 'FREE SPINS' : 'UltraAce'}
                 </span>
 
                 <span className="free-spin-face superace-face">
-                  {isFreeGame ? 'FREE SPINS' : 'SuperAce'}
+                  {isFreeGame ? 'FREE SPINS' : 'UltraAce'}
                 </span>
               </div>
 
