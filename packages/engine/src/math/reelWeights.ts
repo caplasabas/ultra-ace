@@ -4,11 +4,11 @@ export const REEL_WEIGHTS = {
   DIAMOND: 7,
   CLUB: 7,
 
-  J: 4,
-  Q: 4,
-  K: 4,
-  A: 4,
+  J: 3.5,
+  Q: 3,
+  K: 3,
+  A: 2.8,
 
   WILD: 0,
-  SCATTER: 0.015,
+  SCATTER: 0.002,
 }
