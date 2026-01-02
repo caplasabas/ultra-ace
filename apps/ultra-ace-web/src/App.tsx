@@ -204,6 +204,7 @@ export default function App() {
               active={phase === 'highlight' && Boolean(activeCascade?.lineWins?.length)}
             />
             <div className="reels-stage">
+              <div className="gpu-prewarm" />
               <div className="reels-clip">
                 <div className="reels-row">
                   {placeholderWindow.map((col, i) => (

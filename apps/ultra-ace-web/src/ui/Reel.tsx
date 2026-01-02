@@ -132,13 +132,14 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
               </div>
             </div>
 
-            {/* 🔥 Highlight underlay (ATLAS) */}
-            {isWin && phase === 'highlight' && (
-              <div className="scorch-under">
-                <div className="scorch-atlas core" />
-                <div className="scorch-atlas rays" />
-              </div>
-            )}
+            <div
+              className={['scorch-under', isWin && phase === 'highlight' && 'active delayed']
+                .filter(Boolean)
+                .join(' ')}
+            >
+              <div className="scorch-atlas core" />
+              <div className="scorch-atlas rays" />
+            </div>
           </div>
         )
       })}

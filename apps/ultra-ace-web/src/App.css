@@ -251,14 +251,19 @@
    ========================= */
 
 .card.pop {
-    animation: popOut 220ms ease-in forwards;
+    animation: popOut 260ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+
 }
 
+@keyframes popHold {
+    from { transform: scale(1); }
+    to   { transform: scale(1); }
+}
 @keyframes popOut {
-    to {
-        opacity: 0;
-        transform: translate3d(0, 0px, 0) scale(0);
-    }
+    0%   { transform: scale(1); }
+    25%  { transform: scale(0.96); }
+    55%  { transform: scale(0.4); opacity: 0.6; }
+    100% { transform: scale(0); opacity: 0; }
 }
 
 .card-shell {
@@ -267,6 +272,7 @@
     height: var(--scaled-card-height);
     pointer-events: none;
     z-index: 1;
+    isolation: isolate;
 }
 
 /* =========================
@@ -293,7 +299,11 @@
     position: relative;
     z-index: 12;
 
-    animation: highlightPulse 380ms ease-out forwards;
+    animation:
+            highlightPopIn 320ms cubic-bezier(0.16, 1, 0.3, 1),
+            highlightPulse 640ms ease-in-out 260ms forwards;
+
+    transform-origin: center;
     /*box-shadow: 0 0 16px rgba(255, 216, 77, 0.9);*/
     box-shadow:
             0 0 14px rgba(250, 226, 161, 0.85),
@@ -302,6 +312,39 @@
 
 }
 
+.card-inner.highlight,
+.scorch-under {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+@keyframes highlightPulse {
+    0% {
+        transform: scale(1);
+    }
+
+    40% {
+        transform: scale(1.06);
+    }
+
+    100% {
+        transform: scale(1.03);
+    }
+}
+@keyframes highlightPopIn {
+    0% {
+        transform: scale(0.96);
+        filter: brightness(0.97);
+    }
+    70% {
+        transform: scale(1.03);
+        filter: brightness(1.06);
+    }
+    100% {
+        transform: scale(1);
+        filter: brightness(1);
+    }
+}
 /* =========================
    SCORCH ATLAS (1536x512)
    ========================= */
@@ -317,36 +360,55 @@
 
     pointer-events: none;
     will-change: transform, opacity;
+    mix-blend-mode: screen;
+    isolation: isolate;
 }
 
 /* LEFT slice — CORE */
 .scorch-atlas.core {
-    background-position: 0% 50%;
-    animation: scorchPulse 420ms ease-out forwards;
+    animation: scorchBreath 640ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    opacity: 1; /* STABLE */
+    animation-delay: 160ms;
 }
-
 /* CENTER slice — RAYS */
 .scorch-atlas.rays {
     background-position: 50% 50%;
-    opacity: 0.95;
-    transform: scale(1.08);
+    opacity: 1;
+    filter:
+            brightness(1.35)
+            saturate(1.5)
+            drop-shadow(0 0 18px rgba(255, 140, 30, 0.85));
 }
 
 /* RIGHT slice — POP */
 .scorch-atlas.pop {
     background-position: 100% 50%;
-    animation: scorchPopDetached 260ms ease-out forwards;
+    animation: scorchPopDetached 280ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.gpu-prewarm {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+
+    background-image: url('./assets/vfx/scorch_atlas.png');
+    background-size: 300% 100%;
+
+    will-change: background-size, opacity;
+    transform: translateZ(0);
 }
 
 
-.scorch-under .rays {
-    transform: scaleX(1.35) scaleY(0.95);
-    filter:
-            brightness(1.25)
-            saturate(1.4)
-            drop-shadow(0 0 18px rgba(255, 140, 30, 0.85));
+/*.scorch-under .rays {*/
+/*    transform: scaleX(1.35) scaleY(0.95);*/
+/*    filter:*/
+/*            brightness(1.25)*/
+/*            saturate(1.4)*/
+/*            drop-shadow(0 0 18px rgba(255, 140, 30, 0.85));*/
 
-}
+/*}*/
 
 
 
@@ -474,7 +536,7 @@
     color: transparent;
 
     /* RED OUTLINE */
-    -webkit-text-stroke: 3px #b32a00;
+    -webkit-text-stroke: 2px #b32a00;
 
     /*!* DEPTH *!*/
     /*text-shadow:*/
@@ -1089,24 +1151,49 @@
 /* =========================
    SCATTER — IMAGE HIGHLIGHT
    ========================= */
-
 .card.scatter.highlight .symbol-img {
-    animation: scatterImagePulse 520ms ease-out forwards;
+    animation: scatterScale 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 
     filter:
             drop-shadow(0 0 14px rgba(255, 210, 120, 1))
             drop-shadow(0 0 28px rgba(255, 160, 60, 0.7));
 }
 
-@keyframes scatterImagePulse {
+@keyframes scatterScale {
+    0%   { transform: scale(1.25); }
+    35%  { transform: scale(1.38); }
+    55%  { transform: scale(1.2, 1.32); }
+    100% { transform: scale(1.25); }
+}
+
+.card.scatter.highlight:not(.pop):not(.deal) {
+    animation: scatterCardJump 620ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+}
+
+@keyframes scatterCardJump {
     0% {
-        transform: scale(1.5);
+        transform: translateY(0);
     }
+
+    20% {
+        transform: translateY(-22px);
+    }
+
+    35% {
+        transform: translateY(-26px); /* apex hold */
+    }
+
     55% {
-        transform: scale(1.75);
+        transform: translateY(0); /* landing */
     }
+
+    75% {
+        transform: translateY(-8px); /* rebound */
+    }
+
     100% {
-        transform: scale(1.6);
+        transform: translateY(0);
     }
 }
 /* =========================
@@ -1344,31 +1431,47 @@
 /* =========================
    SCORCH VFX — UNDER CARD
    ========================= */
-
 .scorch-under {
     position: absolute;
     inset: -50%;
     pointer-events: none;
     z-index: 0;
+
     display: flex;
     justify-content: center;
     align-items: center;
+
+    opacity: 0;
+    transition: opacity 140ms ease-out;
+}
+
+.scorch-under.active {
+    opacity: 1;
 }
 
 
-@keyframes scorchPulse {
+@keyframes scorchBreath {
     0% {
-        transform: scale(0.85);
-        opacity: 0;
+        background-size: 285% 95%;
+        filter: brightness(0.85);
     }
-    45% {
-        transform: scale(1.1);
-        opacity: 1;
+    40% {
+        background-size: 300% 100%;
+        filter: brightness(1.25);
     }
     100% {
-        transform: scale(1.05);
-        opacity: 0.95;
+        background-size: 295% 98%;
+        filter: brightness(1.1);
     }
+}
+
+.scorch-under.delayed {
+    animation: scorchDelay 40ms linear forwards;
+}
+
+@keyframes scorchDelay {
+    from { visibility: hidden; }
+    to   { visibility: visible; }
 }
 /* =========================
    SCORCH VFX — POP BURST
