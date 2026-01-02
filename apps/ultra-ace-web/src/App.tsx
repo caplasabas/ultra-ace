@@ -164,6 +164,19 @@ export default function App() {
 
   const activeMultiplierIndex = getMultiplierIndex(cascadeIndex)
 
+  function getBetIncrement(bet: number): number {
+    if (bet < 10) return 1
+    if (bet < 100) return 10
+    if (bet < 500) return 100
+    return 500
+  }
+
+  function getBetDecrement(bet: number): number {
+    if (bet <= 10) return 1
+    if (bet <= 100) return 10
+    if (bet <= 500) return 100
+    return 500
+  }
   return (
     <div className="viewport">
       <div className="game-root">
@@ -273,12 +286,23 @@ export default function App() {
                   marginTop: -10,
                 }}
               >
-                <button className="spin-btn audio" onClick={() => setAudioOn(v => !v)}>
-                  {audioOn ? '🔊' : '🔇'}
-                </button>
-
                 <div className="bet-display">
-                  Bet: <span className="bet-amount">{formatPeso(bet ?? 0, true, false)}</span>
+                  <div className="bet-control">
+                    <button
+                      onClick={() => {
+                        setBet(prev => Math.max(1, prev - getBetDecrement(prev)))
+                      }}
+                      className="bet-btn minus"
+                    />
+                    <button className="bet-btn center" />
+                    <button
+                      onClick={() => {
+                        setBet(prev => prev + getBetIncrement(prev))
+                      }}
+                      className="bet-btn plus"
+                    />
+                  </div>
+                  <span className="bet-amount">{formatPeso(bet ?? 0, true, false)}</span>
                 </div>
 
                 <button
@@ -300,6 +324,9 @@ export default function App() {
 
                 <button className={`spin-btn turbo`} disabled={true}>
                   Turbo
+                </button>
+                <button className="spin-btn audio" onClick={() => setAudioOn(v => !v)}>
+                  {audioOn ? '🔊' : '🔇'}
                 </button>
               </div>
               <div className="balance-display">

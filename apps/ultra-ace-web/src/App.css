@@ -815,12 +815,57 @@
 
 .bet-display {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 1px;
     font-size: 13px;
     color: white;
+    transform: translateX(10%);
 
+}
+
+.bet-control {
+    display: flex;
+    align-items: center;
+    transform: scale(0.75);
+    transform-origin: center;
+
+}
+
+.bet-btn {
+    background-image: url('./assets/images/bet_button.png');
+    background-repeat: no-repeat;
+    background-size: 184px 44px; /* EXACT image size */
+    height: 44px;
+    border: none;
+}
+
+.bet-control,
+.bet-btn {
+    background-color: transparent !important;
+}
+
+.bet-btn.minus {
+    width: 44px;
+    background-position: 0 0;
+}
+
+.bet-btn.center {
+    width: 96px;
+    background-position: -44px 0;
+    pointer-events: none; /* optional */
+}
+
+.bet-btn.plus {
+    width: 44px;
+    background-position: -140px 0; /* 44 + 96 */
+}
+
+/* interaction polish */
+.bet-btn:not(.center):active {
+    transform: scale(0.94);
+    filter: brightness(0.9);
 }
 
 .bet-amount {
