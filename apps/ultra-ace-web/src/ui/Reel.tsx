@@ -37,17 +37,17 @@ type CSSVars = CSSProperties & {
 function resolveSymbolImage(symbol: UISymbol): string {
   if (symbol.kind === 'BACK') return SYMBOL_MAP.BACK.normal
 
+  if (symbol.isGold === true || symbol.goldTTL !== undefined) {
+    const gold = SYMBOL_MAP[symbol.kind]?.gold
+    if (gold) return gold
+  }
+
   if (symbol.kind === 'WILD') {
     return symbol.wildColor === 'red' ? SYMBOL_MAP.WILD_RED.normal : SYMBOL_MAP.WILD.normal
   }
 
-  if (symbol.isGold && SYMBOL_MAP[symbol.kind]?.gold) {
-    return SYMBOL_MAP[symbol.kind].gold as never
-  }
-
   return SYMBOL_MAP[symbol.kind].normal
 }
-
 export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Props) {
   const isInitialDeal = layer === 'new' && phase === 'initialRefill'
   const isCascadeRefill = layer === 'new' && phase === 'cascadeRefill'
