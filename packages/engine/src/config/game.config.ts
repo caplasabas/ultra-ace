@@ -5,8 +5,7 @@ export const GAME_CONFIG = {
   maxCascades: 10,
 
   multiplierLadderBase: [1, 2, 3, 5],
-  multiplierLadderFree: [2, 4, 6, 10],
-
+  multiplierLadderFree: [1.2, 1.8, 2.5, 4],
   freeSpinsAwarded: 10,
 
   cascadeFillPool: [
