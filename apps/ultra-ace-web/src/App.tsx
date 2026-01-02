@@ -289,19 +289,24 @@ export default function App() {
                 <div className="bet-display">
                   <div className="bet-control">
                     <button
+                      disabled={!isReady}
                       onClick={() => {
                         setBet(prev => Math.max(1, prev - getBetDecrement(prev)))
                       }}
                       className="bet-btn minus"
                     />
-                    <button className="bet-btn center" />
+
+                    <button className="bet-btn center" disabled />
+
                     <button
+                      disabled={!isReady}
                       onClick={() => {
                         setBet(prev => prev + getBetIncrement(prev))
                       }}
                       className="bet-btn plus"
                     />
                   </div>
+
                   <span className="bet-amount">{formatPeso(bet ?? 0, true, false)}</span>
                 </div>
 

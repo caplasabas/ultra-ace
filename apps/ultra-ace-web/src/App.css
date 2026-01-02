@@ -123,7 +123,7 @@
     );
 
     overflow-x: hidden;
-    overflow-y: visible; /* ✅ allow glow escape */
+    overflow-y: hidden; /* ✅ allow glow escape */
 
 }
 
