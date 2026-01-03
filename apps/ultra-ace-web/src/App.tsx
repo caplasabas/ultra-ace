@@ -150,6 +150,8 @@ export default function App() {
       const t = setTimeout(() => {
         spin()
       }, 300)
+
+      return () => clearTimeout(t)
     }
   }, [isFreeGame, isIdle, freeSpinsLeft, spin])
 
@@ -286,17 +288,11 @@ export default function App() {
               <div className="win-display">
                 WIN: <span className="win-amount"> {formatPeso(totalWin ?? 0)}</span>
               </div>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  gap: 15,
-                  alignItems: 'center',
-                  paddingTop: 10,
-                  marginTop: -10,
-                }}
-              >
-                <div className="bet-display">
+              <div className="bottom-controls">
+                <div className="controls-left">
+                  <button className="spin-btn audio" onClick={() => setAudioOn(v => !v)}>
+                    {audioOn ? '🔊' : '🔇'}
+                  </button>
                   <div className="bet-control">
                     <button
                       disabled={!isReady}
@@ -305,9 +301,7 @@ export default function App() {
                       }}
                       className="bet-btn minus"
                     />
-
-                    <button className="bet-btn center" disabled />
-
+                    <span className="bet-amount">{formatPeso(bet ?? 0, true, true, 2)}</span>
                     <button
                       disabled={!isReady}
                       onClick={() => {
@@ -316,38 +310,39 @@ export default function App() {
                       className="bet-btn plus"
                     />
                   </div>
-
-                  <span className="bet-amount">{formatPeso(bet ?? 0, true, false)}</span>
                 </div>
 
-                <button
-                  className={`spin-btn spin-image ${autoSpin ? 'active' : ''}`}
-                  disabled={
-                    !isReady || balance === 0 || balance < bet || (isFreeGame && freeSpinsLeft < 10)
-                  }
-                  onClick={spin}
-                  aria-label="Spin"
-                />
+                <div className="controls-center">
+                  <button
+                    className={`spin-btn spin-image ${isReady && !autoSpin ? 'active' : ''}`}
+                    disabled={
+                      !isReady ||
+                      autoSpin ||
+                      balance === 0 ||
+                      balance < bet ||
+                      (isFreeGame && freeSpinsLeft < 10)
+                    }
+                    onClick={spin}
+                    aria-label="Spin"
+                  />
+                </div>
 
-                <button
-                  className={`spin-btn auto ${autoSpin ? 'active' : ''}`}
-                  disabled={isFreeGame || balance === 0 || balance < bet}
-                  onClick={() => setAutoSpin(!autoSpin)}
-                >
-                  {autoSpin ? 'STOP' : 'AUTO'}
-                </button>
+                <div className="controls-right">
+                  <button
+                    className={`spin-btn auto spin-auto-image ${autoSpin ? 'active' : ''}`}
+                    disabled={isFreeGame || balance === 0 || balance < bet}
+                    onClick={() => setAutoSpin(!autoSpin)}
+                  />
 
-                <button className={`spin-btn turbo`} disabled={true}>
-                  Turbo
-                </button>
-                <button className="spin-btn audio" onClick={() => setAudioOn(v => !v)}>
-                  {audioOn ? '🔊' : '🔇'}
-                </button>
+                  <button className={`spin-btn turbo`} disabled={true} />
+
+                  <button className={`spin-btn settings`} />
+                </div>
               </div>
               <div className="balance-display">
                 Balance <span className="balance-amount">{formatPeso(balance ?? 0)}</span>
                 <button className="add-btn" onClick={() => setBalance(balance + 5000)}>
-                  +{formatPeso(5000, true, false)}
+                  +{formatPeso(5000, true, true, 2)}
                 </button>
               </div>
             </div>

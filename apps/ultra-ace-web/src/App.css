@@ -732,14 +732,25 @@
     /*background-color: red;*/
 }
 
+button {
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+button:focus {
+    outline: none;
+}
+
+button:focus-visible {
+    outline: none;
+}
+
+
+
 /* =========================
    Buttons
    ========================= */
-
 .spin-btn {
-    /*display: flex;*/
-    /*margin: 0 auto;*/
-
     border-radius: 100px;
     justify-content: center;
     align-items: center;
@@ -747,26 +758,44 @@
 }
 
 .spin-btn:disabled {
-
     cursor: not-allowed;
 }
 
-.spin-btn.auto.active {
-    background-color: #500000;
-    color: #ffd84d;
-    font-weight: bold;
-}
 
 .spin-btn.turbo {
-    height: 40px;
-    width: 40px;
-    opacity: 0.5;
-    font-size: 8px;
+    height: 35px;
+    width: 35px;
+    background-image: url('./assets/images/turbo.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+
+    border: none;
+    background-color: transparent;
+
+    filter: grayscale(0.6);
+    opacity: 0.75;
+    cursor: not-allowed;
+    transform: none;
+    margin-top: 15%;
 }
+
+.spin-btn.settings {
+    height: 35px;
+    width: 35px;
+    background-image: url('./assets/images/settings.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    border: none;
+    background-color: transparent;
+    transform: none;
+}
+
 .spin-btn.audio {
-    font-size: 28px;   /* ← increase this */
-    width: 48px;
-    height: 48px;
+    font-size: 24px;   /* ← increase this */
+    width: 35px;
+    height: 35px;
 
     display: flex;
     align-items: center;
@@ -775,13 +804,73 @@
     background: transparent;
     border: none;
     cursor: pointer;
+    /*margin-top: 1%;*/
 }
+
 .spin-btn.auto {
-    height: 35px;
-    width: 35px;
-    font-size: 7px;
     background-color: #ffd84d;
     color: #500000;
+    margin-top: 30%;
+    margin-left: 10%;
+}
+
+.spin-btn.auto.spin-auto-image {
+    height: 35px;
+    width: 35px;
+
+    background-image: url('./assets/images/auto.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+
+    border: none;
+    background-color: transparent;
+
+}
+
+.spin-btn.auto.spin-auto-image.active{
+    position: relative;
+    isolation: isolate;
+    filter:
+            drop-shadow(0 0 8px rgba(255, 210, 120, 1))
+            drop-shadow(0 0 14px rgba(255, 160, 60, 0.7));
+}
+
+.spin-btn.auto.spin-auto-image.active::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: -1;
+
+    background:
+            conic-gradient(
+                    from 0deg,
+                    rgba(255, 220, 140, 0.0),
+                    rgba(255, 200, 120, 0.95),
+                    rgba(255, 140, 40, 0.95),
+                    rgba(255, 200, 120, 0.95),
+                    rgba(255, 220, 140, 0.0)
+            );
+
+
+    mask: radial-gradient(circle, transparent 58%, black 60%);
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: cover;
+
+
+    padding: 3px;
+    background-clip: padding-box;
+
+    animation: autoSpinRing 1.6s linear infinite;
+}
+
+@keyframes autoSpinRing {
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 
@@ -804,7 +893,6 @@
             transform 120ms ease,
             filter 120ms ease;
 
-    /*opacity 120ms ease;*/
 }
 
 
@@ -884,14 +972,28 @@
 
 
 .add-btn {
-    border-radius: 100px;
-    width: 40px;
-    height: 40px;
-    font-size:10px;
+    border-radius: 5px;
+    width: auto;
+    padding: 5px 7px;
+    font-size: 10px;
     margin-left: 5px;
     border: 1px solid #ffd84d;
-    background-color: transparent;
+    background-color: #0c1d3d;
+    color: #ffd84d;
+
 }
+
+.add-btn:hover {
+    border: 1px solid #ffd84d;
+    filter:
+            drop-shadow(0 0 1px rgba(255, 210, 120, 1))
+            drop-shadow(0 0 6px rgba(255, 160, 60, 0.7));
+}
+
+.add-btn:active {
+  transform: scale(1.15);
+}
+
 
 
 /* =========================
@@ -907,7 +1009,7 @@
 
     color: #ffd84d;
     text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
-    margin-top: -0.5rem;
+    margin-top: 1rem;
 
 }
 
@@ -930,33 +1032,52 @@
 }
 
 
-
-.bet-display {
+.bottom-controls {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 1px;
-    font-size: 13px;
-    color: white;
-    transform: translateX(10%);
+    width: 100%;
+    padding: 10px 12px;
 
+    /* IMPORTANT */
+    justify-content: space-between;
 }
+
+.controls-left {
+    flex: 0 0 40%;
+    display: flex;
+    /*flex-direction: column;*/
+    /*padding-left: 10px;*/
+    justify-content: flex-end;
+    align-items: center;
+    color: white;
+    gap: 5px
+}
+
+
+.controls-center {
+    flex: 0 0 20%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.controls-right {
+    flex: 0 0 40%;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
+}
+
 
 .bet-control {
     display: flex;
     align-items: center;
-    transform: scale(0.75);
+    /*transform: scale(0.75);*/
     transform-origin: center;
-
-}
-
-.bet-btn {
-    background-image: url('./assets/images/bet_button.png');
-    background-repeat: no-repeat;
-    background-size: 184px 44px; /* EXACT image size */
-    height: 44px;
-    border: none;
+    gap: 5px;
+    margin-top: 30%;
+    margin-right: 10%;
 }
 
 .bet-control,
@@ -965,19 +1086,27 @@
 }
 
 .bet-btn.minus {
-    width: 44px;
-    background-position: 0 0;
+    width: 35px;
+    height: 35px;
+    background-image: url('./assets/images/add_bet.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    border: none;
+    background-color: transparent;
 }
 
-.bet-btn.center {
-    width: 96px;
-    background-position: -44px 0;
-    pointer-events: none; /* optional */
-}
 
 .bet-btn.plus {
-    width: 44px;
-    background-position: -140px 0; /* 44 + 96 */
+    width: 35px;
+    height: 35px;
+    background-image: url('./assets/images/add_bet.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+
+    border: none;
+    background-color: transparent;
 }
 
 /* interaction polish */
@@ -987,6 +1116,7 @@
 }
 
 .bet-amount {
+    font-size: clamp(12px, 2vw, 16px);
     color: white;
     text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
 }
