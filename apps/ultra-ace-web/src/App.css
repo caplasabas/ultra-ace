@@ -455,6 +455,51 @@
 /*}*/
 
 
+/* =========================
+   SCATTER — IDLE RAYS (AMBIENT)
+   ========================= */
+.scorch-under.scatter-idle {
+    inset: -45%;
+    z-index: 2;
+    pointer-events: none;
+
+    opacity: 1 !important;
+    transition: none !important;
+
+    filter:
+            brightness(1.05)
+            saturate(1.2);
+
+    animation: scatterRaysBreath 2.8s ease-in-out infinite;
+}
+
+.scorch-under.scatter-idle .scorch-atlas.rays {
+    opacity: 0.7;
+    transform: scale(1.05);
+}
+
+/* Gentle ambient breathing */
+@keyframes scatterRaysBreath {
+    0% {
+        opacity: 0.65;
+        transform: scale(0.98);
+    }
+    50% {
+        opacity: 0.8;
+        transform: scale(1.04);
+    }
+    100% {
+        opacity: 0.65;
+        transform: scale(0.98);
+    }
+}
+
+
+.scorch-under.scatter-idle .scorch-atlas.core {
+    animation-delay: 0ms !important;
+    animation-duration: 1.8s;
+    filter: brightness(1.1);
+}
 
 /* =========================
    Symbols

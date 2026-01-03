@@ -80,7 +80,6 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
         const isBack = symbol.kind === 'BACK'
 
         const isWild = symbol.kind === 'WILD'
-        const isFlipping = phase === 'postGoldTransform'
 
         const wildHighlight = isWild && isWin && phase === 'highlight'
 
@@ -95,6 +94,9 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
 
         const isGoldWin = isGoldLocked && isWin && phase === 'pop'
         const isNormalPop = isWin && phase === 'pop' && !isGoldLocked
+
+        const isScatterSettled =
+          isScatter && !symbol.isNew && phase !== 'cascadeRefill' && phase !== 'initialRefill'
 
         const shouldFlip = symbol.goldToWild === true
         const delay = reelIndex * 110 + (symbols.length - 1 - row) * 65
@@ -181,6 +183,13 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
               <div className="scorch-atlas core" />
               <div className="scorch-atlas rays" />
             </div>
+
+            {isScatterSettled && (
+              <div className="scorch-under scatter-idle">
+                <div className="scorch-atlas core" />
+                <div className="scorch-atlas rays" />
+              </div>
+            )}
           </div>
         )
       })}
