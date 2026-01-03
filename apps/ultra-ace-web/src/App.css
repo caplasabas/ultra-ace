@@ -572,8 +572,8 @@
    ========================= */
 .win-glow {
     position: absolute;
-    width: 130px;
-    height: 130px;
+    width: 86px;
+    height: 86px;
 
     left: 50%;
     top: 46%;
@@ -583,12 +583,11 @@
 
     background: radial-gradient(
             circle at center,
-            /*rgba(255, 200, 90, 0.75) 0%,*/
-            rgba(255, 164, 60, 0.65) 0%,
-            rgba(246, 130, 28, 0.41) 32%,
-            rgba(255, 110, 20, 0.15) 45%,
-            rgba(255, 90, 10, 0.02) 55%,
-            rgba(255, 80, 0, 0.0) 85%
+            rgba(255, 180, 80, 0.95) 0%,
+            rgba(255, 140, 40, 0.75) 22%,
+            rgba(255, 90, 20, 0.35) 38%,
+            rgba(255, 70, 10, 0.15) 50%,
+            rgba(255, 60, 0, 0.0) 65%
     );
 
     will-change: transform, opacity;
@@ -602,7 +601,15 @@
     inset: 0;
     border-radius: 50%;
     background: inherit;
-    filter: blur(4px);
+    filter: blur(2px);
+}
+
+
+.win-amount,
+.win-face {
+    font-family: 'Teko', sans-serif;
+    letter-spacing: 0.02em; /* tighter than Bebas */
+    font-weight: 700;
 }
 
 
@@ -632,7 +639,7 @@
     color: transparent;
 
     /* RED OUTLINE */
-    -webkit-text-stroke: 2px #b32a00;
+    -webkit-text-stroke: 2px #6b1900;
 
     /*!* DEPTH *!*/
     /*text-shadow:*/
@@ -854,8 +861,21 @@
 .win-amount,
 .win-face {
     font-family: 'Bebas Neue', sans-serif;
-    letter-spacing: 0.04em;
+    /*letter-spacing: 0.04em;*/
+    /*font-family: 'Teko', sans-serif;*/
+    font-weight: 700;
+    letter-spacing: 0.02em;
+
+    transform: scaleY(0.88);
+    transform-origin: center;
 }
+
+
+.win-burst {
+    transform-origin: center;
+    translate: 0 -2px;
+}
+
 .win-amount {
 
     color: white;
