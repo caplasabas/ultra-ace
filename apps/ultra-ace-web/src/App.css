@@ -474,8 +474,8 @@
 }
 
 .scorch-under.scatter-idle .scorch-atlas.rays {
-    opacity: 0.7;
-    transform: scale(1.05);
+    opacity: 0.65;
+    transform: scale(0.95);
 }
 
 /* Gentle ambient breathing */
@@ -496,9 +496,16 @@
 
 
 .scorch-under.scatter-idle .scorch-atlas.core {
+    animation: none !important;
+    opacity: 1;
+    background-size: 300% 100%;
+    filter: brightness(1.15);
     animation-delay: 0ms !important;
-    animation-duration: 1.8s;
-    filter: brightness(1.1);
+}
+
+.scorch-under.scatter-idle {
+    opacity: 1 !important;
+    transition: none !important;
 }
 
 /* =========================
