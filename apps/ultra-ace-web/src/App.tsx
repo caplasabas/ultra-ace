@@ -104,15 +104,25 @@ export default function App() {
     })
   }
 
+  const hasWin = Boolean(activeCascade?.lineWins?.length) || hasScatterWin
+
   const windowForRender =
-    phase === 'highlight' || phase === 'pop' ? previousCascade?.window : activeCascade?.window
+    hasWin && ['highlight', 'pop'].includes(phase)
+      ? previousCascade?.window
+      : (activeCascade?.window ?? previousCascade?.window)
+
+  const shouldUsePrevious =
+    phase === 'highlight' ||
+    phase === 'pop' ||
+    phase === 'cascadeRefill' ||
+    phase === 'postGoldTransform'
 
   const adaptedWindow =
     windowForRender &&
     adaptWindow(
       windowForRender,
       phase === 'cascadeRefill' ? activeCascade?.removedPositions : undefined,
-      previousCascade?.window,
+      shouldUsePrevious ? previousCascade?.window : undefined,
       phase,
     )
 

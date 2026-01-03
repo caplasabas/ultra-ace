@@ -477,7 +477,7 @@
 }
 
 .dim.active {
-    background: rgba(0, 0, 0, 0.85);
+    background: rgba(0, 0, 0, 0.8);
 }
 
 .win-overlay {
@@ -1194,7 +1194,7 @@
         filter: brightness(2);
     }
     100% {
-        transform: rotateY(0deg);
+        transform: rotateY(0deg) scale(var(--wild-base-scale));
         filter: brightness(1.35);
     }
 }
@@ -1214,7 +1214,7 @@
 }
 
 
-.card.wild .card-inner {
+.card.wild  {
     transform: scale(var(--wild-base-scale)) translateZ(0);
     transform-origin: center;
 }
@@ -1226,34 +1226,23 @@
     animation-fill-mode: forwards;
     transform: scale(var(--wild-base-scale));
 }
-
 @keyframes wildHighlightPopIn {
     0% {
-        transform: scale(calc(var(--wild-base-scale) * 0.96));
-        filter: brightness(0.97);
+        transform: scale(0.96);
     }
     70% {
-        transform: scale(calc(var(--wild-base-scale) * 1.03));
-        filter: brightness(1.06);
+        transform: scale(1.03);
     }
     100% {
-        transform: scale(var(--wild-base-scale)); /* ✅ RESTORES */
-        filter: brightness(1);
+        transform: scale(1);
     }
 }
 
 @keyframes wildHighlightPulse {
-    0% {
-        transform: scale(var(--wild-base-scale));
-    }
-    40% {
-        transform: scale(calc(var(--wild-base-scale) * 1.06));
-    }
-    100% {
-        transform: scale(var(--wild-base-scale)); /* ✅ RESTORES */
-    }
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.06); }
+    100% { transform: scale(1); }
 }
-
 /* Spawn / propagation pop */
 .card.wild-red.deal .symbol-img {
     animation: redWildSpawn 320ms cubic-bezier(0.22, 1, 0.36, 1);
