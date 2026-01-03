@@ -12,8 +12,7 @@ import {
   BLOCKED_JOKER_KINDS,
 } from '../config/wild.config.js'
 
-const GOLD_CHANCE_REFILL = 0.7
-// const GOLD_CHANCE_REFILL = 0.02
+const GOLD_CHANCE_REFILL = 0.02
 
 const GOLD_TTL = 0
 const MAX_PAYOUT = 2_000_000
