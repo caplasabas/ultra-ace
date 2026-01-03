@@ -19,6 +19,9 @@ export function evaluateColumnWindow(window: Symbol[][], totalBet: number) {
     positions: Position[]
   }[] = []
 
+  /* ----------------------------------------
+     Determine valid starting symbols (reel 0)
+  ---------------------------------------- */
   const startSymbols = new Set<SymbolKind>()
 
   for (let row = 0; row < rowCount; row++) {
@@ -27,46 +30,67 @@ export function evaluateColumnWindow(window: Symbol[][], totalBet: number) {
 
     if (s.kind === 'WILD') {
       for (const k of Object.keys(PAYTABLE) as SymbolKind[]) {
-        if (PAYTABLE[k].some(v => v > 0)) startSymbols.add(k)
+        if (PAYTABLE[k].some(v => v > 0)) {
+          startSymbols.add(k)
+        }
       }
     } else {
       startSymbols.add(s.kind)
     }
   }
 
+  /* ----------------------------------------
+     Evaluate each symbol independently
+  ---------------------------------------- */
   for (const symbol of startSymbols) {
-    let columns = 0
-    const positions: Position[] = []
-    const used = new Set<string>()
+    const winningReels: number[] = []
 
+    /* ----------------------------------------
+       Phase 1: determine winning columns
+    ---------------------------------------- */
     for (let reel = 0; reel < reelCount; reel++) {
-      let matched = false
+      let hasMatch = false
 
       for (let row = 0; row < rowCount; row++) {
         const s = window[reel][row]
-        const key = `${reel}-${row}`
-
-        if (used.has(key)) continue
 
         if (s.kind === symbol || (s.kind === 'WILD' && WILD_ALLOWED_COLUMNS.has(reel))) {
-          matched = true
-          used.add(key)
-          positions.push({ reel, row })
+          hasMatch = true
           break
         }
       }
 
-      if (!matched) break
+      if (!hasMatch) break
 
-      columns++
-      if (columns === MAX_COLUMNS) break
+      winningReels.push(reel)
+      if (winningReels.length === MAX_COLUMNS) break
     }
 
-    if (columns < MIN_COLUMNS) continue
+    if (winningReels.length < MIN_COLUMNS) continue
 
+    /* ----------------------------------------
+       Phase 2: collect ALL matching positions
+    ---------------------------------------- */
+    const positions: Position[] = []
+
+    for (const reel of winningReels) {
+      for (let row = 0; row < rowCount; row++) {
+        const s = window[reel][row]
+
+        if (s.kind === symbol || (s.kind === 'WILD' && WILD_ALLOWED_COLUMNS.has(reel))) {
+          positions.push({ reel, row })
+        }
+      }
+    }
+
+    /* ----------------------------------------
+       Payout calculation
+    ---------------------------------------- */
     const paytable = PAYTABLE[symbol]
+    const columns = winningReels.length
     const payIndex = columns === 3 ? 2 : columns === 4 ? 3 : 4
     const payMult = paytable?.[payIndex] ?? 0
+
     if (payMult <= 0) continue
 
     const payout = (payMult / BET_REFERENCE) * totalBet
