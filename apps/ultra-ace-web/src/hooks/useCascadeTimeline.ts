@@ -82,8 +82,10 @@ export function useCascadeTimeline(cascades: CascadeStep[], spinId: number, onCo
 
     switch (state.phase) {
       case 'reelSweepOut':
-        dispatch({ type: 'NEXT', phase: 'initialRefill' })
-        onCommit?.()
+        t = window.setTimeout(() => {
+          dispatch({ type: 'NEXT', phase: 'initialRefill' })
+          onCommit?.()
+        }, 120)
         break
 
       case 'initialRefill':
@@ -117,7 +119,7 @@ export function useCascadeTimeline(cascades: CascadeStep[], spinId: number, onCo
           ) ?? false
         const hasNextWin = Boolean(nextCascade?.lineWins?.length)
 
-        const delay = hasGoldToWild || hasNextWin ? 1100 : 480
+        const delay = hasGoldToWild || hasNextWin ? 1150 : 820
         t = window.setTimeout(() => {
           if (hasGoldToWild) {
             dispatch({ type: 'NEXT', phase: 'postGoldTransform' })
