@@ -8,7 +8,7 @@ export function useEngine() {
   const [pendingCascades, setPendingCascades] = useState<CascadeStep[] | null>(null)
 
   const [bet, setBet] = useState(2)
-  const [balance, setBalance] = useState(1000)
+  const [balance, setBalance] = useState(5000)
   const [totalWin, setTotalWin] = useState(0)
   const [pendingWin, setPendingWin] = useState(0)
 

@@ -346,8 +346,8 @@ export default function App() {
               </div>
               <div className="balance-display">
                 Balance <span className="balance-amount">{formatPeso(balance ?? 0)}</span>
-                <button className="add-btn" onClick={() => setBalance(balance + 500)}>
-                  +{formatPeso(500, true, false)}
+                <button className="add-btn" onClick={() => setBalance(balance + 5000)}>
+                  +{formatPeso(5000, true, false)}
                 </button>
               </div>
             </div>
