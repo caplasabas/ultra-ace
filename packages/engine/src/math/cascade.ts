@@ -176,9 +176,13 @@ function refillInPlace(window: Symbol[][], rng: () => number) {
     for (let row = 0; row < window[r].length; row++) {
       if (window[r][row].kind !== 'EMPTY') continue
 
-      const symbol: Symbol = {
-        ...GAME_CONFIG.cascadeFillPool[Math.floor(rng() * GAME_CONFIG.cascadeFillPool.length)],
-      }
+      let symbol: Symbol
+
+      do {
+        symbol = {
+          ...GAME_CONFIG.cascadeFillPool[Math.floor(rng() * GAME_CONFIG.cascadeFillPool.length)],
+        }
+      } while (symbol.kind === 'WILD')
 
       const goldAllowed = r !== 0 && r !== window.length - 1
 

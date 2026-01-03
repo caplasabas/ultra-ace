@@ -27,7 +27,6 @@ export const REELS_FREE: Symbol[][] = [
     { kind: 'J' },
     { kind: 'Q' },
     { kind: 'K' },
-    { kind: 'WILD' },
   ],
   [
     { kind: 'SPADE' },
