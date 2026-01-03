@@ -572,12 +572,12 @@
    ========================= */
 .win-glow {
     position: absolute;
-    width: 86px;
-    height: 86px;
+    width: 67px;
+    height: 67px;
 
     left: 50%;
     top: 46%;
-    transform: translate(-50%, -50%) scaleX(1.45);
+    transform: translate(-50%, -50%) scaleX(1.75);
     border-radius: 50%;
     z-index: 0;
 
