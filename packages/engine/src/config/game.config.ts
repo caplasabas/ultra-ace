@@ -1,3 +1,5 @@
+import { SymbolKind } from '../types/symbol'
+
 export const GAME_CONFIG = {
   reelsVisibleRows: 4,
   maxLines: 5,
@@ -17,7 +19,7 @@ export const GAME_CONFIG = {
     { kind: 'HEART' },
     { kind: 'DIAMOND' },
     { kind: 'CLUB' },
-  ],
+  ] satisfies { kind: SymbolKind }[],
 
   devForceScatterChance: 0,
 }

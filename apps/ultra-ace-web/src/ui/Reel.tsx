@@ -16,6 +16,9 @@ export interface UISymbol {
 
   goldToWild?: boolean
   wildColor?: 'red' | 'blue'
+
+  prevKind?: string
+  wasGold?: boolean
 }
 
 interface Props {
@@ -43,7 +46,17 @@ function resolveSymbolImage(symbol: UISymbol): string {
   }
 
   if (symbol.kind === 'WILD') {
-    return symbol.wildColor === 'red' ? SYMBOL_MAP.WILD_RED.normal : SYMBOL_MAP.WILD.normal
+    if (symbol.wildColor === 'blue') {
+      return SYMBOL_MAP.WILD.normal
+    }
+
+    if (symbol.wildColor === 'red') {
+      return symbol.wasGold || symbol.isSettledWild
+        ? SYMBOL_MAP.WILD_RED.normal
+        : symbol.prevKind
+          ? SYMBOL_MAP[symbol.prevKind!]?.normal
+          : SYMBOL_MAP[symbol.kind].normal
+    }
   }
 
   return SYMBOL_MAP[symbol.kind].normal
@@ -66,14 +79,22 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
         const isScatter = symbol.kind === 'SCATTER'
         const isBack = symbol.kind === 'BACK'
 
+        const isWild = symbol.kind === 'WILD'
+        const isFlipping = phase === 'postGoldTransform'
+
+        const wildHighlight = isWild && isWin && phase === 'highlight'
+
         const isCascadeDeal =
           isCascadeRefill &&
           symbol.isNew === true &&
           symbol.isPersisted !== true &&
           symbol.isSettledWild !== true
 
-        const isGoldLocked = symbol.isGold === true || symbol.goldTTL !== undefined
+        const isGoldLocked =
+          symbol.isGold === true || symbol.goldTTL !== undefined || symbol.wasGold
+
         const isGoldWin = isGoldLocked && isWin && phase === 'pop'
+        const isNormalPop = isWin && phase === 'pop' && !isGoldLocked
 
         const shouldFlip = symbol.goldToWild === true
         const delay = reelIndex * 140 + (symbols.length - 1 - row) * 55 + row * 6
@@ -98,16 +119,18 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
               className={[
                 'card',
                 isBack && 'back',
-                symbol.kind === 'WILD' && 'wild',
-                symbol.kind === 'WILD' && symbol.wildColor === 'red' && 'wild-red',
+                symbol.kind === 'WILD' && symbol.wasGold && 'wild',
+                symbol.kind === 'WILD' &&
+                  symbol.wasGold &&
+                  symbol.wildColor === 'red' &&
+                  'wild-red',
                 isGoldLocked && 'gold',
                 isScatter && 'scatter',
                 isInitialDeal && 'deal-initial',
                 isCascadeDeal && 'deal',
 
-                // 🔑 MUTUALLY EXCLUSIVE
-                isWin && phase === 'pop' && !isGoldLocked && 'pop',
-                isGoldWin && 'gold-pop-lock',
+                isNormalPop && 'pop', // ✅ ONLY normal symbols
+                isGoldWin && 'gold-pop-lock', // ✅ GOLD fade only
 
                 shouldFlip && 'flip-to-wild',
                 symbol.isSettledWild && 'settled',
@@ -121,8 +144,13 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
               <div
                 className={[
                   'card-inner',
-                  isBack && isCascadeRefill && 'highlight',
-                  isWin && phase === 'highlight' && 'highlight',
+                  isBack && isCascadeRefill && 'highlight-back',
+                  isWin &&
+                    phase === 'highlight' &&
+                    !isWild &&
+                    !isBack &&
+                    !symbol.goldToWild &&
+                    'highlight',
                 ]
                   .filter(Boolean)
                   .join(' ')}
@@ -135,7 +163,13 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
                     : undefined
                 }
               >
-                <img src={imgSrc} className="symbol-img" draggable={false} />
+                <img
+                  src={imgSrc}
+                  className={['symbol-img', wildHighlight && 'wild-highlight']
+                    .filter(Boolean)
+                    .join(' ')}
+                  draggable={false}
+                />
               </div>
             </div>
 

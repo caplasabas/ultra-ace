@@ -45,6 +45,9 @@
             #d84a00 82%,
             #7a1a00 100%
     );
+
+    --wild-base-scale: 1.14;
+
 }
 
 .font-plasma {
@@ -266,6 +269,21 @@
     100% { transform: scale(0); opacity: 0; }
 }
 
+/* =========================
+   GOLD — CLEAR BY FADE ONLY
+   ========================= */
+
+.card.gold-pop-lock {
+    animation: none !important;
+    transform: scale(1) !important;
+    opacity: 1;
+}
+
+/* Fade only */
+.card.gold-pop-lock .symbol-img {
+    animation: goldSymbolFade 180ms ease-out forwards;
+}
+
 .card-shell {
     position: absolute;
     width: var(--scaled-card-width);
@@ -318,6 +336,7 @@
     backface-visibility: hidden;
 }
 
+
 @keyframes highlightPulse {
     0% {
         transform: scale(1);
@@ -344,6 +363,15 @@
         transform: scale(1);
         filter: brightness(1);
     }
+}
+
+/* =========================
+   BACK — NO SCALE EVER
+   ========================= */
+
+.card.back .card-inner.highlight {
+    animation: none !important;
+    transform: scale(1) !important;
 }
 /* =========================
    SCORCH ATLAS (1536x512)
@@ -449,7 +477,7 @@
 }
 
 .dim.active {
-    background: rgba(0, 0, 0, 0.55);
+    background: rgba(0, 0, 0, 0.85);
 }
 
 .win-overlay {
@@ -1020,15 +1048,35 @@
         filter: brightness(1.4);
     }
     60% {
-        transform: scale(1.25);
+        transform: scale(1.55);
         filter: brightness(2);
     }
     100% {
-        transform: scale(1);
+        transform: scale(1.48);
         filter: brightness(1);
     }
 }
 
+.symbol-img.wild-highlight {
+    animation: wildHighlightPop 320ms cubic-bezier(0.22, 0.9, 0.32, 1);
+    transform-origin: center;
+    z-index: 3;
+}
+
+@keyframes wildHighlightPop {
+    0% {
+        transform: scale(1.25);
+        filter: brightness(1.1);
+    }
+    45% {
+        transform: scale(1.4);
+        filter: brightness(1.35);
+    }
+    100% {
+        transform: scale(1.25);
+        filter: brightness(1.2);
+    }
+}
 /* =========================
    Gold Shimmer Overlay
    ========================= */
@@ -1166,54 +1214,63 @@
 }
 
 
-.card.wild .symbol-img {
-    transform: scale(1.15);
+.card.wild .card-inner {
+    transform: scale(var(--wild-base-scale)) translateZ(0);
     transform-origin: center;
-    position: relative;
-    z-index: 2;
 }
 
-/* 🔴 RED WILD */
-
-.card.wild-red {
-    z-index: 9;
+.card.wild .card-inner.highlight {
+    animation:
+            wildHighlightPopIn 320ms cubic-bezier(0.16, 1, 0.3, 1),
+            wildHighlightPulse 640ms ease-in-out 260ms forwards;
+    animation-fill-mode: forwards;
+    transform: scale(var(--wild-base-scale));
 }
 
-.card.wild-red .symbol-img {
-    transform: scale(1.2);
-    filter:
-            drop-shadow(0 0 5px rgba(255, 60, 60, 0.9))
-            drop-shadow(0 0 10px rgba(255, 0, 0, 0.6));
+@keyframes wildHighlightPopIn {
+    0% {
+        transform: scale(calc(var(--wild-base-scale) * 0.96));
+        filter: brightness(0.97);
+    }
+    70% {
+        transform: scale(calc(var(--wild-base-scale) * 1.03));
+        filter: brightness(1.06);
+    }
+    100% {
+        transform: scale(var(--wild-base-scale)); /* ✅ RESTORES */
+        filter: brightness(1);
+    }
+}
+
+@keyframes wildHighlightPulse {
+    0% {
+        transform: scale(var(--wild-base-scale));
+    }
+    40% {
+        transform: scale(calc(var(--wild-base-scale) * 1.06));
+    }
+    100% {
+        transform: scale(var(--wild-base-scale)); /* ✅ RESTORES */
+    }
 }
 
 /* Spawn / propagation pop */
 .card.wild-red.deal .symbol-img {
-    animation: redWildSpawn 380ms cubic-bezier(0.22, 1, 0.36, 1);
+    animation: redWildSpawn 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes redWildSpawn {
     0% {
-        transform: scale(0.65);
+        transform: scale(0.8);
         opacity: 0;
     }
-    60% {
-        transform: scale(1.45);
+    55% {
+        transform: scale(1.48);
         opacity: 1;
     }
     100% {
-        transform: scale(1.2);
+        transform: scale(1.48); /* SAME AS BASE */
     }
-}
-
-/* Idle breathing */
-.card.wild-red:not(.pop) .symbol-img {
-    animation: redWildIdle 1200ms ease-in-out infinite;
-}
-
-@keyframes redWildIdle {
-    0%   { transform: scale(1.1); }
-    50%  { transform: scale(1.15); }
-    100% { transform: scale(1.1); }
 }
 
 /* =========================
@@ -1228,7 +1285,7 @@
     transform: scale(1.35); /* BASE SIZE — overlaps neighbors */
     transform-origin: center;
     position: relative;
-    z-index: 2;
+    z-index: 30;
     filter:
             drop-shadow(0 0 7px rgba(255, 233, 122, 0.9))
             drop-shadow(0 0 16px rgba(255, 140, 0, 0.6));
@@ -1279,6 +1336,7 @@
     55%  { transform: scale(1.2, 1.32); }
     100% { transform: scale(1.25); }
 }
+
 
 .card.scatter.highlight:not(.pop):not(.deal) {
     animation: scatterCardJump 620ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -1483,24 +1541,45 @@
 .card.back {
     z-index: 5;
     animation: backAppear 160ms ease-out forwards;
+    transform: scale(1) !important;
 }
 
+.card-inner.highlight-back {
+    box-shadow:
+            0 0 14px rgba(250, 226, 161, 0.65),
+            0 0 24px rgba(255, 210, 29, 0.45);
+}
 @keyframes backAppear {
     0% {
         opacity: 0;
-        transform: scale(0.96);
         filter: brightness(0.85);
     }
     100% {
         opacity: 1;
-        transform: scale(1);
         filter: brightness(1);
     }
 }
 
+.card.highlight::before {
+    content: '';
+    position: absolute;
+    inset: -6%;
+    border-radius: 10px;
+    pointer-events: none;
+
+    box-shadow:
+            0 0 14px rgba(250, 226, 161, 0.85),
+            0 0 28px rgba(255, 210, 29, 0.65),
+            0 0 46px rgba(252, 171, 50, 0.51);
+
+    opacity: 1;
+    transition: opacity 160ms ease;
+    z-index: 20;
+}
+
 /* Quick highlight + micro pop (no removal) */
 .card.back .card-inner.highlight {
-    animation: backPulse 220ms ease-out;
+
     box-shadow: 0 0 14px rgba(255, 210, 120, 0.75);
 }
 
@@ -1530,12 +1609,6 @@
     0%   { opacity: 0; }
     45%  { opacity: 1; }
     100% { opacity: 0; }
-}
-
-@keyframes backPulse {
-    0%   { transform: scale(1); }
-    50%  { transform: scale(1.18); }
-    100% { transform: scale(1); }
 }
 
 /* =========================

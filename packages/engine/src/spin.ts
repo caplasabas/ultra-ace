@@ -13,22 +13,25 @@ const FORBIDDEN_GOLD_REELS = new Set([0, 4])
 
 export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
   const isFreeGame = Boolean(input.isFreeGame)
-  const totalBet = input.isFreeGame ? 0 : input.betPerSpin
+  const totalBet = isFreeGame ? 0 : input.betPerSpin
 
-  const reels = input.isFreeGame ? REELS_FREE : REELS
+  const reels = isFreeGame ? REELS_FREE : REELS
   const stops = reels.map(reel => Math.floor(rng() * reel.length))
 
   const window: Symbol[][] = reels.map((reel, reelIndex) =>
     Array.from({ length: GAME_CONFIG.reelsVisibleRows }, (_, row) => {
       const idx = (stops[reelIndex] + row) % reel.length
-      let symbol = reel[idx]
+
+      // 🔒 ALWAYS CLONE (critical)
+      const symbol: Symbol = { ...reel[idx] }
 
       if (
         !FORBIDDEN_GOLD_REELS.has(reelIndex) &&
         symbol.kind !== 'SCATTER' &&
-        Math.random() < GOLD_CHANCE_INITIAL
+        rng() < GOLD_CHANCE_INITIAL
       ) {
-        symbol = { ...symbol, isGold: true, goldTTL: GOLD_TTL }
+        symbol.isGold = true
+        symbol.goldTTL = GOLD_TTL
       }
 
       return symbol
@@ -36,7 +39,13 @@ export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
   )
 
   const scatterCount = window.flat().filter(s => s.kind === 'SCATTER').length
-  const { totalWin, cascades } = runCascades(window, input.betPerSpin, isFreeGame)
+
+  const { totalWin, cascades } = runCascades(
+    window,
+    input.betPerSpin,
+    isFreeGame,
+    rng, // 🔑 pass RNG
+  )
 
   let freeSpinsAwarded = !isFreeGame && scatterCount >= 3 ? GAME_CONFIG.freeSpinsAwarded : 0
 

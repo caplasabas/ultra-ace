@@ -6,21 +6,30 @@ type Position = { reel: number; row: number }
 const MIN_COLUMNS = 3
 const MAX_COLUMNS = 5
 const BET_REFERENCE = 0.6
-
 const WILD_ALLOWED_COLUMNS = new Set([1, 2, 3])
 
 export function evaluateColumnWindow(window: Symbol[][], totalBet: number) {
   const reelCount = window.length
   const rowCount = window[0].length
 
-  const wins = []
+  const wins: {
+    symbol: SymbolKind
+    count: number
+    payout: number
+    positions: Position[]
+  }[] = []
 
-  // Symbols must originate from reel 0
   const startSymbols = new Set<SymbolKind>()
 
   for (let row = 0; row < rowCount; row++) {
     const s = window[0][row]
-    if (s.kind !== 'EMPTY' && s.kind !== 'SCATTER' && s.kind !== 'WILD') {
+    if (s.kind === 'EMPTY' || s.kind === 'SCATTER') continue
+
+    if (s.kind === 'WILD') {
+      for (const k of Object.keys(PAYTABLE) as SymbolKind[]) {
+        if (PAYTABLE[k].some(v => v > 0)) startSymbols.add(k)
+      }
+    } else {
       startSymbols.add(s.kind)
     }
   }
@@ -28,19 +37,22 @@ export function evaluateColumnWindow(window: Symbol[][], totalBet: number) {
   for (const symbol of startSymbols) {
     let columns = 0
     const positions: Position[] = []
+    const used = new Set<string>()
 
     for (let reel = 0; reel < reelCount; reel++) {
       let matched = false
 
       for (let row = 0; row < rowCount; row++) {
         const s = window[reel][row]
+        const key = `${reel}-${row}`
 
-        if (s.kind === symbol) {
+        if (used.has(key)) continue
+
+        if (s.kind === symbol || (s.kind === 'WILD' && WILD_ALLOWED_COLUMNS.has(reel))) {
           matched = true
+          used.add(key)
           positions.push({ reel, row })
-        } else if (s.kind === 'WILD' && WILD_ALLOWED_COLUMNS.has(reel)) {
-          matched = true
-          positions.push({ reel, row })
+          break
         }
       }
 
@@ -53,12 +65,8 @@ export function evaluateColumnWindow(window: Symbol[][], totalBet: number) {
     if (columns < MIN_COLUMNS) continue
 
     const paytable = PAYTABLE[symbol]
-    if (!paytable) continue
-
-    const payIndex = columns === 3 ? 2 : columns === 4 ? 3 : columns === 5 ? 4 : -1
-    if (payIndex < 0) continue
-
-    const payMult = paytable[payIndex]
+    const payIndex = columns === 3 ? 2 : columns === 4 ? 3 : 4
+    const payMult = paytable?.[payIndex] ?? 0
     if (payMult <= 0) continue
 
     const payout = (payMult / BET_REFERENCE) * totalBet

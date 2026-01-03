@@ -65,6 +65,9 @@ export function adaptWindow(
 
         // 🔑 FINAL STATE LATCH (CRITICAL)
         isSettledWild,
+
+        prevKind: prev?.kind,
+        wasGold,
       }
     }),
   )

@@ -13,11 +13,17 @@ import {
 } from '../config/wild.config.js'
 
 const GOLD_CHANCE_REFILL = 0.02
+
 const GOLD_TTL = 0
 const MAX_PAYOUT = 2_000_000
 const MAX_MULTIPLIER = 10_000
 
-export function runCascades(initialWindow: Symbol[][], totalBet: number, isFreeGame: boolean) {
+export function runCascades(
+  initialWindow: Symbol[][],
+  totalBet: number,
+  isFreeGame: boolean,
+  rng: () => number,
+) {
   const window = cloneWindow(initialWindow)
   let totalWin = 0
   const cascades: CascadeStep[] = []
@@ -48,43 +54,70 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number, isFreeG
     const removed: { reel: number; row: number }[] = []
     let baseWin = 0
 
+    const wildTriggered = wins.some(w =>
+      w.positions.some(p => window[p.reel][p.row].kind === 'WILD'),
+    )
+
+    /* ───────── PROMOTE ALL WILDS TO WINNERS ───────── */
+
+    if (wildTriggered) {
+      const wildPositions: { reel: number; row: number }[] = []
+
+      for (let reel = 0; reel < window.length; reel++) {
+        for (let row = 0; row < window[reel].length; row++) {
+          if (window[reel][row].kind === 'WILD') {
+            wildPositions.push({ reel, row })
+          }
+        }
+      }
+
+      // 👑 Inject synthetic win group (NO payout)
+      wins.push({
+        symbol: 'WILD',
+        count: wildPositions.length,
+        payout: 0,
+        positions: wildPositions,
+      })
+    }
+
+    function markForRemoval(pos: { reel: number; row: number }) {
+      const key = `${pos.reel}-${pos.row}`
+      if (removedSet.has(key)) return
+      removedSet.add(key)
+      removed.push(pos)
+    }
+
+    /* ───────── PROCESS ALL WIN GROUPS ───────── */
+
     for (const w of wins) {
       baseWin += w.payout
 
       for (const pos of w.positions) {
-        const key = `${pos.reel}-${pos.row}`
-        if (removedSet.has(key)) continue
-        removedSet.add(key)
-
         const s = window[pos.reel][pos.row]
         const isEdge = pos.reel === 0 || pos.reel === window.length - 1
 
-        /* ───────── GOLD → WILD (IMMEDIATE) ───────── */
-        if (s.isGold) {
-          if (isEdge) {
-            window[pos.reel][pos.row] = { kind: 'EMPTY' }
-            removed.push(pos)
-            continue
-          }
+        markForRemoval(pos)
 
-          const isRed = DEV_FORCE_RED_WILD || DEV_FORCE_BIG_JOKER || Math.random() < RED_WILD_CHANCE
+        if (isEdge) {
+          window[pos.reel][pos.row] = { kind: 'EMPTY' }
+          continue
+        }
+
+        if (s.isGold) {
+          const isRed = DEV_FORCE_RED_WILD || DEV_FORCE_BIG_JOKER || rng() < RED_WILD_CHANCE
 
           window[pos.reel][pos.row] = {
             kind: 'WILD',
             isWild: true,
             wildColor: isRed ? 'red' : 'blue',
-
-            // 🔑 UI animation hook
             fromGold: true,
           }
 
-          if (isRed) propagateBigJoker(window)
+          if (isRed) propagateBigJoker(window, rng)
           continue
         }
 
-        /* ───────── NORMAL REMOVAL ───────── */
         window[pos.reel][pos.row] = { kind: 'EMPTY' }
-        removed.push(pos)
       }
     }
 
@@ -92,7 +125,7 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number, isFreeG
     totalWin += win
     if (totalWin >= MAX_PAYOUT) break
 
-    refillInPlace(window)
+    refillInPlace(window, rng)
 
     cascades.push({
       index: i,
@@ -107,23 +140,24 @@ export function runCascades(initialWindow: Symbol[][], totalBet: number, isFreeG
   return { totalWin, cascades }
 }
 
-/* ───────── BIG JOKER ───────── */
+/* ───────── BIG JOKER (RED WILD PROPAGATION) ───────── */
 
-function propagateBigJoker(window: Symbol[][]) {
+function propagateBigJoker(window: Symbol[][], rng: () => number) {
   const candidates: { reel: number; row: number }[] = []
 
-  for (let reel = 1; reel <= 4; reel++) {
+  // 🔒 STRICT: ONLY REELS 1–3
+  for (let reel = 1; reel <= 3; reel++) {
     for (let row = 0; row < window[reel].length; row++) {
       const s = window[reel][row]
-      if (!BLOCKED_JOKER_KINDS.has(s.kind)) {
+      if (s.kind !== 'WILD' && !BLOCKED_JOKER_KINDS.has(s.kind)) {
         candidates.push({ reel, row })
       }
     }
   }
 
-  shuffle(candidates)
+  shuffle(candidates, rng)
 
-  const count = BIG_JOKER_MIN + Math.floor(Math.random() * (BIG_JOKER_MAX - BIG_JOKER_MIN + 1))
+  const count = BIG_JOKER_MIN + Math.floor(rng() * (BIG_JOKER_MAX - BIG_JOKER_MIN + 1))
 
   for (let i = 0; i < Math.min(count, candidates.length); i++) {
     const { reel, row } = candidates[i]
@@ -137,19 +171,20 @@ function propagateBigJoker(window: Symbol[][]) {
 
 /* ───────── REFILL ───────── */
 
-function refillInPlace(window: Symbol[][]) {
+function refillInPlace(window: Symbol[][], rng: () => number) {
   for (let r = 0; r < window.length; r++) {
     for (let row = 0; row < window[r].length; row++) {
       if (window[r][row].kind !== 'EMPTY') continue
 
-      let symbol = GAME_CONFIG.cascadeFillPool[
-        Math.floor(Math.random() * GAME_CONFIG.cascadeFillPool.length)
-      ] as Symbol
+      const symbol: Symbol = {
+        ...GAME_CONFIG.cascadeFillPool[Math.floor(rng() * GAME_CONFIG.cascadeFillPool.length)],
+      }
 
       const goldAllowed = r !== 0 && r !== window.length - 1
 
-      if (goldAllowed && symbol.kind !== 'SCATTER' && Math.random() < GOLD_CHANCE_REFILL) {
-        symbol = { ...symbol, isGold: true, goldTTL: GOLD_TTL }
+      if (goldAllowed && symbol.kind !== 'SCATTER' && rng() < GOLD_CHANCE_REFILL) {
+        symbol.isGold = true
+        symbol.goldTTL = GOLD_TTL
       }
 
       window[r][row] = symbol
@@ -157,13 +192,15 @@ function refillInPlace(window: Symbol[][]) {
   }
 }
 
+/* ───────── UTILS ───────── */
+
 function cloneWindow(w: Symbol[][]): Symbol[][] {
-  return w.map(c => c.map(s => ({ ...s })))
+  return w.map(col => col.map(s => ({ ...s })))
 }
 
-function shuffle<T>(arr: T[]) {
+function shuffle<T>(arr: T[], rng: () => number) {
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
+    const j = Math.floor(rng() * (i + 1))
     ;[arr[i], arr[j]] = [arr[j], arr[i]]
   }
 }
