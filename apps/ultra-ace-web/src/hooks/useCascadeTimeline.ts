@@ -108,15 +108,17 @@ export function useCascadeTimeline(cascades: CascadeStep[], spinId: number, onCo
         break
 
       case 'cascadeRefill':
-        t = window.setTimeout(() => {
-          const hasGoldToWild =
-            activeCascade?.window?.some((col, r) =>
-              col.some((s, c) => {
-                const prev = previousCascade?.window?.[r]?.[c]
-                return prev?.isGold === true && s.kind === 'WILD'
-              }),
-            ) ?? false
+        const hasGoldToWild =
+          activeCascade?.window?.some((col, r) =>
+            col.some((s, c) => {
+              const prev = previousCascade?.window?.[r]?.[c]
+              return prev?.isGold === true && s.kind === 'WILD'
+            }),
+          ) ?? false
+        const hasNextWin = Boolean(nextCascade?.lineWins?.length)
 
+        const delay = hasGoldToWild || hasNextWin ? 1100 : 480
+        t = window.setTimeout(() => {
           if (hasGoldToWild) {
             dispatch({ type: 'NEXT', phase: 'postGoldTransform' })
           } else if (nextCascade?.lineWins?.length) {
@@ -124,7 +126,7 @@ export function useCascadeTimeline(cascades: CascadeStep[], spinId: number, onCo
           } else {
             dispatch({ type: 'NEXT', phase: 'settle' })
           }
-        }, 1100)
+        }, delay)
         break
 
       case 'postGoldTransform':

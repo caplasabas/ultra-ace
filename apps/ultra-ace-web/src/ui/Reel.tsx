@@ -97,7 +97,7 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
         const isNormalPop = isWin && phase === 'pop' && !isGoldLocked
 
         const shouldFlip = symbol.goldToWild === true
-        const delay = reelIndex * 140 + (symbols.length - 1 - row) * 55 + row * 6
+        const delay = reelIndex * 110 + (symbols.length - 1 - row) * 65
         const imgSrc = resolveSymbolImage(symbol)
 
         return (
