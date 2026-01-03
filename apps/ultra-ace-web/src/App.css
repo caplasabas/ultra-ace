@@ -605,13 +605,6 @@
 }
 
 
-.win-amount,
-.win-face {
-    font-family: 'Teko', sans-serif;
-    letter-spacing: 0.02em; /* tighter than Bebas */
-    font-weight: 700;
-}
-
 
 /* =========================
    MAIN FACE (REAL GRADIENT)
@@ -619,8 +612,6 @@
 .win-face {
     position: relative;
     z-index: 2;
-
-    font-weight: 900;
 
     /* GOLD GRADIENT — THIS WILL NOW SHOW */
     background: linear-gradient(
@@ -861,15 +852,18 @@
 .win-amount,
 .win-face {
     font-family: 'Bebas Neue', sans-serif;
-    /*letter-spacing: 0.04em;*/
-    /*font-family: 'Teko', sans-serif;*/
-    font-weight: 700;
-    letter-spacing: 0.02em;
 
-    transform: scaleY(0.88);
-    transform-origin: center;
+    font-weight: 900;
+    letter-spacing: 0.02em;
 }
 
+.win-face {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(42px, 7vw, 78px);
+    font-weight: 900;
+    line-height: 0.85;
+    letter-spacing: 0.02em;
+}
 
 .win-burst {
     transform-origin: center;
@@ -920,11 +914,19 @@
 .balance-amount {
     color: white;
     font-weight: bold;
+    font-family: 'Bebas Neue', sans-serif;
+
+    font-size: 15px;
+    letter-spacing: 0.02em;
 }
 
 .balance-placeholder {
     font-size: 18px;
     opacity: 0.4;
+    font-family: 'Bebas Neue', sans-serif;
+
+    font-weight: 900;
+    letter-spacing: 0.02em;
 }
 
 
