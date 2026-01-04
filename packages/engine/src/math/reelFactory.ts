@@ -1,10 +1,15 @@
 import { Symbol } from '../types/symbol.js'
 import { REEL_WEIGHTS } from './reelWeights.js'
 
-export function buildReel(weights = REEL_WEIGHTS): Symbol[] {
+const REEL_SIZE = 1000
+
+export function buildReel(weights: Record<string, number> = REEL_WEIGHTS): Symbol[] {
   const reel: Symbol[] = []
 
-  for (const [kind, count] of Object.entries(weights)) {
+  const total = Object.values(weights).reduce((a, b) => a + b, 0)
+
+  for (const [kind, weight] of Object.entries(weights)) {
+    const count = Math.round((weight / total) * REEL_SIZE)
     for (let i = 0; i < count; i++) {
       reel.push({ kind } as Symbol)
     }

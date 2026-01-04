@@ -6,7 +6,7 @@ import { SpinInput, SpinOutcome } from './types/spin.js'
 import { GAME_CONFIG } from './config/game.config.js'
 import type { Symbol } from './types/symbol.js'
 
-const GOLD_CHANCE_INITIAL = 0.00055
+const GOLD_CHANCE_INITIAL = 0.00095
 const GOLD_TTL = 0
 const FORBIDDEN_GOLD_REELS = new Set([0, 4])
 

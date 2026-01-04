@@ -12,14 +12,14 @@ import {
   BLOCKED_JOKER_KINDS,
 } from '../config/wild.config.js'
 
-const GOLD_CHANCE_REFILL = 0.00085
+const GOLD_CHANCE_REFILL = 0.0075
 
 const GOLD_TTL = 0
 const MAX_PAYOUT = 2_000_000
 const MAX_MULTIPLIER = 10_000
 
-const CASCADE_DECAY_BASE = 0.52
-const CASCADE_DECAY_FREE = 0.18
+const CASCADE_DECAY_BASE = 0.72
+const CASCADE_DECAY_FREE = 0.38
 
 /* -----------------------------
    FULL-COLUMN STACK LIMIT
