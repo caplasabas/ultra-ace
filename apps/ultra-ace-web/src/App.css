@@ -454,7 +454,7 @@
     width: 110%;
     height: 110%;
 
-    background-image: url('./assets/vfx/scorch_atlas2.png');
+    background-image: url('./assets/vfx/scorch_atlas.png');
     background-size: 300% 100%;
     background-repeat: no-repeat;
 
@@ -527,7 +527,7 @@
     opacity: 0;
     pointer-events: none;
 
-    background-image: url('./assets/vfx/scorch_atlas2.png');
+    background-image: url('./assets/vfx/scorch_atlas.png');
     background-size: 300% 100%;
 
     will-change: background-size, opacity;
