@@ -46,6 +46,7 @@ export function runCascades(
   })
 
   for (let i = 1; i <= GAME_CONFIG.maxCascades; i++) {
+    if (isFreeGame && i >= 5) break
     const multiplier = getCascadeMultiplier(
       i,
       isFreeGame,
