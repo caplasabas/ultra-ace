@@ -51,11 +51,9 @@ function resolveSymbolImage(symbol: UISymbol): string {
     }
 
     if (symbol.wildColor === 'red') {
-      return symbol.wasGold || symbol.isSettledWild
+      return symbol.wasGold || symbol.isSettledWild || !symbol.prevKind
         ? SYMBOL_MAP.WILD_RED.normal
-        : symbol.prevKind
-          ? SYMBOL_MAP[symbol.prevKind!]?.normal
-          : SYMBOL_MAP[symbol.kind].normal
+        : SYMBOL_MAP[symbol.prevKind!]?.normal
     }
   }
 
