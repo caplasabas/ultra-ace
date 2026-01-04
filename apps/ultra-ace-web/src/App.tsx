@@ -10,6 +10,7 @@ import { formatPeso } from '@ultra-ace/engine'
 import { useBackgroundAudio } from './audio/useBackgroundAudio'
 import BGM from './assets/audio/bgm.mp3'
 
+import { FreeSpinIntro } from './ui/FreeSpinIntro'
 const DEV = import.meta.env.DEV
 
 const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kind }))
@@ -52,13 +53,13 @@ export default function App() {
     setBet,
     freeSpinTotal,
     setFreeSpinTotal,
+    showFreeSpinIntro,
+    setShowFreeSpinIntro,
+    pendingFreeSpins,
   } = useEngine()
 
-  const { phase, activeCascade, previousCascade, cascadeIndex, isIdle } = useCascadeTimeline(
-    cascades,
-    spinId,
-    commitSpin,
-  )
+  const { phase, activeCascade, previousCascade, cascadeIndex, isIdle, isScatterHighlight } =
+    useCascadeTimeline(cascades, spinId, commitSpin)
 
   const placeholderWindow = adaptWindow([
     makePlaceholder('A'),
@@ -110,7 +111,9 @@ export default function App() {
 
   const windowForRender =
     hasWin && ['highlight', 'pop'].includes(phase)
-      ? previousCascade?.window
+      ? isScatterHighlight
+        ? activeCascade?.window
+        : previousCascade?.window
       : (activeCascade?.window ?? previousCascade?.window)
 
   const shouldUsePrevious =
@@ -128,8 +131,7 @@ export default function App() {
       phase,
     )
 
-  const isReady = isIdle && !spinning
-
+  const isReady = isIdle && !spinning && !showFreeSpinIntro
   useEffect(() => {
     if (!autoSpin) return
     if (!isReady) return
@@ -150,18 +152,17 @@ export default function App() {
     if (!isIdle) return
     if (freeSpinsLeft <= 0) return
 
-    if (freeSpinsLeft > 9) {
-      setAutoSpin(false)
-    } else {
-      const t = setTimeout(() => {
-        spin()
-      }, 300)
+    const t = setTimeout(() => {
+      spin()
+    }, 300)
 
-      return () => clearTimeout(t)
-    }
+    return () => clearTimeout(t)
   }, [isFreeGame, isIdle, freeSpinsLeft, spin])
 
   useEffect(() => {
+    if (phase === 'idle') {
+      setIntroShown(false)
+    }
     if (phase !== 'highlight') return
     if (!activeCascade?.win) return
 
@@ -185,6 +186,25 @@ export default function App() {
   }
 
   const activeMultiplierIndex = getMultiplierIndex(cascadeIndex)
+  const [introShown, setIntroShown] = useState(false)
+
+  useEffect(() => {
+    if (phase === 'highlight' && hasScatterWin && !introShown && !isFreeGame) {
+      setIntroShown(true)
+
+      const t = setTimeout(() => {
+        setShowFreeSpinIntro(true)
+
+        const hide = setTimeout(() => {
+          setShowFreeSpinIntro(false)
+        }, 4000)
+
+        return () => clearTimeout(hide)
+      }, 800) // allow scatter glow to breathe
+
+      return () => clearTimeout(t)
+    }
+  }, [phase, hasScatterWin, isFreeGame])
 
   function getBetIncrement(bet: number): number {
     if (bet < 10) return 1
@@ -210,6 +230,7 @@ export default function App() {
           </div>
 
           <div className="game-content">
+            {showFreeSpinIntro && <FreeSpinIntro spins={pendingFreeSpins || 0} />}
             <div className="top-container">
               {DEV && <DebugHud info={debugInfo} />}
 
@@ -245,6 +266,7 @@ export default function App() {
               <DimOverlay
                 active={phase === 'highlight' && Boolean(activeCascade?.lineWins?.length)}
               />
+
               <div className="reels-stage">
                 <div className="gpu-prewarm" />
                 <div className="reels-clip">

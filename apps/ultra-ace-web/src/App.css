@@ -835,7 +835,7 @@
     /*justify-content: center;*/
     align-items: center;
 
-    z-index: 30;
+    z-index: 31;
     /*height: 30vh;*/
     /*padding: 20px 0 40px 0;*/
     /*background-color: red;*/
@@ -864,6 +864,7 @@ button:focus-visible {
     justify-content: center;
     align-items: center;
     font-size: 10px;
+    z-index: 31;
 }
 
 .spin-btn:disabled {
@@ -1006,8 +1007,10 @@ button:focus-visible {
 
 
 .spin-btn.spin-image {
-    width: 96px;
-    height: 96px;
+    width: 82px;
+    height: 82px;
+
+    margin-top: 15%;
 
     background-image: url('./assets/images/spin.png');
     background-size: contain;
@@ -1103,6 +1106,7 @@ button:focus-visible {
     border: 1px solid #ffd84d;
     background-color: #0c1d3d;
     color: #ffd84d;
+    z-index: 31;
 
 }
 
@@ -1206,6 +1210,7 @@ button:focus-visible {
 .bet-control,
 .bet-btn {
     background-color: transparent !important;
+    z-index: 31;
 }
 
 .bet-btn.minus {
@@ -1765,7 +1770,7 @@ button:focus-visible {
     display: flex;
     justify-content: center;
     align-items: center;
-    /*gap: 8px;*/
+    gap: 8px;
 
     z-index: 25;
     pointer-events: none;
@@ -2063,9 +2068,140 @@ button:focus-visible {
     filter: brightness(1);
 }
 
+.scatter-intro {
+    position: absolute;
+    inset: 0;
+    z-index: 31;
+    pointer-events: all;
+}
 
-/* Winning GOLD should persist during pop */
-/*.card.gold {*/
-/*    opacity: 1 !important;*/
-/*    transform: translate3d(0, 0, 0) scale(1) !important;*/
-/*}*/
+.scatter-bg {
+    position: absolute;
+    inset: 0;
+
+    background-image: url('./assets/images/scatter_bg.png');
+    background-size: cover;
+    background-position: center;
+}
+
+.scatter-bg-glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+
+    /* BIGGER */
+    width: 120%;
+    height: 70%;
+
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+
+    /* MULTI-LAYER GLOW */
+    background:
+            radial-gradient(
+                    ellipse at center,
+                    rgba(255, 255, 240, 1.0) 0%,
+                    rgba(255, 245, 200, 0.95) 18%,
+                    rgba(255, 215, 140, 0.85) 35%,
+                    rgba(255, 170, 70, 0.63) 52%,
+                    rgba(255, 130, 30, 0.42) 68%,
+                    rgba(255, 120, 0, 0.0) 82%
+            );
+
+    /* STRONGER BLOOM */
+    filter: blur(22px);
+}
+.scatter-content {
+    position: relative;
+    z-index: 1;
+
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    gap: 32px;
+}
+
+.scatter-title-container {
+    width: 100%;
+    text-align: center;
+}
+
+.scatter-title{
+    font-family: 'Bebas Neue', sans-serif;
+
+    line-height: 0.85;
+    letter-spacing: 0.02em;
+
+    font-size: 72px;
+    font-weight: 900;
+
+    color: #9f3103;
+    -webkit-text-stroke: 1px #fff86b;
+    text-shadow:
+            0 0 10px rgba(255, 220, 140, 0.95),
+            0 0 24px rgba(255, 180, 60, 0.75),
+            0 0 48px rgba(255, 140, 0, 0.55);
+}
+
+.scatter-count {
+    font-family: 'Bebas Neue', sans-serif;
+
+    line-height: 0.85;
+    letter-spacing: 0.02em;
+    font-size: 64px;
+    font-weight: 900;
+    color: #0c1d3d;
+    /*-webkit-text-stroke: 1px #fff86b;*/
+    text-shadow:
+            0 0 14px rgba(255, 255, 220, 1),
+            0 0 32px rgba(255, 200, 120, 0.85),
+            0 0 64px rgba(255, 160, 40, 0.65);
+}
+
+.scatter-multiplier {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+
+.scatter-multiplier-title {
+    font-family: 'Bebas Neue', sans-serif;
+
+    line-height: 0.85;
+    letter-spacing: 0.02em;
+    font-size: 34px;
+    font-weight: 900;
+    color: #9f3103;
+    /*-webkit-text-stroke: 1px #fff86b;*/
+    text-shadow: 0 0 14px rgba(255, 255, 220, 1),
+    0 0 32px rgba(255, 200, 120, 0.85),
+    0 0 64px rgba(255, 160, 40, 0.65);
+}
+
+
+
+.scatter-multiplier-strip {
+    font-family: 'Bebas Neue', sans-serif;
+
+    line-height: 0.85;
+    letter-spacing: 0.02em;
+    font-size: 24px;
+    font-weight: 900;
+    color: #9f3103;
+
+    /*-webkit-text-stroke: 1px #fff86b;*/
+    text-shadow:
+            0 0 14px rgba(255, 255, 220, 1),
+            0 0 32px rgba(255, 200, 120, 0.85),
+            0 0 64px rgba(255, 160, 40, 0.65);
+
+
+}
+

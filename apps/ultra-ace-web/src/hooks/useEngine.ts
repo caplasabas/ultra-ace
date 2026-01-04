@@ -19,10 +19,7 @@ export function useEngine() {
   const [bet, setBet] = useState(2)
   const [balance, setBalance] = useState(5000)
 
-  // Per-spin visual accumulator (cleared every spin)
   const [totalWin, setTotalWin] = useState(0)
-
-  // Free-spin session accumulator (settled once at the end)
   const [freeSpinTotal, setFreeSpinTotal] = useState(0)
 
   /* -----------------------------
@@ -32,10 +29,13 @@ export function useEngine() {
   const [freeSpinsLeft, setFreeSpinsLeft] = useState(0)
   const [pendingFreeSpins, setPendingFreeSpins] = useState(0)
 
+  // 🎬 intro overlay
+  const [showFreeSpinIntro, setShowFreeSpinIntro] = useState(false)
+
   /* -----------------------------
      Debug
   ----------------------------- */
-  const [debugInfo, setDebugInfo] = useState<DebugSpinInfo | undefined>(undefined)
+  const [debugInfo, setDebugInfo] = useState<DebugSpinInfo | undefined>()
 
   /* -----------------------------
      RNG
@@ -47,10 +47,22 @@ export function useEngine() {
      Spin execution
   ----------------------------- */
   function spinNow() {
-    if (spinning || balance < bet || balance === 0) return
+    // 🔒 hard block during intro
+    if (spinning || showFreeSpinIntro) return
+
+    // entering free spins happens HERE
+    if (!isFreeGame && pendingFreeSpins > 0) {
+      setIsFreeGame(true)
+      setFreeSpinsLeft(pendingFreeSpins)
+      setFreeSpinTotal(0)
+      setPendingFreeSpins(0)
+      return
+    }
+
+    if (balance < bet || balance === 0) return
 
     setSpinning(true)
-    setTotalWin(0) // reset per-spin visual win
+    setTotalWin(0)
 
     const outcome: SpinOutcome = spin(rng, {
       betPerSpin: bet,
@@ -58,13 +70,12 @@ export function useEngine() {
       isFreeGame,
     })
 
-    // Deduct bet only in base game
     if (!isFreeGame) {
       setBalance(b => b - bet)
     }
 
     setPendingCascades(outcome.cascades ?? [])
-    setSpinId(id => id + 1)
+    setSpinId(v => v + 1)
 
     setDebugInfo({
       seed,
@@ -73,22 +84,22 @@ export function useEngine() {
       cascadeWins: (outcome.cascades ?? []).map(c => c.win ?? 0),
     })
 
-    if (outcome.freeSpinsAwarded > 0) {
+    let freeSpinsAwarded = outcome.freeSpinsAwarded
+
+    if (freeSpinsAwarded > 0) {
       if (!isFreeGame) {
-        setPendingFreeSpins(outcome.freeSpinsAwarded)
+        setPendingFreeSpins(freeSpinsAwarded)
       } else {
-        setFreeSpinsLeft(v => v + outcome.freeSpinsAwarded)
-        setPendingFreeSpins(0)
+        setFreeSpinsLeft(v => v + freeSpinsAwarded)
       }
     }
   }
 
   /* -----------------------------
      Visual win accumulator
-     (does NOT touch balance)
   ----------------------------- */
   function commitWin(amount: number) {
-    setTotalWin(w => w + amount)
+    setTotalWin(v => v + amount)
   }
 
   /* -----------------------------
@@ -101,25 +112,11 @@ export function useEngine() {
     setPendingCascades(null)
     setSpinning(false)
 
-    /* -----------------------------
-       ENTER FREE SPINS
-    ----------------------------- */
-    if (!isFreeGame && pendingFreeSpins > 0) {
-      setIsFreeGame(true)
-      setFreeSpinsLeft(pendingFreeSpins)
-      setFreeSpinTotal(0) // ✅ reset session total HERE
-      setPendingFreeSpins(0)
-      return
-    }
-
-    /* -----------------------------
-       FREE SPIN LOOP
-    ----------------------------- */
+    // 🔁 free spin decrement happens AFTER spins only
     if (isFreeGame) {
       setFreeSpinsLeft(v => {
         const next = v - 1
 
-        // 🎉 END OF FREE SPINS → settle once
         if (next <= 0) {
           setIsFreeGame(false)
           setBalance(b => b + freeSpinTotal)
@@ -133,7 +130,6 @@ export function useEngine() {
   }
 
   return {
-    /* Engine */
     cascades: committedCascades,
     spinning,
     spinId,
@@ -141,20 +137,21 @@ export function useEngine() {
     commitSpin,
     commitWin,
 
-    /* Economy */
     balance,
     setBalance,
     bet,
     setBet,
     totalWin,
 
-    /* Free spins */
     isFreeGame,
     freeSpinsLeft,
+
+    pendingFreeSpins,
     freeSpinTotal,
     setFreeSpinTotal,
 
-    /* Debug */
+    showFreeSpinIntro,
+    setShowFreeSpinIntro,
     debugInfo,
   }
 }
