@@ -169,7 +169,7 @@
 
     /*justify-content: center;*/
     overflow: visible;
-    /*margin-top: -0.vh;*/
+    margin-top: 0.8vh;
 
     height: 50vh;
 
@@ -614,10 +614,6 @@
     width: 100%;
     height: 100%;
     pointer-events: none;
-
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
 
     /* GPU stability */
     will-change: transform, opacity, filter;

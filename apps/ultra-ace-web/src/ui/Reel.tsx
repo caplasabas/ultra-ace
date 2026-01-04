@@ -164,11 +164,12 @@ function ReelComponent({ symbols, reelIndex, winningPositions, phase, layer }: P
                     : undefined
                 }
               >
-                <div
+                <img
+                  src={imgSrc}
                   className={['symbol-img', wildHighlight && 'wild-highlight']
                     .filter(Boolean)
                     .join(' ')}
-                  style={{ backgroundImage: `url(${imgSrc})` }}
+                  draggable={false}
                 />
               </div>
             </div>
