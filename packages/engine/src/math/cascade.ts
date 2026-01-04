@@ -21,11 +21,11 @@ const MAX_MULTIPLIER = 10_000
 const CASCADE_DECAY_BASE = 0.84
 const CASCADE_DECAY_FREE = 0.42
 
-const TARGET_DENSITY = 12
-const MAX_DENSITY = 18
+const TARGET_DENSITY = 14
+const MAX_DENSITY = 19
 const MIN_DENSITY_FACTOR = 0.35
 
-const MAX_SAME_SYMBOL_PER_REEL = 3
+const MAX_SAME_SYMBOL_PER_REEL = 4
 
 export function runCascades(
   initialWindow: Symbol[][],
