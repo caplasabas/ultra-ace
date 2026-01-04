@@ -318,35 +318,42 @@
     animation: scorchDelay 40ms linear forwards;
 }
 
+
 @keyframes popOutSmoothFast {
     0% {
-        transform: scale(0.3);
+        transform: scale(1);
         opacity: 1;
         filter: blur(0px);
     }
 
-    15% {
-        transform: scale(0.292);
+    /* HOLD — lets the brain register the win */
+    18% {
+        transform: scale(1.05);
         opacity: 1;
+        filter: blur(0px);
     }
 
-    45% {
-        transform: scale(0.17);
-        opacity: 0.65;
-        filter: blur(0.8px);
+    /* ENERGY RELEASE */
+    55% {
+        transform: scale(0.42);
+        opacity: 0.85;
+        filter: blur(0.6px);
     }
 
-    75% {
-        transform: scale(0.06);
-        opacity: 0.22;
+    /* FADE — no snap */
+    85% {
+        transform: scale(0.12);
+        opacity: 0.25;
+        filter: blur(1.2px);
     }
 
     100% {
         transform: scale(0);
         opacity: 0;
-        filter: blur(1.6px);
+        filter: blur(1.8px);
     }
 }
+
 /* =========================
    GOLD — CLEAR BY FADE ONLY
    ========================= */
@@ -492,38 +499,49 @@
 .scorch-atlas.pop {
     background-position: 100% 50%;
 
-    animation: scorchPopTwinkleLong 1200ms cubic-bezier(0.25, 0.9, 0.3, 1) forwards;
+    animation: scorchPopTwinkleLong 900ms cubic-bezier(0.22, 0.55, 0.25, 1);
     z-index: 30;
     will-change: transform, opacity;
     transform: translateZ(0);
     backface-visibility: hidden;
 
 }
+
+
 @keyframes scorchPopTwinkleLong {
-    0%   { transform: scale(0.07); opacity: 0; }
-    14%  { transform: scale(0.38); opacity: 0.75; }
-    28%  { transform: scale(0.64); opacity: 0.71; }
-
-    /* Peak energy */
-    50% {
-        transform: scale(0.82);
-        opacity: 0.63;
+    /* Spawn */
+    0% {
+        transform: scale(0.06);
+        opacity: 0;
     }
 
-    /* TURN OFF BLENDING + FREEZE SCALE */
-    50.01% {
-        transform: scale(0.82);
-        mix-blend-mode: normal;
+    /* Fast ignition */
+    18% {
+        transform: scale(0.38);
+        opacity: 0.85;
     }
 
-    /* Fade ONLY — no scale change */
+    /* Primary energy rise */
+    38% {
+        transform: scale(0.72);
+        opacity: 0.78;
+    }
+
+    /* Peak — STILL MOVING */
+    52% {
+        transform: scale(0.88);
+        opacity: 0.72;
+    }
+
+    /* Energy bleed (no stall) */
     70% {
-        transform: scale(0.82);
-        opacity: 0.35;
+        transform: scale(0.94);
+        opacity: 0.48;
     }
 
+    /* Dissolve tail */
     100% {
-        transform: scale(0.82);
+        transform: scale(1.02);
         opacity: 0;
     }
 }

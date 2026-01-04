@@ -4,7 +4,6 @@ import { REELS_FREE } from './math/reels.free.js'
 import { runCascades } from './math/cascade.js'
 import { SpinInput, SpinOutcome } from './types/spin.js'
 import { GAME_CONFIG } from './config/game.config.js'
-import { DEV_FORCE_FREE_RETRIGGER } from './config/wild.config.js'
 import type { Symbol } from './types/symbol.js'
 
 const GOLD_CHANCE_INITIAL = 0.00055
