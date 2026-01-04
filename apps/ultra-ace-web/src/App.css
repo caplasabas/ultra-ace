@@ -2098,20 +2098,14 @@ button:focus-visible {
     transform: translate(-50%, -50%);
     pointer-events: none;
 
-    /* MULTI-LAYER GLOW */
-    background:
-            radial-gradient(
-                    ellipse at center,
-                    rgba(255, 255, 240, 1.0) 0%,
-                    rgba(255, 245, 200, 0.95) 18%,
-                    rgba(255, 215, 140, 0.85) 35%,
-                    rgba(255, 170, 70, 0.63) 52%,
-                    rgba(255, 130, 30, 0.42) 68%,
-                    rgba(255, 120, 0, 0.0) 82%
-            );
+    background: radial-gradient(
+            ellipse at center,
+            rgba(255, 240, 180, 0.75) 0%,
+            rgba(255, 200, 100, 0.45) 40%,
+            rgba(255, 160, 40, 0.15) 65%,
+            rgba(255, 120, 0, 0) 80%
+    );
 
-    /* STRONGER BLOOM */
-    filter: blur(22px);
 }
 .scatter-content {
     position: relative;

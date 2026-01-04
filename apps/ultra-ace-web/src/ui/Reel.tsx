@@ -1,7 +1,7 @@
 import './reel.css'
 import type { CascadePhase } from '../hooks/useCascadeTimeline'
 import { SYMBOL_MAP } from './symbolMap'
-import { CSSProperties } from 'react'
+import { CSSProperties, memo } from 'react'
 
 export interface UISymbol {
   id: string
@@ -59,13 +59,13 @@ function resolveSymbolImage(symbol: UISymbol): string {
 
   return SYMBOL_MAP[symbol.kind].normal
 }
-export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Props) {
+
+function ReelComponent({ symbols, reelIndex, winningPositions, phase, layer }: Props) {
   const isInitialDeal = layer === 'new' && phase === 'initialRefill'
   const isCascadeRefill = layer === 'new' && phase === 'cascadeRefill'
 
   return (
     <div
-      key={`reel-${reelIndex}`}
       className={['reel', layer === 'old' && phase === 'reelSweepOut' && 'sweep-out-old']
         .filter(Boolean)
         .join(' ')}
@@ -77,7 +77,6 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
         const isWin = winningPositions.has(`${reelIndex}-${row}`)
         const isScatter = symbol.kind === 'SCATTER'
         const isBack = symbol.kind === 'BACK'
-
         const isWild = symbol.kind === 'WILD'
 
         const wildHighlight = isWild && isWin && phase === 'highlight'
@@ -107,13 +106,12 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
         return (
           <div
             className="card-shell"
-            key={`card-${reelIndex}-${row}`}
+            key={symbol.id}
             style={{
               top: `calc(${row} * (var(--scaled-card-height) + var(--card-gap)))`,
               zIndex: isWin && phase === 'highlight' ? 20 : 1,
             }}
           >
-            {/* POP VFX */}
             {isWin && phase === 'pop' && (
               <div className="scorch-pop delayed">
                 <div className="scorch-atlas pop" />
@@ -133,10 +131,8 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
                 isScatter && 'scatter',
                 isInitialDeal && 'deal-initial',
                 isCascadeDeal && 'deal',
-
-                isNormalPop && 'pop', // ✅ ONLY normal symbols
-                isGoldWin && 'gold-pop-lock', // ✅ GOLD fade only
-
+                isNormalPop && 'pop',
+                isGoldWin && 'gold-pop-lock',
                 shouldFlip && 'flip-to-wild',
                 symbol.isSettledWild && 'settled',
               ]
@@ -172,9 +168,7 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
                   className={['symbol-img', wildHighlight && 'wild-highlight']
                     .filter(Boolean)
                     .join(' ')}
-                  style={{
-                    backgroundImage: `url(${imgSrc})`,
-                  }}
+                  style={{ backgroundImage: `url(${imgSrc})` }}
                 />
               </div>
             </div>
@@ -200,3 +194,15 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
     </div>
   )
 }
+
+/* ----------------------------------------
+   🔒 MEMOIZED EXPORT
+---------------------------------------- */
+export const Reel = memo(
+  ReelComponent,
+  (prev, next) =>
+    prev.symbols === next.symbols &&
+    prev.phase === next.phase &&
+    prev.layer === next.layer &&
+    prev.winningPositions === next.winningPositions,
+)

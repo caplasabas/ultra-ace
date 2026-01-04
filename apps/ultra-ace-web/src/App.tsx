@@ -5,7 +5,7 @@ import { WinOverlay } from './ui/WinOverlay'
 import { adaptWindow } from './game/adaptWindow'
 import { useCascadeTimeline } from './hooks/useCascadeTimeline'
 import { DebugHud } from './debug/DebugHud'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { formatPeso } from '@ultra-ace/engine'
 import { useBackgroundAudio } from './audio/useBackgroundAudio'
 import BGM from './assets/audio/bgm.mp3'
@@ -74,38 +74,41 @@ export default function App() {
     activeCascade.window &&
     activeCascade.window.flat().filter(s => s.kind === 'SCATTER').length >= 3
 
-  const winningPositions = new Set<string>()
+  const EMPTY_WIN_SET = new Set<string>()
 
-  // normal symbol wins
-  activeCascade?.lineWins?.forEach(lw => {
-    lw.positions.forEach(p => winningPositions.add(`${p.reel}-${p.row}`))
-  })
+  const winningPositions = useMemo(() => {
+    const set = new Set<string>()
 
-  // scatter win (no lineWins)
-  if (hasScatterWin && activeCascade?.window) {
-    activeCascade.window.forEach((col, reel) => {
-      col.forEach((s, row) => {
-        if (s.kind === 'SCATTER') {
-          winningPositions.add(`${reel}-${row}`)
-        }
-      })
+    // normal symbol wins
+    activeCascade?.lineWins?.forEach(lw => {
+      lw.positions.forEach(p => set.add(`${p.reel}-${p.row}`))
     })
-  }
 
-  if (activeCascade?.window) {
-    activeCascade.window.forEach((col, reel) => {
-      if (reel !== 4) return
-
-      col.forEach((s, row) => {
-        if (s.kind !== 'WILD') return
-
-        // highlight only if same row has a real win earlier
-        if (winningPositions.has(`3-${row}`) || winningPositions.has(`2-${row}`)) {
-          winningPositions.add(`4-${row}`) // UI-only
-        }
+    // scatter win
+    if (hasScatterWin && activeCascade?.window) {
+      activeCascade.window.forEach((col, reel) => {
+        col.forEach((s, row) => {
+          if (s.kind === 'SCATTER') {
+            set.add(`${reel}-${row}`)
+          }
+        })
       })
-    })
-  }
+    }
+
+    // wild extension
+    if (activeCascade?.window) {
+      activeCascade.window.forEach((col, reel) => {
+        if (reel !== 4) return
+        col.forEach((s, row) => {
+          if (s.kind === 'WILD' && (set.has(`3-${row}`) || set.has(`2-${row}`))) {
+            set.add(`4-${row}`)
+          }
+        })
+      })
+    }
+
+    return set
+  }, [activeCascade, hasScatterWin])
 
   const hasWin = Boolean(activeCascade?.lineWins?.length) || hasScatterWin
 
@@ -264,7 +267,11 @@ export default function App() {
             </div>
             <div className="dim-zone">
               <DimOverlay
-                active={phase === 'highlight' && Boolean(activeCascade?.lineWins?.length)}
+                active={
+                  phase === 'highlight' &&
+                  Boolean(activeCascade?.lineWins?.length) &&
+                  !isScatterHighlight
+                }
               />
 
               <div className="reels-stage">
@@ -276,7 +283,7 @@ export default function App() {
                         key={`ph-${i}`}
                         symbols={col}
                         reelIndex={i}
-                        winningPositions={new Set()}
+                        winningPositions={EMPTY_WIN_SET}
                         phase={spinId > 0 ? 'reelSweepOut' : 'idle'}
                         layer={spinId > 0 ? 'old' : 'new'}
                       />
