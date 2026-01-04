@@ -27,7 +27,7 @@ export function formatPeso(
       value = abs.toLocaleString()
     }
   } else {
-    value = abs.toFixed(withDecimal ? decimalCount : 0).replace(/\d(?=(\d{3})+\.)/g, '$&,')
+    value = abs.toFixed(withDecimal ? decimalCount : 2).replace(/\d(?=(\d{3})+\.)/g, '$&,')
 
     if (value.endsWith('.00')) {
       value = value.slice(0, -3)

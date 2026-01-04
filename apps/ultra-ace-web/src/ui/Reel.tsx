@@ -117,7 +117,7 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
           >
             {/* POP VFX */}
             {isWin && phase === 'pop' && (
-              <div className="scorch-pop">
+              <div className="scorch-pop delayed">
                 <div className="scorch-atlas pop" />
               </div>
             )}

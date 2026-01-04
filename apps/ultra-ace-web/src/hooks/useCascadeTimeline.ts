@@ -106,7 +106,7 @@ export function useCascadeTimeline(cascades: CascadeStep[], spinId: number, onCo
         break
 
       case 'pop':
-        t = window.setTimeout(() => dispatch({ type: 'NEXT', phase: 'cascadeRefill' }), 260)
+        t = window.setTimeout(() => dispatch({ type: 'NEXT', phase: 'cascadeRefill' }), 1050)
         break
 
       case 'cascadeRefill':

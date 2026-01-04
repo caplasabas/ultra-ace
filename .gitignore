@@ -26,3 +26,7 @@ apps/**/.next
 apps/**/node_modules
 
 package-lock.json
+/apps/ultra-ace-web/src/assets/symbols/backup/
+/apps/ultra-ace-web/src/assets/vfx/backup/
+/apps/ultra-ace-web/src/assets/images/backup/
+/.idea/

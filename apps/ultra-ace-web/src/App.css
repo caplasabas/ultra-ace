@@ -305,21 +305,42 @@
    ========================= */
 
 .card.pop {
-    animation: popOut 260ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-
+    animation: popOutSmoothFast 240ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-@keyframes popHold {
-    from { transform: scale(1); }
-    to   { transform: scale(1); }
-}
-@keyframes popOut {
-    0%   { transform: scale(1); }
-    25%  { transform: scale(0.96); }
-    55%  { transform: scale(0.4); opacity: 0.6; }
-    100% { transform: scale(0); opacity: 0; }
+.scorch-under.delayed {
+    animation: scorchDelay 40ms linear forwards;
 }
 
+@keyframes popOutSmoothFast {
+    0% {
+        transform: scale(0.3);
+        opacity: 1;
+        filter: blur(0px);
+    }
+
+    15% {
+        transform: scale(0.292);
+        opacity: 1;
+    }
+
+    45% {
+        transform: scale(0.17);
+        opacity: 0.65;
+        filter: blur(0.8px);
+    }
+
+    75% {
+        transform: scale(0.06);
+        opacity: 0.22;
+    }
+
+    100% {
+        transform: scale(0);
+        opacity: 0;
+        filter: blur(1.6px);
+    }
+}
 /* =========================
    GOLD — CLEAR BY FADE ONLY
    ========================= */
@@ -433,7 +454,7 @@
     width: 110%;
     height: 110%;
 
-    background-image: url('./assets/vfx/scorch_atlas.png');
+    background-image: url('./assets/vfx/scorch_atlas2.png');
     background-size: 300% 100%;
     background-repeat: no-repeat;
 
@@ -462,7 +483,41 @@
 /* RIGHT slice — POP */
 .scorch-atlas.pop {
     background-position: 100% 50%;
-    animation: scorchPopDetached 280ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+
+    animation: scorchPopTwinkleLong 1200ms cubic-bezier(0.25, 0.9, 0.3, 1) forwards;
+    z-index: 30;
+    will-change: transform, opacity;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+
+}
+@keyframes scorchPopTwinkleLong {
+    0%   { transform: scale(0.07); opacity: 0; }
+    14%  { transform: scale(0.38); opacity: 0.75; }
+    28%  { transform: scale(0.64); opacity: 0.71; }
+
+    /* Peak energy */
+    50% {
+        transform: scale(0.82);
+        opacity: 0.63;
+    }
+
+    /* TURN OFF BLENDING + FREEZE SCALE */
+    50.01% {
+        transform: scale(0.82);
+        mix-blend-mode: normal;
+    }
+
+    /* Fade ONLY — no scale change */
+    70% {
+        transform: scale(0.82);
+        opacity: 0.35;
+    }
+
+    100% {
+        transform: scale(0.82);
+        opacity: 0;
+    }
 }
 
 .gpu-prewarm {
@@ -472,7 +527,7 @@
     opacity: 0;
     pointer-events: none;
 
-    background-image: url('./assets/vfx/scorch_atlas.png');
+    background-image: url('./assets/vfx/scorch_atlas2.png');
     background-size: 300% 100%;
 
     will-change: background-size, opacity;
@@ -668,7 +723,7 @@
 
 .win-burst {
     position: relative;
-    font-size: clamp(84px, 16vw, 150px);
+    font-size: clamp(82px, 16vw, 148px);
     font-weight: 900;
     transform-origin: center;
 }
@@ -691,44 +746,44 @@
 @keyframes winPopDoubleSmooth {
     /* Spawn */
     0% {
-        transform: scale(0.42);
+        transform: scale(0.32);
         opacity: 0;
     }
 
     /* FIRST POP */
     20% {
-        transform: scale(1.22);
+        transform: scale(1.12);
         opacity: 1;
     }
 
     /* MICRO DRIFT (no stop) */
     32% {
-        transform: scale(1.18);
+        transform: scale(1.08);
     }
 
     /* SECOND POP — dominant */
     48% {
-        transform: scale(1.85);
+        transform: scale(1.75);
     }
 
     /* STRONG RECOIL */
     62% {
-        transform: scale(1.46);
+        transform: scale(1.36);
     }
 
     /* BOUNCE */
     74% {
-        transform: scale(1.63);
+        transform: scale(1.53);
     }
 
     /* MICRO REBOUND */
     86% {
-        transform: scale(1.52);
+        transform: scale(1.42);
     }
 
     /* FINAL SETTLE */
     100% {
-        transform: scale(1.56);
+        transform: scale(1.46);
     }
 }
 
@@ -740,16 +795,6 @@
 }
 
 
-@keyframes scorchPop {
-    0% {
-        transform: scale(0.45);
-        opacity: 1;
-    }
-    100% {
-        transform: scale(1.35);
-        opacity: 0;
-    }
-}
 
 /* =========================
    UI Containers
@@ -1951,9 +1996,7 @@ button:focus-visible {
     }
 }
 
-.scorch-under.delayed {
-    animation: scorchDelay 40ms linear forwards;
-}
+
 
 @keyframes scorchDelay {
     from { visibility: hidden; }
@@ -1964,21 +2007,10 @@ button:focus-visible {
    ========================= */
 .scorch-pop {
     position: absolute;
-    inset: -90%;
+    inset: -40%;
     pointer-events: none;
     z-index: 60;
-}
-
-
-@keyframes scorchPopDetached {
-    0% {
-        transform: scale(0.45);
-        opacity: 1;
-    }
-    100% {
-        transform: scale(1.45);
-        opacity: 0;
-    }
+    filter: brightness(1);
 }
 
 
