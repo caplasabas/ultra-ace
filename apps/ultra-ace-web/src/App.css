@@ -78,25 +78,13 @@
     aspect-ratio: 9 / 17.2;
     max-height: 100vh;
     overflow: hidden;
-
-    /*position: relative;*/
-    /*width: min(430px, 100vw);*/
-    /*aspect-ratio: 9 / 16;*/
-    /*max-height: 100vh;*/
-
-    /*display: flex;*/
-    /*flex-direction: column;*/
-    /*justify-content: space-between;*/
-    /*align-items: center;*/
-
-    /*overflow: hidden;*/
 }
 
 .frame-bg {
     position: absolute;
     inset: 0;
     z-index: 0;
-    pointer-events: none; /* critical */
+    pointer-events: none;
 }
 
 .bg-inner {
@@ -107,18 +95,61 @@
     background-size: cover;
     background-position: center;
 
-
-    /* inward shadow (this is the key) */
-    filter:
-            drop-shadow(0 0 12px rgba(0, 0, 0, 0.55));
+    z-index: 1;
 }
 
 .bg-frame {
     position: absolute;
     inset: 0;
+    z-index: 3;
+
     background-image: url('./assets/images/bg-frame.png');
     background-size: 100% 100%;
     background-repeat: no-repeat;
+
+    pointer-events: none;
+}
+
+.frame-inner-shadow {
+    position: absolute;
+
+    z-index: 2;
+    inset: -30px;
+    pointer-events: none;
+
+    background:
+        /* TOP DEPTH */
+            linear-gradient(
+                    to bottom,
+                    rgba(0, 0, 0, 0.75) 0%,
+                    rgba(0, 0, 0, 0.45) 10%,
+                    rgba(0, 0, 0, 0.0) 28%
+            ),
+
+
+            linear-gradient(
+                    to top,
+                    rgba(0, 0, 0, 0.85) 0%,
+                    rgba(0, 0, 0, 0.55) 14%,
+                    rgba(0, 0, 0, 0.0) 36%
+            );
+
+}
+
+.bg-inner.free-spin .frame-inner-shadow {
+    background:
+            linear-gradient(
+                    to bottom,
+                    rgba(255, 210, 120, 0.75) 0%,
+                    rgba(255, 190, 90, 0.45) 10%,
+                    rgba(0, 0, 0, 0.00) 28%
+            ),
+            linear-gradient(
+                    to top,
+                    rgba(255, 230, 150, 0.85) 0%,
+                    rgba(255, 200, 110, 0.55) 14%,
+                    rgba(0, 0, 0, 0.00) 36%
+            );
 }
 
 .game-content {
@@ -165,21 +196,6 @@
 
 }
 
-/* =========================
-   Reel Row
-   ========================= */
-
-/*.reels-row {*/
-/*    position: absolute;*/
-/*    top: calc(var(--highlight-pad) * 2);*/
-/*    left: 50%;*/
-/*    transform: translateX(-50%);*/
-
-/*    width: var(--reels-total-width);*/
-/*    height: var(--reel-height);*/
-
-/*    overflow: visible;*/
-/*}*/
 
 .reels-row {
     position: absolute;
@@ -191,9 +207,6 @@
     height: var(--reel-height);
     overflow: visible;
 }
-/* =========================
-   Reel Container
-   ========================= */
 
 .reel {
     position: absolute;
@@ -204,9 +217,6 @@
 
 }
 
-/* =========================
-   OLD reels sweep out
-   ========================= */
 
 .reel.sweep-out-old {
     animation: oldReelDown 380ms cubic-bezier(0.32, 0.0, 0.58, 1) forwards;
@@ -245,12 +255,8 @@
 
     will-change: transform, opacity;
     transform: translate3d(0, 0, 0);
-    z-index: 1; /* BELOW dim */
+    z-index: 1;
 }
-
-/* =========================
-   Initial / Cascade Deal
-   ========================= */
 
 .card.deal {
     animation: cascadeDealIn 260ms cubic-bezier(0.18, 0.88, 0.22, 1) forwards;

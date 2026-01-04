@@ -228,7 +228,10 @@ export default function App() {
       <div className="game-root">
         <div className="game-frame">
           <div className="frame-bg">
-            <div className="bg-inner" />
+            <div className={`bg-inner ${isFreeGame ? 'free-spin' : ''}`}>
+              <div className="frame-inner-shadow" />
+            </div>
+
             <div className="bg-frame" />
           </div>
 

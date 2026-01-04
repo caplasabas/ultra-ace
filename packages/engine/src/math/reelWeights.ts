@@ -11,6 +11,7 @@ export const REEL_WEIGHTS = {
 
   WILD: 0,
   SCATTER: 0.00015,
+  // SCATTER: 0.9,
 }
 
 export const REEL_WEIGHTS_FREE = {
@@ -27,4 +28,5 @@ export const REEL_WEIGHTS_FREE = {
 
   WILD: 0,
   SCATTER: 0.000065,
+  // SCATTER: 0.65,
 }
