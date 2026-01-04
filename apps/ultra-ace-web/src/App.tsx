@@ -206,12 +206,6 @@ export default function App() {
           <div className="game-content">
             <div className="top-container">
               {DEV && <DebugHud info={debugInfo} />}
-              <button
-                className={`spin-btn audio ${audioOn ? 'active' : ''}`}
-                onClick={() => setAudioOn(v => !v)}
-              >
-                {audioOn ? '🔊' : '🔇'}
-              </button>
 
               <div className="free-spin-banner">
                 <div className={`free-spin-text font-plasma ${!isFreeGame ? 'base' : ''}`}>
@@ -365,11 +359,24 @@ export default function App() {
                     <button className={`spin-btn settings`} />
                   </div>
                 </div>
-                <div className="balance-display">
-                  Balance <span className="balance-amount">{formatPeso(balance ?? 0)}</span>
-                  <button className="add-btn" onClick={() => setBalance(balance + 5000)}>
-                    +{formatPeso(5000, true, true, 2)}
-                  </button>
+                <div className="bottom-info">
+                  <div className="bottom-info-left">
+                    <button
+                      className={`spin-btn audio ${audioOn ? 'active' : ''}`}
+                      onClick={() => setAudioOn(v => !v)}
+                    >
+                      {audioOn ? '🔊' : '🔇'}
+                    </button>
+                  </div>
+
+                  <div className="balance-display">
+                    Balance <span className="balance-amount">{formatPeso(balance ?? 0)}</span>
+                    <button className="add-btn" onClick={() => setBalance(balance + 5000)}>
+                      +{formatPeso(5000, true, true, 2)}
+                    </button>
+                  </div>
+
+                  <div className="bottom-info-right" />
                 </div>
               </div>
             </div>

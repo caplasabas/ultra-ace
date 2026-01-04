@@ -168,12 +168,13 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
                     : undefined
                 }
               >
-                <img
-                  src={imgSrc}
+                <div
                   className={['symbol-img', wildHighlight && 'wild-highlight']
                     .filter(Boolean)
                     .join(' ')}
-                  draggable={false}
+                  style={{
+                    backgroundImage: `url(${imgSrc})`,
+                  }}
                 />
               </div>
             </div>
