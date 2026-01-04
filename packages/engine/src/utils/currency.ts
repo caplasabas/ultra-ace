@@ -20,7 +20,7 @@ export function formatPeso(
     } else if (abs >= 1_000_000) {
       const v = Math.floor((abs / 1_000_000) * 100) / 100
       value = v.toString().replace(/\.00$/, '') + 'M'
-    } else if (abs >= 1_000) {
+    } else if (abs >= 10_000) {
       const v = Math.floor((abs / 1_000) * 100) / 100
       value = v.toString().replace(/\.00$/, '') + 'K'
     } else {
