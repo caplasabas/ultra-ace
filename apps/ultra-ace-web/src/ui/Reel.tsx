@@ -67,6 +67,7 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
 
   return (
     <div
+      key={`reel-${reelIndex}`}
       className={['reel', layer === 'old' && phase === 'reelSweepOut' && 'sweep-out-old']
         .filter(Boolean)
         .join(' ')}
@@ -108,6 +109,7 @@ export function Reel({ symbols, reelIndex, winningPositions, phase, layer }: Pro
         return (
           <div
             className="card-shell"
+            key={`card-${reelIndex}-${row}`}
             style={{
               top: `calc(${row} * (var(--scaled-card-height) + var(--card-gap)))`,
               zIndex: isWin && phase === 'highlight' ? 20 : 1,

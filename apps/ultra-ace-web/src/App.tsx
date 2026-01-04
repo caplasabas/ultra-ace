@@ -131,13 +131,17 @@ export default function App() {
   useEffect(() => {
     if (!autoSpin) return
     if (!isReady) return
+    if (balance < bet || balance === 0) {
+      setAutoSpin(false)
+      return
+    }
 
     const t = setTimeout(() => {
       spin()
     }, 300)
 
     return () => clearTimeout(t)
-  }, [autoSpin, isReady, spin])
+  }, [autoSpin, isReady, balance, bet, spin])
 
   useEffect(() => {
     if (!isFreeGame) return
@@ -189,161 +193,184 @@ export default function App() {
     if (bet <= 500) return 100
     return 500
   }
+
   return (
     <div className="viewport">
       <div className="game-root">
         <div className="game-frame">
-          <div className="top-container">
-            {DEV && <DebugHud info={debugInfo} />}
-
-            <div className="free-spin-banner">
-              <div className={`free-spin-text font-plasma ${!isFreeGame ? 'base' : ''}`}>
-                <span className="free-spin-base superace-base">
-                  {isFreeGame ? 'FREE SPINS' : 'UltraAce'}
-                </span>
-
-                <span className="free-spin-face superace-face">
-                  {isFreeGame ? 'FREE SPINS' : 'UltraAce'}
-                </span>
-              </div>
-
-              <span className="free-spin-count">{isFreeGame && freeSpinsLeft}</span>
-            </div>
-
-            <div className={`multiplier-strip ${isFreeGame ? 'free' : ''}`}>
-              {ladder.map((m, i) => (
-                <div
-                  key={m}
-                  className={['multiplier-chip', i === activeMultiplierIndex && 'current']
-                    .filter(Boolean)
-                    .join(' ')}
-                >
-                  <span className="multiplier-base">x{m}</span>
-                  <span className="multiplier-face">x{m}</span>
-                </div>
-              ))}
-            </div>
+          <div className="frame-bg">
+            <div className="bg-inner" />
+            <div className="bg-frame" />
           </div>
-          <div className="dim-zone">
-            <DimOverlay
-              active={phase === 'highlight' && Boolean(activeCascade?.lineWins?.length)}
-            />
-            <div className="reels-stage">
-              <div className="gpu-prewarm" />
-              <div className="reels-clip">
-                <div className="reels-row">
-                  {placeholderWindow.map((col, i) => (
-                    <Reel
-                      key={`ph-${i}`}
-                      symbols={col}
-                      reelIndex={i}
-                      winningPositions={new Set()}
-                      phase={spinId > 0 ? 'reelSweepOut' : 'idle'}
-                      layer={spinId > 0 ? 'old' : 'new'}
-                    />
-                  ))}
 
-                  {previousCascade &&
-                    ['reelSweepOut', 'initialRefill'].includes(phase) &&
-                    adaptWindow(previousCascade.window).map((col, i) => (
-                      <Reel
-                        key={`old-${cascadeIndex}-${i}`}
-                        symbols={col}
-                        reelIndex={i}
-                        winningPositions={winningPositions}
-                        phase="reelSweepOut"
-                        layer="old"
-                      />
-                    ))}
+          <div className="game-content">
+            <div className="top-container">
+              {DEV && <DebugHud info={debugInfo} />}
+              <button
+                className={`spin-btn audio ${audioOn ? 'active' : ''}`}
+                onClick={() => setAudioOn(v => !v)}
+              >
+                {audioOn ? '🔊' : '🔇'}
+              </button>
 
-                  {adaptedWindow &&
-                    [
-                      'initialRefill',
-                      'cascadeRefill',
-                      'postGoldTransform',
-                      'highlight',
-                      'pop',
-                      'settle',
-                      'idle',
-                    ].includes(phase) &&
-                    adaptedWindow.map((col, i) => (
-                      <Reel
-                        key={`new-${cascadeIndex}-${i}`}
-                        symbols={col}
-                        reelIndex={i}
-                        winningPositions={winningPositions}
-                        phase={phase}
-                        layer="new"
-                      />
-                    ))}
+              <div className="free-spin-banner">
+                <div className={`free-spin-text font-plasma ${!isFreeGame ? 'base' : ''}`}>
+                  <span className="free-spin-base superace-base">
+                    {isFreeGame ? 'FREE SPINS' : 'UltraAce'}
+                  </span>
+
+                  <span className="free-spin-face superace-face">
+                    {isFreeGame ? 'FREE SPINS' : 'UltraAce'}
+                  </span>
                 </div>
-              </div>
-              <WinOverlay
-                amount={activeCascade?.win ?? 0}
-                phase={phase === 'highlight' || phase === 'pop' ? phase : null}
-              />
-            </div>
 
-            <div className="bottom-container">
-              <div className="win-display">
-                WIN: <span className="win-amount"> {formatPeso(totalWin ?? 0)}</span>
+                <span className="free-spin-count">{isFreeGame && freeSpinsLeft}</span>
               </div>
-              <div className="bottom-controls">
-                <div className="controls-left">
-                  <button className="spin-btn audio" onClick={() => setAudioOn(v => !v)}>
-                    {audioOn ? '🔊' : '🔇'}
-                  </button>
-                  <div className="bet-control">
-                    <button
-                      disabled={!isReady}
-                      onClick={() => {
-                        setBet(prev => Math.max(1, prev - getBetDecrement(prev)))
-                      }}
-                      className="bet-btn minus"
-                    />
-                    <span className="bet-amount">{formatPeso(bet ?? 0, true, true, 2)}</span>
-                    <button
-                      disabled={!isReady}
-                      onClick={() => {
-                        setBet(prev => prev + getBetIncrement(prev))
-                      }}
-                      className="bet-btn plus"
-                    />
+
+              <div className={`multiplier-strip ${isFreeGame ? 'free' : ''}`}>
+                {ladder.map((m, i) => (
+                  <div
+                    key={m}
+                    className={['multiplier-chip', i === activeMultiplierIndex && 'current']
+                      .filter(Boolean)
+                      .join(' ')}
+                  >
+                    <span className="multiplier-base">x{m}</span>
+                    <span className="multiplier-face">x{m}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="dim-zone">
+              <DimOverlay
+                active={phase === 'highlight' && Boolean(activeCascade?.lineWins?.length)}
+              />
+              <div className="reels-stage">
+                <div className="gpu-prewarm" />
+                <div className="reels-clip">
+                  <div className="reels-row">
+                    {placeholderWindow.map((col, i) => (
+                      <Reel
+                        key={`ph-${i}`}
+                        symbols={col}
+                        reelIndex={i}
+                        winningPositions={new Set()}
+                        phase={spinId > 0 ? 'reelSweepOut' : 'idle'}
+                        layer={spinId > 0 ? 'old' : 'new'}
+                      />
+                    ))}
+
+                    {previousCascade &&
+                      ['reelSweepOut', 'initialRefill'].includes(phase) &&
+                      adaptWindow(previousCascade.window).map((col, i) => (
+                        <Reel
+                          key={`old-${cascadeIndex}-${i}`}
+                          symbols={col}
+                          reelIndex={i}
+                          winningPositions={winningPositions}
+                          phase="reelSweepOut"
+                          layer="old"
+                        />
+                      ))}
+
+                    {adaptedWindow &&
+                      [
+                        'initialRefill',
+                        'cascadeRefill',
+                        'postGoldTransform',
+                        'highlight',
+                        'pop',
+                        'settle',
+                        'idle',
+                      ].includes(phase) &&
+                      adaptedWindow.map((col, i) => (
+                        <Reel
+                          key={`new-${cascadeIndex}-${i}`}
+                          symbols={col}
+                          reelIndex={i}
+                          winningPositions={winningPositions}
+                          phase={phase}
+                          layer="new"
+                        />
+                      ))}
                   </div>
                 </div>
-
-                <div className="controls-center">
-                  <button
-                    className={`spin-btn spin-image ${isReady && !autoSpin ? 'active' : ''}`}
-                    disabled={
-                      !isReady ||
-                      autoSpin ||
-                      balance === 0 ||
-                      balance < bet ||
-                      (isFreeGame && freeSpinsLeft < 10)
-                    }
-                    onClick={spin}
-                    aria-label="Spin"
-                  />
-                </div>
-
-                <div className="controls-right">
-                  <button
-                    className={`spin-btn auto spin-auto-image ${autoSpin ? 'active' : ''}`}
-                    disabled={isFreeGame || balance === 0 || balance < bet}
-                    onClick={() => setAutoSpin(!autoSpin)}
-                  />
-
-                  <button className={`spin-btn turbo`} disabled={true} />
-
-                  <button className={`spin-btn settings`} />
-                </div>
+                <WinOverlay
+                  amount={activeCascade?.win ?? 0}
+                  phase={phase === 'highlight' || phase === 'pop' ? phase : null}
+                />
               </div>
-              <div className="balance-display">
-                Balance <span className="balance-amount">{formatPeso(balance ?? 0)}</span>
-                <button className="add-btn" onClick={() => setBalance(balance + 5000)}>
-                  +{formatPeso(5000, true, true, 2)}
-                </button>
+
+              <div className="bottom-container">
+                <div className="win-display">
+                  WIN: <span className="win-amount"> {formatPeso(totalWin ?? 0)}</span>
+                </div>
+                <div className="bottom-controls">
+                  <div className="controls-left">
+                    <div className="bet-control">
+                      <button
+                        disabled={!isReady}
+                        onClick={() => {
+                          setBet(prev => {
+                            const normalized = Number.isInteger(prev) ? prev : Math.floor(prev)
+
+                            const dec = getBetDecrement(normalized)
+                            const next = normalized - dec
+
+                            return Math.max(1, next)
+                          })
+                        }}
+                        className="bet-btn minus"
+                      />
+                      <span className="bet-amount">
+                        {formatPeso(bet ?? 0, true, true, 2, true)}
+                      </span>
+                      <button
+                        disabled={!isReady}
+                        onClick={() => {
+                          setBet(prev => {
+                            const next = prev + getBetIncrement(prev)
+                            return Math.min(next, balance)
+                          })
+                        }}
+                        className="bet-btn plus"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="controls-center">
+                    <button
+                      className={`spin-btn spin spin-image ${isReady && !autoSpin ? 'active' : ''}`}
+                      disabled={
+                        !isReady ||
+                        autoSpin ||
+                        balance === 0 ||
+                        balance < bet ||
+                        (isFreeGame && freeSpinsLeft < 10)
+                      }
+                      onClick={spin}
+                      aria-label="Spin"
+                    />
+                  </div>
+
+                  <div className="controls-right">
+                    <button
+                      className={`spin-btn auto spin-auto-image ${autoSpin ? 'active' : ''}`}
+                      disabled={isFreeGame || balance === 0 || balance < bet}
+                      onClick={() => setAutoSpin(!autoSpin)}
+                    />
+
+                    <button className={`spin-btn turbo`} disabled={true} />
+
+                    <button className={`spin-btn settings`} />
+                  </div>
+                </div>
+                <div className="balance-display">
+                  Balance <span className="balance-amount">{formatPeso(balance ?? 0)}</span>
+                  <button className="add-btn" onClick={() => setBalance(balance + 5000)}>
+                    +{formatPeso(5000, true, true, 2)}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

@@ -23,7 +23,7 @@
             (3 * var(--card-gap))
     );
 
-    --dim-top: calc(-0.35vh * var(--board-scale));
+    --dim-top: calc(0.001vh * var(--board-scale));
 
     --reel-width-num: 73;
     --reel-gap-num: 10;
@@ -73,25 +73,59 @@
    ========================= */
 
 .game-frame {
+    position: relative;
     width: min(430px, 100vw);
-    aspect-ratio: 9 / 16;
-
+    aspect-ratio: 9 / 18.1;
     max-height: 100vh;
+    overflow: hidden;
 
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    align-items: center;
+    /*position: relative;*/
+    /*width: min(430px, 100vw);*/
+    /*aspect-ratio: 9 / 16;*/
+    /*max-height: 100vh;*/
 
-    box-sizing: border-box;
-    /*padding: 5px 0;*/
+    /*display: flex;*/
+    /*flex-direction: column;*/
+    /*justify-content: space-between;*/
+    /*align-items: center;*/
+
+    /*overflow: hidden;*/
+}
+
+.frame-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none; /* critical */
+}
+
+.bg-inner {
+    position: absolute;
+    inset: 0;
+
+    background-image: url('./assets/images/bg-inner.png');
+    background-size: cover;
+    background-position: center;
 
 
+    /* inward shadow (this is the key) */
+    filter:
+            drop-shadow(0 0 12px rgba(0, 0, 0, 0.55));
+}
+
+.bg-frame {
+    position: absolute;
+    inset: 0;
     background-image: url('./assets/images/bg-frame.png');
     background-size: 100% 100%;
-    background-position: center;
     background-repeat: no-repeat;
 }
+
+.game-content {
+    position: relative;
+    z-index: 1;
+}
+
 
 /* =========================
    Reel Stage
@@ -104,9 +138,10 @@
 
     /*justify-content: center;*/
     overflow: visible;
-    margin-top: -0.8vh;
+    margin-top: -0.3vh;
 
     height: 53vh;
+
 }
 
 /* =========================
@@ -526,7 +561,7 @@
     position: relative;
     width: 100%;
     height: 78vh;
-    z-index: 0;
+    /*z-index: 0;*/
 
 }
 
@@ -558,14 +593,7 @@
     align-items: center;
 }
 
-.win-burst {
-    position: relative;
-    font-size: clamp(52px, 7vw, 84px);
-    font-weight: 900;
-    /*letter-spacing: -em;*/
-    transform-origin: center;
-    transform: scale(1.85);
-}
+
 
 /* =========================
    BACK GLOW (CENTER ONLY)
@@ -638,47 +666,69 @@
     /*        0 6px 10px rgba(0, 0, 0, 0.35);*/
 }
 
+.win-burst {
+    position: relative;
+    font-size: clamp(84px, 16vw, 150px);
+    font-weight: 900;
+    transform-origin: center;
+}
+
 /* =========================
    ANIMATIONS (unchanged)
    ========================= */
 .win-burst.highlight {
-    animation: winPop 680ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation: winPopDoubleSmooth 1200ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .win-burst.highlight .win-glow {
     animation: glowStabilize 680ms linear forwards;
 }
 
-@keyframes glowStabilize {
-    to {
-        --inv-scale: calc(1 / var(--win-scale));
-    }
-}
 
 .win-burst.pop {
     animation: winDisappear 260ms ease-in forwards;
 }
-
-@keyframes winPop {
+@keyframes winPopDoubleSmooth {
+    /* Spawn */
     0% {
-        --win-scale: 0.55;
-        transform: scale(0.55);
+        transform: scale(0.42);
+        opacity: 0;
     }
-    38% {
-        --win-scale: 1.85;
+
+    /* FIRST POP */
+    20% {
+        transform: scale(1.22);
+        opacity: 1;
+    }
+
+    /* MICRO DRIFT (no stop) */
+    32% {
+        transform: scale(1.18);
+    }
+
+    /* SECOND POP — dominant */
+    48% {
         transform: scale(1.85);
     }
-    55% {
-        --win-scale: 1.45;
-        transform: scale(1.45);
+
+    /* STRONG RECOIL */
+    62% {
+        transform: scale(1.46);
     }
-    72% {
-        --win-scale: 1.65;
-        transform: scale(1.65);
+
+    /* BOUNCE */
+    74% {
+        transform: scale(1.63);
     }
+
+    /* MICRO REBOUND */
+    86% {
+        transform: scale(1.52);
+    }
+
+    /* FINAL SETTLE */
     100% {
-        --win-scale: 1.45;
-        transform: scale(1.45);
+        transform: scale(1.56);
     }
 }
 
@@ -793,18 +843,40 @@ button:focus-visible {
 }
 
 .spin-btn.audio {
-    font-size: 24px;   /* ← increase this */
-    width: 35px;
-    height: 35px;
+    position: absolute;
+    top: 3%;
+    right: 3%;
+    font-size: 20px;   /* ← increase this */
+    width: 40px;
+    height: 40px;
 
     display: flex;
     align-items: center;
+
     justify-content: center;
 
-    background: transparent;
-    border: none;
+
+    border: 1px solid white;
+    background-color: #0c1d3d;
+    color: #ffd84d;
+
+
     cursor: pointer;
     /*margin-top: 1%;*/
+}
+
+.spin-btn.audio:hover {
+    border: 1px solid #ffd84d;
+    filter:
+            drop-shadow(0 0 1px rgba(255, 210, 120, 1))
+            drop-shadow(0 0 6px rgba(255, 160, 60, 0.7));
+}
+
+.spin-btn.audio.active {
+    border: 1px solid #ffd84d;
+    filter:
+            drop-shadow(0 0 1px rgba(255, 210, 120, 1))
+            drop-shadow(0 0 6px rgba(255, 160, 60, 0.7));
 }
 
 .spin-btn.auto {
@@ -896,13 +968,13 @@ button:focus-visible {
 }
 
 
-.spin-btn.spin-image:active:not(:disabled) {
+.spin-btn.spin.spin-image:active:not(:disabled) {
     transform: scale(0.94);
     filter: brightness(0.9);
 }
 
 
-.spin-btn.spin-image:disabled {
+.spin-btn.spin.spin-image:disabled {
     /*opacity: 0.65;*/
     filter: grayscale(0.4);
     cursor: not-allowed;
@@ -953,16 +1025,8 @@ button:focus-visible {
     letter-spacing: 0.02em;
 }
 
-.win-burst {
-    transform-origin: center;
-    translate: 0 -2px;
-}
-
 .win-amount {
-
     color: white;
-
-
 }
 
 .win-placeholder {
@@ -1047,7 +1111,7 @@ button:focus-visible {
     display: flex;
     /*flex-direction: column;*/
     /*padding-left: 10px;*/
-    justify-content: flex-end;
+    justify-content: center;
     align-items: center;
     color: white;
     gap: 5px
@@ -1075,9 +1139,8 @@ button:focus-visible {
     align-items: center;
     /*transform: scale(0.75);*/
     transform-origin: center;
-    gap: 5px;
-    margin-top: 30%;
-    margin-right: 10%;
+    gap: 10px;
+    margin-top: 20%;
 }
 
 .bet-control,
@@ -1086,8 +1149,8 @@ button:focus-visible {
 }
 
 .bet-btn.minus {
-    width: 35px;
-    height: 35px;
+    width: 40px;
+    height: 40px;
     background-image: url('./assets/images/add_bet.png');
     background-size: contain;
     background-repeat: no-repeat;
@@ -1098,8 +1161,8 @@ button:focus-visible {
 
 
 .bet-btn.plus {
-    width: 35px;
-    height: 35px;
+    width: 40px;
+    height: 40px;
     background-image: url('./assets/images/add_bet.png');
     background-size: contain;
     background-repeat: no-repeat;
@@ -1116,8 +1179,9 @@ button:focus-visible {
 }
 
 .bet-amount {
-    font-size: clamp(12px, 2vw, 16px);
-    color: white;
+    font-size: calc(14px * var(--board-scale));
+    font-weight: 800;
+    color: #ffd84d;
     text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
 }
 

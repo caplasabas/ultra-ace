@@ -3,15 +3,36 @@ export function formatPeso(
   withSymbol = true,
   withDecimal = true,
   decimalCount = 3,
+  abbreviate = false,
 ): string {
   const num = Number(amount)
   if (isNaN(num)) return withSymbol ? '₱0' : '0'
 
-  let formatted = num.toFixed(withDecimal ? decimalCount : 0).replace(/\d(?=(\d{3})+\.)/g, '$&,')
+  const sign = num < 0 ? '-' : ''
+  const abs = Math.abs(num)
 
-  if (formatted.endsWith('.00')) {
-    formatted = formatted.slice(0, -3)
+  let value: string
+
+  if (abbreviate) {
+    if (abs >= 1_000_000_000) {
+      const v = Math.floor((abs / 1_000_000_000) * 100) / 100
+      value = v.toString().replace(/\.00$/, '') + 'B'
+    } else if (abs >= 1_000_000) {
+      const v = Math.floor((abs / 1_000_000) * 100) / 100
+      value = v.toString().replace(/\.00$/, '') + 'M'
+    } else if (abs >= 1_000) {
+      const v = Math.floor((abs / 1_000) * 100) / 100
+      value = v.toString().replace(/\.00$/, '') + 'K'
+    } else {
+      value = abs.toLocaleString()
+    }
+  } else {
+    value = abs.toFixed(withDecimal ? decimalCount : 0).replace(/\d(?=(\d{3})+\.)/g, '$&,')
+
+    if (value.endsWith('.00')) {
+      value = value.slice(0, -3)
+    }
   }
 
-  return `${withSymbol ? '₱' : ''}${formatted}`
+  return `${sign}${withSymbol ? '₱' : ''}${value}`
 }
