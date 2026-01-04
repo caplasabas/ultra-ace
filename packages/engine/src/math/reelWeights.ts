@@ -11,21 +11,21 @@ export const REEL_WEIGHTS = {
   A: 0.45,
 
   WILD: 0,
-  SCATTER: 0.0004,
+  SCATTER: 0.00015,
 }
 
 export const REEL_WEIGHTS_FREE = {
-  SPADE: 2.0,
-  HEART: 2.0,
-  DIAMOND: 1.6,
-  CLUB: 1.6,
+  SPADE: 1.5,
+  HEART: 1.5,
+  DIAMOND: 1.1,
+  CLUB: 1.1,
 
-  J: 0.7,
-  Q: 0.55,
+  J: 0.5,
+  Q: 0.35,
 
-  K: 0.35,
-  A: 0.25,
+  K: 0.15,
+  A: 0.05,
 
   WILD: 0,
-  SCATTER: 0.0002,
+  SCATTER: 0.000065,
 }

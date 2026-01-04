@@ -18,8 +18,8 @@ const GOLD_TTL = 0
 const MAX_PAYOUT = 2_000_000
 const MAX_MULTIPLIER = 10_000
 
-const CASCADE_DECAY_BASE = 0.72
-const CASCADE_DECAY_FREE = 0.38
+const CASCADE_DECAY_BASE = 0.52
+const CASCADE_DECAY_FREE = 0.18
 
 /* -----------------------------
    FULL-COLUMN STACK LIMIT

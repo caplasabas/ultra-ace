@@ -50,6 +50,8 @@ export default function App() {
     setBalance,
     bet,
     setBet,
+    freeSpinTotal,
+    setFreeSpinTotal,
   } = useEngine()
 
   const { phase, activeCascade, previousCascade, cascadeIndex, isIdle } = useCascadeTimeline(
@@ -165,7 +167,11 @@ export default function App() {
 
     commitWin(activeCascade.win)
 
-    setBalance(balance + (activeCascade?.win ?? 0))
+    if (isFreeGame) {
+      setFreeSpinTotal(v => v + activeCascade.win)
+    } else {
+      setBalance(v => v + activeCascade.win)
+    }
   }, [phase])
 
   const BASE_MULTIPLIERS = [1, 2, 3, 5]
@@ -297,7 +303,10 @@ export default function App() {
 
               <div className="bottom-container">
                 <div className="win-display">
-                  WIN: <span className="win-amount"> {formatPeso(totalWin ?? 0)}</span>
+                  WIN:{' '}
+                  <span className="win-amount">
+                    {formatPeso(isFreeGame ? freeSpinTotal : totalWin)}
+                  </span>
                 </div>
                 <div className="bottom-controls">
                   <div className="controls-left">
