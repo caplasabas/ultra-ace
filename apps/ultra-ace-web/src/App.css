@@ -75,7 +75,7 @@
 .game-frame {
     position: relative;
     width: min(430px, 100vw);
-    aspect-ratio: 9 / 18.1;
+    aspect-ratio: 9 / 17.1;
     max-height: 100vh;
     overflow: hidden;
 
@@ -138,9 +138,9 @@
 
     /*justify-content: center;*/
     overflow: visible;
-    margin-top: -0.3vh;
+    margin-top: -2vh;
 
-    height: 53vh;
+    height: 50vh;
 
 }
 
