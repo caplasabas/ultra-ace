@@ -12,11 +12,19 @@ import {
   BLOCKED_JOKER_KINDS,
 } from '../config/wild.config.js'
 
-const GOLD_CHANCE_REFILL = 0.015
+const GOLD_CHANCE_REFILL = 0.00085
 
 const GOLD_TTL = 0
 const MAX_PAYOUT = 2_000_000
 const MAX_MULTIPLIER = 10_000
+
+const CASCADE_DECAY_BASE = 0.72
+const CASCADE_DECAY_FREE = 0.38
+
+/* -----------------------------
+   FULL-COLUMN STACK LIMIT
+----------------------------- */
+const MAX_SAME_SYMBOL_PER_REEL = 2
 
 export function runCascades(
   initialWindow: Symbol[][],
@@ -71,7 +79,7 @@ export function runCascades(
         }
       }
 
-      // 👑 Inject synthetic win group (NO payout)
+      // 👑 Synthetic group for visuals only
       wins.push({
         symbol: 'WILD',
         count: wildPositions.length,
@@ -122,7 +130,9 @@ export function runCascades(
       }
     }
 
-    const win = baseWin * multiplier
+    const decay = isFreeGame ? CASCADE_DECAY_FREE : CASCADE_DECAY_BASE
+    const win = baseWin * multiplier * Math.pow(decay, i - 1)
+
     totalWin += win
     if (totalWin >= MAX_PAYOUT) break
 
@@ -146,7 +156,6 @@ export function runCascades(
 function propagateBigJoker(window: Symbol[][], rng: () => number) {
   const candidates: { reel: number; row: number }[] = []
 
-  // 🔒 STRICT: ONLY REELS 1–3
   for (let reel = 1; reel <= 3; reel++) {
     for (let row = 0; row < window[reel].length; row++) {
       const s = window[reel][row]
@@ -170,7 +179,7 @@ function propagateBigJoker(window: Symbol[][], rng: () => number) {
   }
 }
 
-/* ───────── REFILL ───────── */
+/* ───────── REFILL (STACK-LIMITED) ───────── */
 
 function refillInPlace(window: Symbol[][], rng: () => number) {
   for (let r = 0; r < window.length; r++) {
@@ -178,12 +187,21 @@ function refillInPlace(window: Symbol[][], rng: () => number) {
       if (window[r][row].kind !== 'EMPTY') continue
 
       let symbol: Symbol
+      let attempts = 0
 
       do {
         symbol = {
           ...GAME_CONFIG.cascadeFillPool[Math.floor(rng() * GAME_CONFIG.cascadeFillPool.length)],
         }
-      } while (symbol.kind === 'WILD')
+
+        attempts++
+
+        const sameKindCount = window[r].filter(s => s.kind === symbol.kind).length
+
+        if (symbol.kind !== 'WILD' && sameKindCount < MAX_SAME_SYMBOL_PER_REEL) {
+          break
+        }
+      } while (attempts < 20)
 
       const goldAllowed = r !== 0 && r !== window.length - 1
 

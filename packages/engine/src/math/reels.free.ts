@@ -1,49 +1,11 @@
 import { Symbol } from '../types/symbol.js'
+import { buildReel } from './reelFactory.js'
+import { REEL_WEIGHTS_FREE } from './reelWeights.js'
 
 export const REELS_FREE: Symbol[][] = [
-  [
-    { kind: 'SPADE' },
-    { kind: 'HEART' },
-    { kind: 'CLUB' },
-    { kind: 'DIAMOND' },
-    { kind: 'J' },
-    { kind: 'Q' },
-    { kind: 'K' },
-  ],
-  [
-    { kind: 'SPADE' },
-    { kind: 'HEART' },
-    { kind: 'CLUB' },
-    { kind: 'DIAMOND' },
-    { kind: 'J' },
-    { kind: 'Q' },
-    { kind: 'SCATTER' },
-  ],
-  [
-    { kind: 'SPADE' },
-    { kind: 'HEART' },
-    { kind: 'CLUB' },
-    { kind: 'DIAMOND' },
-    { kind: 'J' },
-    { kind: 'Q' },
-    { kind: 'K' },
-  ],
-  [
-    { kind: 'SPADE' },
-    { kind: 'HEART' },
-    { kind: 'CLUB' },
-    { kind: 'DIAMOND' },
-    { kind: 'J' },
-    { kind: 'Q' },
-    { kind: 'SCATTER' },
-  ],
-  [
-    { kind: 'SPADE' },
-    { kind: 'HEART' },
-    { kind: 'CLUB' },
-    { kind: 'DIAMOND' },
-    { kind: 'J' },
-    { kind: 'Q' },
-    { kind: 'K' },
-  ],
+  buildReel(REEL_WEIGHTS_FREE),
+  buildReel(REEL_WEIGHTS_FREE),
+  buildReel(REEL_WEIGHTS_FREE),
+  buildReel(REEL_WEIGHTS_FREE),
+  buildReel(REEL_WEIGHTS_FREE),
 ]

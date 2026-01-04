@@ -5,23 +5,7 @@ type Position = { reel: number; row: number }
 
 const MIN_REELS = 3
 const MAX_REELS = 5
-const BET_REFERENCE = 0.6
 const WILD_ALLOWED_COLUMNS = new Set([1, 2, 3])
-
-/* ----------------------------------------
-   Density multiplier (industry-style)
----------------------------------------- */
-function densityMultiplier(cardCount: number, reels: number) {
-  const minCards = reels // 1 per reel minimum
-  const maxCards = reels * 4 // full stack
-
-  if (cardCount <= minCards) return 1
-
-  const t = (cardCount - minCards) / (maxCards - minCards)
-
-  // Soft exponential curve (tunable)
-  return 1 + Math.pow(t, 1.6) * 1.25
-}
 
 export function evaluateColumnWindow(window: Symbol[][], totalBet: number) {
   const reelCount = window.length
@@ -102,18 +86,18 @@ export function evaluateColumnWindow(window: Symbol[][], totalBet: number) {
     const reelsUsed = winningReels.length
     const cardCount = positions.length
 
+    const effectiveCards =
+      cardCount <= 3 ? cardCount : cardCount === 4 ? 4 : 5 + Math.floor((cardCount - 5) * 0.25)
     /* ----------------------------------------
-       Payout calculation
+       Payout calculation (LINEAR, CAPPED)
     ---------------------------------------- */
     const paytable = PAYTABLE[symbol]
-    const payIndex = reelsUsed === 3 ? 2 : reelsUsed === 4 ? 3 : 4
+    const payIndex = Math.min(effectiveCards, 5) - 1
 
-    const basePayMult = paytable?.[payIndex] ?? 0
-    if (basePayMult <= 0) continue
+    const basePay = paytable?.[payIndex] ?? 0
+    if (basePay <= 0) continue
 
-    const densityMult = densityMultiplier(cardCount, reelsUsed)
-
-    const payout = ((basePayMult * densityMult) / BET_REFERENCE) * totalBet
+    const payout = basePay * totalBet
 
     wins.push({
       symbol,
