@@ -80,6 +80,15 @@ export function useCascadeTimeline(cascades: CascadeStep[], spinId: number, onCo
   useEffect(() => {
     let t: number | undefined
 
+    const hasGoldToWild =
+      activeCascade?.window?.some((col, r) =>
+        col.some((s, c) => {
+          const prev = previousCascade?.window?.[r]?.[c]
+          return prev?.isGold === true && s.kind === 'WILD'
+        }),
+      ) ?? false
+    const hasNextWin = Boolean(nextCascade?.lineWins?.length)
+
     switch (state.phase) {
       case 'reelSweepOut':
         t = window.setTimeout(() => {
@@ -110,16 +119,7 @@ export function useCascadeTimeline(cascades: CascadeStep[], spinId: number, onCo
         break
 
       case 'cascadeRefill':
-        const hasGoldToWild =
-          activeCascade?.window?.some((col, r) =>
-            col.some((s, c) => {
-              const prev = previousCascade?.window?.[r]?.[c]
-              return prev?.isGold === true && s.kind === 'WILD'
-            }),
-          ) ?? false
-        const hasNextWin = Boolean(nextCascade?.lineWins?.length)
-
-        const delay = hasGoldToWild || hasNextWin ? 1150 : 820
+        const cascadeRefillDelay = hasGoldToWild || hasNextWin ? 1150 : 820
         t = window.setTimeout(() => {
           if (hasGoldToWild) {
             dispatch({ type: 'NEXT', phase: 'postGoldTransform' })
@@ -128,7 +128,7 @@ export function useCascadeTimeline(cascades: CascadeStep[], spinId: number, onCo
           } else {
             dispatch({ type: 'NEXT', phase: 'settle' })
           }
-        }, delay)
+        }, cascadeRefillDelay)
         break
 
       case 'postGoldTransform':
