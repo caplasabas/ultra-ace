@@ -3,10 +3,25 @@ import { PAYTABLE } from './paytable.js'
 
 type Position = { reel: number; row: number }
 
-const MIN_COLUMNS = 3
-const MAX_COLUMNS = 5
+const MIN_REELS = 3
+const MAX_REELS = 5
 const BET_REFERENCE = 0.6
 const WILD_ALLOWED_COLUMNS = new Set([1, 2, 3])
+
+/* ----------------------------------------
+   Density multiplier (industry-style)
+---------------------------------------- */
+function densityMultiplier(cardCount: number, reels: number) {
+  const minCards = reels // 1 per reel minimum
+  const maxCards = reels * 4 // full stack
+
+  if (cardCount <= minCards) return 1
+
+  const t = (cardCount - minCards) / (maxCards - minCards)
+
+  // Soft exponential curve (tunable)
+  return 1 + Math.pow(t, 1.6) * 1.25
+}
 
 export function evaluateColumnWindow(window: Symbol[][], totalBet: number) {
   const reelCount = window.length
@@ -14,6 +29,7 @@ export function evaluateColumnWindow(window: Symbol[][], totalBet: number) {
 
   const wins: {
     symbol: SymbolKind
+    reels: number
     count: number
     payout: number
     positions: Position[]
@@ -46,7 +62,7 @@ export function evaluateColumnWindow(window: Symbol[][], totalBet: number) {
     const winningReels: number[] = []
 
     /* ----------------------------------------
-       Phase 1: determine winning columns
+       Phase 1: determine contiguous reels
     ---------------------------------------- */
     for (let reel = 0; reel < reelCount; reel++) {
       let hasMatch = false
@@ -63,13 +79,13 @@ export function evaluateColumnWindow(window: Symbol[][], totalBet: number) {
       if (!hasMatch) break
 
       winningReels.push(reel)
-      if (winningReels.length === MAX_COLUMNS) break
+      if (winningReels.length === MAX_REELS) break
     }
 
-    if (winningReels.length < MIN_COLUMNS) continue
+    if (winningReels.length < MIN_REELS) continue
 
     /* ----------------------------------------
-       Phase 2: collect ALL matching positions
+       Phase 2: collect ALL matching cards
     ---------------------------------------- */
     const positions: Position[] = []
 
@@ -83,21 +99,26 @@ export function evaluateColumnWindow(window: Symbol[][], totalBet: number) {
       }
     }
 
+    const reelsUsed = winningReels.length
+    const cardCount = positions.length
+
     /* ----------------------------------------
        Payout calculation
     ---------------------------------------- */
     const paytable = PAYTABLE[symbol]
-    const columns = winningReels.length
-    const payIndex = columns === 3 ? 2 : columns === 4 ? 3 : 4
-    const payMult = paytable?.[payIndex] ?? 0
+    const payIndex = reelsUsed === 3 ? 2 : reelsUsed === 4 ? 3 : 4
 
-    if (payMult <= 0) continue
+    const basePayMult = paytable?.[payIndex] ?? 0
+    if (basePayMult <= 0) continue
 
-    const payout = (payMult / BET_REFERENCE) * totalBet
+    const densityMult = densityMultiplier(cardCount, reelsUsed)
+
+    const payout = ((basePayMult * densityMult) / BET_REFERENCE) * totalBet
 
     wins.push({
       symbol,
-      count: columns,
+      reels: reelsUsed,
+      count: cardCount,
       payout,
       positions,
     })

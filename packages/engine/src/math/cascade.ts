@@ -12,7 +12,7 @@ import {
   BLOCKED_JOKER_KINDS,
 } from '../config/wild.config.js'
 
-const GOLD_CHANCE_REFILL = 0.02
+const GOLD_CHANCE_REFILL = 0.015
 
 const GOLD_TTL = 0
 const MAX_PAYOUT = 2_000_000
@@ -75,6 +75,7 @@ export function runCascades(
       wins.push({
         symbol: 'WILD',
         count: wildPositions.length,
+        reels: wildPositions.length,
         payout: 0,
         positions: wildPositions,
       })
