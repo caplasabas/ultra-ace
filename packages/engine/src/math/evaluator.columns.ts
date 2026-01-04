@@ -86,8 +86,7 @@ export function evaluateColumnWindow(window: Symbol[][], totalBet: number) {
     const reelsUsed = winningReels.length
     const cardCount = positions.length
 
-    const effectiveCards =
-      cardCount <= 3 ? cardCount : cardCount === 4 ? 4 : 5 + Math.floor((cardCount - 5) * 0.25)
+    const effectiveCards = Math.min(cardCount, 5)
     /* ----------------------------------------
        Payout calculation (LINEAR, CAPPED)
     ---------------------------------------- */
