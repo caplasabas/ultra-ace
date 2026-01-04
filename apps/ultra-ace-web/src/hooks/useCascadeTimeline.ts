@@ -157,7 +157,7 @@ export function useCascadeTimeline(cascades: CascadeStep[], spinId: number, onCo
             // no removals → settle
             dispatch({ type: 'NEXT', phase: 'settle' })
           }
-        }, 1000)
+        }, 800)
         break
 
       case 'cascadeRefill':

@@ -134,7 +134,10 @@ export default function App() {
       phase,
     )
 
+  const [isFreeSpinPreview, setIsFreeSpinPreview] = useState(false)
+
   const isReady = isIdle && !spinning && !showFreeSpinIntro
+
   useEffect(() => {
     if (!autoSpin) return
     if (!isReady) return
@@ -163,9 +166,6 @@ export default function App() {
   }, [isFreeGame, isIdle, freeSpinsLeft, spin])
 
   useEffect(() => {
-    if (phase === 'idle') {
-      setIntroShown(false)
-    }
     if (phase !== 'highlight') return
     if (!activeCascade?.win) return
 
@@ -181,7 +181,7 @@ export default function App() {
   const BASE_MULTIPLIERS = [1, 2, 3, 5]
   const FREE_MULTIPLIERS = [2, 4, 6, 10]
 
-  const ladder = isFreeGame ? FREE_MULTIPLIERS : BASE_MULTIPLIERS
+  const ladder = isFreeGame || isFreeSpinPreview ? FREE_MULTIPLIERS : BASE_MULTIPLIERS
 
   function getMultiplierIndex(cascadeIndex: number) {
     if (cascadeIndex < 2) return 0
@@ -192,22 +192,28 @@ export default function App() {
   const [introShown, setIntroShown] = useState(false)
 
   useEffect(() => {
-    if (phase === 'highlight' && hasScatterWin && !introShown && !isFreeGame) {
+    if (phase === 'highlight' && pendingFreeSpins > 0 && !introShown) {
+      setAutoSpin(false)
       setIntroShown(true)
 
       const t = setTimeout(() => {
         setShowFreeSpinIntro(true)
 
         const hide = setTimeout(() => {
+          setIsFreeSpinPreview(true)
           setShowFreeSpinIntro(false)
-        }, 4000)
-
+        }, 3000) // banner duration
         return () => clearTimeout(hide)
-      }, 800) // allow scatter glow to breathe
+      }, 600)
 
       return () => clearTimeout(t)
     }
-  }, [phase, hasScatterWin, isFreeGame])
+
+    if (phase === 'idle') {
+      setIntroShown(false)
+      setIsFreeSpinPreview(false)
+    }
+  }, [phase, pendingFreeSpins])
 
   function getBetIncrement(bet: number): number {
     if (bet < 10) return 1
@@ -228,7 +234,7 @@ export default function App() {
       <div className="game-root">
         <div className="game-frame">
           <div className="frame-bg">
-            <div className={`bg-inner ${isFreeGame ? 'free-spin' : ''}`}>
+            <div className={`bg-inner ${isFreeGame || isFreeSpinPreview ? 'free-spin' : ''}`}>
               <div className="frame-inner-shadow" />
             </div>
 
@@ -241,20 +247,27 @@ export default function App() {
               {DEV && <DebugHud info={debugInfo} />}
 
               <div className="free-spin-banner">
-                <div className={`free-spin-text font-plasma ${!isFreeGame ? 'base' : ''}`}>
+                <div
+                  className={`free-spin-text font-plasma ${
+                    !(isFreeGame || isFreeSpinPreview) ? 'base' : ''
+                  }`}
+                >
                   <span className="free-spin-base superace-base">
-                    {isFreeGame ? 'FREE SPINS' : 'UltraAce'}
+                    {isFreeGame || isFreeSpinPreview ? 'FREE SPINS' : 'UltraAce'}{' '}
                   </span>
 
                   <span className="free-spin-face superace-face">
-                    {isFreeGame ? 'FREE SPINS' : 'UltraAce'}
+                    {isFreeGame || isFreeSpinPreview ? 'FREE SPINS' : 'UltraAce'}{' '}
                   </span>
                 </div>
 
-                <span className="free-spin-count">{isFreeGame && freeSpinsLeft}</span>
+                <span className="free-spin-count">
+                  {(isFreeGame || isFreeSpinPreview) &&
+                    (isFreeGame ? freeSpinsLeft : pendingFreeSpins)}
+                </span>
               </div>
 
-              <div className={`multiplier-strip ${isFreeGame ? 'free' : ''}`}>
+              <div className={`multiplier-strip ${isFreeGame || isFreeSpinPreview ? 'free' : ''}`}>
                 {ladder.map((m, i) => (
                   <div
                     key={m}

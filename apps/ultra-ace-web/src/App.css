@@ -23,7 +23,7 @@
             (3 * var(--card-gap))
     );
 
-    --dim-top: calc(0.001vh * var(--board-scale));
+    --dim-top: calc(0.6vh * var(--board-scale));
 
     --reel-width-num: 73;
     --reel-gap-num: 10;
@@ -199,7 +199,7 @@
 
 .reels-row {
     position: absolute;
-    top: calc(var(--highlight-pad) * 1.5);
+    top: calc(var(--highlight-pad) * 1.9);
     left: calc(var(--highlight-pad));
 
 
@@ -311,47 +311,67 @@
    ========================= */
 
 .card.pop {
-    animation: popOutSmoothFast 240ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation: popOutSmoothPremium 420ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .scorch-under.delayed {
     animation: scorchDelay 40ms linear forwards;
 }
 
-
-@keyframes popOutSmoothFast {
+@keyframes popOutSmoothPremium {
+    /* Initial state */
     0% {
         transform: scale(1);
         opacity: 1;
         filter: blur(0px);
     }
 
-    /* HOLD — lets the brain register the win */
-    18% {
-        transform: scale(1.05);
+    /* Recognition hold */
+    20% {
+        transform: scale(1.04);
         opacity: 1;
         filter: blur(0px);
     }
 
-    /* ENERGY RELEASE */
-    55% {
-        transform: scale(0.42);
-        opacity: 0.85;
-        filter: blur(0.6px);
+    /* Controlled energy release */
+    45% {
+        transform: scale(0.78);
+        opacity: 0.95;
+        filter: blur(0.4px);
     }
 
-    /* FADE — no snap */
-    85% {
-        transform: scale(0.12);
-        opacity: 0.25;
-        filter: blur(1.2px);
+    /* Smooth decay (NO cliff) */
+    70% {
+        transform: scale(0.38);
+        opacity: 0.55;
+        filter: blur(0.8px);
     }
 
+    /* Long tail */
+    88% {
+        transform: scale(0.16);
+        opacity: 0.18;
+        filter: blur(1px);
+    }
+
+    /* Final vanish */
     100% {
-        transform: scale(0);
-        opacity: 0;
-        filter: blur(1.8px);
+        transform: scale(0.02);
+        opacity: 0.001;
+        filter: blur(1px);
     }
+}
+
+/* 🔒 HARD LOCK: once pop finishes, card stays gone */
+.card.pop {
+    animation-fill-mode: forwards;
+    pointer-events: none;
+}
+
+/* Prevent reappearance if phase changes mid-frame */
+.card.pop:not(.deal):not(.deal-initial) {
+    opacity: 0 !important;
+    transform: scale(0) !important;
 }
 
 /* =========================
@@ -469,7 +489,7 @@
     width: 110%;
     height: 110%;
 
-    background-image: url('./assets/vfx/scorch_atlas.png');
+    background-image: url('./assets/vfx/scorch_atlas2.png');
     background-size: 300% 100%;
     background-repeat: no-repeat;
 
@@ -553,7 +573,7 @@
     opacity: 0;
     pointer-events: none;
 
-    background-image: url('./assets/vfx/scorch_atlas.png');
+    background-image: url('./assets/vfx/scorch_atlas2.png');
     background-size: 300% 100%;
 
     will-change: background-size, opacity;
@@ -662,15 +682,23 @@
     right: 0;
     bottom: 0;
 
-    background: rgba(0, 0, 0, 0);
+    background: black;
+    opacity: 0;
+
     pointer-events: none;
 
-    transition: background 250ms ease;
-    z-index: 3; /* BETWEEN cards and highlight */
+    /* Long, smooth fade */
+    transition: opacity 420ms cubic-bezier(0.22, 1, 0.36, 1);
+
+    z-index: 3;
+
+    /* GPU stability */
+    will-change: opacity;
+    transform: translateZ(0);
 }
 
 .dim.active {
-    background: rgba(0, 0, 0, 0.8);
+    opacity: 0.8;
 }
 
 .win-overlay {
@@ -1700,24 +1728,24 @@ button:focus-visible {
 
     pointer-events: none;
 
-    background: linear-gradient(
-            120deg,
-            rgba(255,255,255,0) 42%,
-            rgba(255,255,255,0.45) 50%,
-            rgba(255,255,255,0) 58%
-    );
+    /*background: linear-gradient(*/
+    /*        120deg,*/
+    /*        rgba(255,255,255,0) 42%,*/
+    /*        rgba(255,255,255,0.45) 50%,*/
+    /*        rgba(255,255,255,0) 58%*/
+    /*);*/
 
     transform: translateX(0);
-    animation: scatterShimmer 3.2s ease-in-out infinite;
+    /*animation: scatterShimmer 3.2s ease-in-out infinite;*/
 
     z-index: 5;
 }
 
-@keyframes scatterShimmer {
-    0%   { transform: translateX(-140%); }
-    55%  { transform: translateX(140%); }
-    100% { transform: translateX(140%); }
-}
+/*@keyframes scatterShimmer {*/
+/*    0%   { transform: translateX(-140%); }*/
+/*    55%  { transform: translateX(140%); }*/
+/*    100% { transform: translateX(140%); }*/
+/*}*/
 /* =========================
    SCATTER — IMAGE HIGHLIGHT
    ========================= */
