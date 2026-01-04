@@ -49,7 +49,7 @@ export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
 
   let freeSpinsAwarded = !isFreeGame && scatterCount >= 3 ? GAME_CONFIG.freeSpinsAwarded : 0
 
-  if (isFreeGame && (scatterCount >= 3 || DEV_FORCE_FREE_RETRIGGER)) {
+  if (isFreeGame && scatterCount >= 3) {
     freeSpinsAwarded += 5
   }
 
