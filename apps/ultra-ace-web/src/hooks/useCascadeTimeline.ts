@@ -115,10 +115,6 @@ export function useCascadeTimeline(cascades: CascadeStep[], spinId: number, onCo
 
     const hasRemovals = Boolean(activeCascade?.removedPositions?.length)
 
-    const isMobile = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
-
-    const HIGHLIGHT_MS = isMobile ? 700 : 1200
-
     switch (state.phase) {
       case 'reelSweepOut':
         t = window.setTimeout(() => {
@@ -142,7 +138,7 @@ export function useCascadeTimeline(cascades: CascadeStep[], spinId: number, onCo
       case 'highlight':
         t = window.setTimeout(() => {
           dispatch({ type: 'NEXT', phase: 'pop' })
-        }, HIGHLIGHT_MS)
+        }, 1200)
         break
 
       case 'pop':
