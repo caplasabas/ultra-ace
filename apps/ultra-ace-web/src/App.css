@@ -75,7 +75,7 @@
 .game-frame {
     position: relative;
     width: min(430px, 100vw);
-    aspect-ratio: 9 / 17.1;
+    aspect-ratio: 9 / 17.2;
     max-height: 100vh;
     overflow: hidden;
 
@@ -1235,7 +1235,7 @@ button:focus-visible {
 */
 .multiplier-strip {
     position: relative;
-    margin-top: -0.75rem;
+    margin-top: -1.4rem;
 
     width: 58%;
     /*margin: 0 auto;*/
