@@ -58,8 +58,16 @@ export default function App() {
     pendingFreeSpins,
   } = useEngine()
 
-  const { phase, activeCascade, previousCascade, cascadeIndex, isIdle, isScatterHighlight } =
-    useCascadeTimeline(cascades, spinId, commitSpin)
+  const {
+    phase,
+    activeCascade,
+    previousCascade,
+    cascadeIndex,
+    isIdle,
+    isScatterHighlight,
+    initialRefillColumn,
+    activePausedColumn,
+  } = useCascadeTimeline(cascades, spinId, isFreeGame, commitSpin)
 
   const placeholderWindow = adaptWindow([
     makePlaceholder('A'),
@@ -302,6 +310,8 @@ export default function App() {
                         winningPositions={EMPTY_WIN_SET}
                         phase={spinId > 0 ? 'reelSweepOut' : 'idle'}
                         layer={spinId > 0 ? 'old' : 'new'}
+                        initialRefillColumn={initialRefillColumn}
+                        activePausedColumn={activePausedColumn}
                       />
                     ))}
 
@@ -315,6 +325,8 @@ export default function App() {
                           winningPositions={winningPositions}
                           phase="reelSweepOut"
                           layer="old"
+                          initialRefillColumn={initialRefillColumn}
+                          activePausedColumn={activePausedColumn}
                         />
                       ))}
 
@@ -336,6 +348,8 @@ export default function App() {
                           winningPositions={winningPositions}
                           phase={phase}
                           layer="new"
+                          initialRefillColumn={initialRefillColumn}
+                          activePausedColumn={activePausedColumn}
                         />
                       ))}
                   </div>

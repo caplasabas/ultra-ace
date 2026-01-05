@@ -1,7 +1,18 @@
 import './reel.css'
 import type { CascadePhase } from '../hooks/useCascadeTimeline'
 import { SYMBOL_MAP } from './symbolMap'
-import { CSSProperties, memo } from 'react'
+import { CSSProperties, memo, useEffect, useRef } from 'react'
+
+/* ----------------------------------------
+   CONFIG
+---------------------------------------- */
+const COLUMN_DEAL_DELAY = 110
+
+const INITIAL_ROW_DROP_DELAY = 65
+const CASCADE_ROW_DROP_DELAY = 120
+const CASCADE_COLUMN_EXTRA_DELAY = 90
+
+export const PAUSED_INITIAL_ROW_DROP_DELAY = 350
 
 export interface UISymbol {
   id: string
@@ -27,6 +38,8 @@ interface Props {
   winningPositions: Set<string>
   phase: CascadePhase
   layer: 'old' | 'new'
+  initialRefillColumn: number | null
+  activePausedColumn: number | null
 }
 
 type CSSVars = CSSProperties & {
@@ -35,7 +48,7 @@ type CSSVars = CSSProperties & {
 }
 
 /* ----------------------------------------
-   🔒 SINGLE SOURCE OF TRUTH FOR SYMBOL IMAGE
+   SYMBOL IMAGE
 ---------------------------------------- */
 function resolveSymbolImage(symbol: UISymbol): string {
   if (symbol.kind === 'BACK') return SYMBOL_MAP.BACK.normal
@@ -46,9 +59,7 @@ function resolveSymbolImage(symbol: UISymbol): string {
   }
 
   if (symbol.kind === 'WILD') {
-    if (symbol.wildColor === 'blue') {
-      return SYMBOL_MAP.WILD.normal
-    }
+    if (symbol.wildColor === 'blue') return SYMBOL_MAP.WILD.normal
 
     if (symbol.wildColor === 'red') {
       return symbol.wasGold || symbol.isSettledWild || !symbol.prevKind
@@ -60,9 +71,53 @@ function resolveSymbolImage(symbol: UISymbol): string {
   return SYMBOL_MAP[symbol.kind].normal
 }
 
-function ReelComponent({ symbols, reelIndex, winningPositions, phase, layer }: Props) {
-  const isInitialDeal = layer === 'new' && phase === 'initialRefill'
-  const isCascadeRefill = layer === 'new' && phase === 'cascadeRefill'
+function ReelComponent({
+  symbols,
+  reelIndex,
+  winningPositions,
+  phase,
+  layer,
+  initialRefillColumn,
+  activePausedColumn,
+}: Props) {
+  /* ----------------------------------------
+     INITIAL REFILL CONTROL
+  ---------------------------------------- */
+  const isInitialRefill = phase === 'initialRefill' && layer === 'new'
+
+  // 🔒 Persist pause origin even after unpause
+  const pauseOriginRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (isInitialRefill && initialRefillColumn !== null) {
+      pauseOriginRef.current = initialRefillColumn
+    }
+  }, [isInitialRefill, initialRefillColumn])
+
+  const pauseOrigin = pauseOriginRef.current
+  const hasPauseOccurred = pauseOrigin !== null
+
+  // ⛔ hide columns ONLY while paused
+  const isPausedColumn =
+    isInitialRefill && initialRefillColumn !== null && reelIndex > initialRefillColumn
+
+  if (isPausedColumn) return null
+
+  const isImmediateInitialDrop = isInitialRefill && (!hasPauseOccurred || reelIndex <= pauseOrigin!)
+
+  const isStaggeredInitialDrop = isInitialRefill && hasPauseOccurred && reelIndex > pauseOrigin!
+
+  const staggerIndex = hasPauseOccurred ? Math.max(0, reelIndex - (pauseOrigin! + 1)) : 0
+
+  const CARDS_PER_COLUMN = symbols.length
+
+  const pausedColumnDuration = CARDS_PER_COLUMN * PAUSED_INITIAL_ROW_DROP_DELAY
+
+  const staggerDelay = hasPauseOccurred ? staggerIndex * pausedColumnDuration : 0
+
+  const isCascadeRefill = phase === 'cascadeRefill' && layer === 'new'
+
+  const isActivePausedColumn = isInitialRefill && reelIndex === activePausedColumn
 
   return (
     <div
@@ -73,6 +128,14 @@ function ReelComponent({ symbols, reelIndex, winningPositions, phase, layer }: P
         left: `calc(${reelIndex} * (var(--reel-width) + var(--reel-gap)))`,
       }}
     >
+      {isActivePausedColumn && (
+        <div className="paused-column-border-glow">
+          <div className="paused-column-inner-ember" />
+          <div className="paused-column-energy-pulse" />
+          <div className="ray" />
+        </div>
+      )}
+
       {symbols.map((symbol, row) => {
         const isWin = winningPositions.has(`${reelIndex}-${row}`)
         const isScatter = symbol.kind === 'SCATTER'
@@ -82,10 +145,7 @@ function ReelComponent({ symbols, reelIndex, winningPositions, phase, layer }: P
         const wildHighlight = isWild && isWin && phase === 'highlight'
 
         const isCascadeDeal =
-          isCascadeRefill &&
-          symbol.isNew === true &&
-          symbol.isPersisted !== true &&
-          symbol.isSettledWild !== true
+          isCascadeRefill && symbol.isNew && !symbol.isPersisted && !symbol.isSettledWild
 
         const isGoldLocked =
           symbol.isGold === true || symbol.goldTTL !== undefined || symbol.wasGold
@@ -100,13 +160,35 @@ function ReelComponent({ symbols, reelIndex, winningPositions, phase, layer }: P
           (phase === 'highlight' || phase === 'idle' || phase === 'settle')
 
         const shouldFlip = symbol.goldToWild === true
-        const delay = reelIndex * 110 + (symbols.length - 1 - row) * 65
+
+        /* ----------------------------------------
+           DEAL TIMING
+        ---------------------------------------- */
+        const rowDelay =
+          (symbols.length - 1 - row) *
+          (isStaggeredInitialDrop
+            ? PAUSED_INITIAL_ROW_DROP_DELAY
+            : isCascadeRefill
+              ? CASCADE_ROW_DROP_DELAY
+              : INITIAL_ROW_DROP_DELAY)
+
+        const baseColumnDelay = isImmediateInitialDrop
+          ? reelIndex * COLUMN_DEAL_DELAY
+          : isCascadeDeal
+            ? reelIndex * (COLUMN_DEAL_DELAY + CASCADE_COLUMN_EXTRA_DELAY)
+            : 0
+
+        const totalDelay =
+          isImmediateInitialDrop || isCascadeDeal || isStaggeredInitialDrop
+            ? baseColumnDelay + rowDelay + staggerDelay
+            : 0
+
         const imgSrc = resolveSymbolImage(symbol)
 
         return (
           <div
-            className="card-shell"
             key={symbol.id}
+            className="card-shell"
             style={{
               top: `calc(${row} * (var(--scaled-card-height) + var(--card-gap)))`,
               zIndex: isWin && phase === 'highlight' ? 20 : 1,
@@ -129,7 +211,7 @@ function ReelComponent({ symbols, reelIndex, winningPositions, phase, layer }: P
                   'wild-red',
                 isGoldLocked && 'gold',
                 isScatter && 'scatter',
-                isInitialDeal && 'deal-initial',
+                (isImmediateInitialDrop || isStaggeredInitialDrop) && 'deal-initial',
                 isCascadeDeal && 'deal',
                 isNormalPop && 'pop',
                 isGoldWin && 'gold-pop-lock',
@@ -139,7 +221,7 @@ function ReelComponent({ symbols, reelIndex, winningPositions, phase, layer }: P
                 .filter(Boolean)
                 .join(' ')}
               style={{
-                animationDelay: isInitialDeal || isCascadeDeal ? `${delay}ms` : '0ms',
+                animationDelay: `${totalDelay}ms`,
               }}
             >
               <div
@@ -196,13 +278,14 @@ function ReelComponent({ symbols, reelIndex, winningPositions, phase, layer }: P
 }
 
 /* ----------------------------------------
-   🔒 MEMOIZED EXPORT
+   MEMO
 ---------------------------------------- */
 export const Reel = memo(
   ReelComponent,
-  (prev, next) =>
-    prev.symbols === next.symbols &&
-    prev.phase === next.phase &&
-    prev.layer === next.layer &&
-    prev.winningPositions === next.winningPositions,
+  (a, b) =>
+    a.symbols === b.symbols &&
+    a.phase === b.phase &&
+    a.layer === b.layer &&
+    a.winningPositions === b.winningPositions &&
+    a.initialRefillColumn === b.initialRefillColumn,
 )

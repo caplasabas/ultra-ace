@@ -2253,3 +2253,249 @@ button:focus-visible {
 
 }
 
+/* =========================
+   PAUSED COLUMN – SIDE GLOW (BLOOM + FADE-OUT)
+   ========================= */
+
+.paused-column-border-glow {
+    position: absolute;
+    top: -1rem;
+    bottom: -2.2rem; /* allow glow to bleed into bottom container */
+    left: -8px;
+    right: -8px;
+
+    pointer-events: none;
+    z-index: 4;
+
+    animation:
+            pausedColumnGlowPulse 1.6s ease-in-out infinite,
+            pausedColumnReveal 140ms ease-out both;
+
+    /* Vertical fade-out mask */
+    mask-image: linear-gradient(
+            to bottom,
+            rgba(0, 0, 0, 1) 0%,
+            rgba(0, 0, 0, 1) 72%,
+            rgba(0, 0, 0, 0.65) 82%,
+            rgba(0, 0, 0, 0.25) 92%,
+            rgba(0, 0, 0, 0) 100%
+    );
+
+    -webkit-mask-image: linear-gradient(
+            to bottom,
+            rgba(0, 0, 0, 1) 0%,
+            rgba(0, 0, 0, 1) 72%,
+            rgba(0, 0, 0, 0.65) 82%,
+            rgba(0, 0, 0, 0.25) 92%,
+            rgba(0, 0, 0, 0) 100%
+    );
+}
+
+/* CORE EDGE */
+.paused-column-border-glow::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+
+    background:
+            linear-gradient(
+                    to right,
+                    rgb(253, 232, 165),
+                    rgba(255, 230, 150, 0) 18%,
+                    rgba(255, 230, 150, 0) 82%,
+                    rgba(255, 230, 150, 1)
+            );
+
+    opacity: 0.95;
+}
+
+/* BLOOM HALO */
+.paused-column-border-glow::after {
+    content: '';
+    position: absolute;
+    inset: -22px;
+
+    background:
+            linear-gradient(
+                    to right,
+                    rgba(255, 195, 95, 0.7),
+                    rgba(255, 195, 95, 0) 32%,
+                    rgba(255, 195, 95, 0) 68%,
+                    rgba(255, 195, 95, 0.7)
+            );
+
+    filter: blur(14px);
+    opacity: 0.95;
+}
+
+/* LIGHT RAY DROP */
+.paused-column-border-glow .ray {
+    position: absolute;
+    top: -50%;
+    left: 0;
+    right: 0;
+    height: 120%;
+
+    background:
+            linear-gradient(
+                    to bottom,
+                    rgba(255, 245, 210, 0),
+                    rgba(255, 245, 210, 0.85),
+                    rgba(255, 245, 210, 0)
+            );
+
+    filter: blur(7px);
+    animation: pausedColumnRayDrop 320ms ease-out both;
+}
+
+/* =========================
+   ANIMATIONS
+   ========================= */
+
+@keyframes pausedColumnGlowPulse {
+    0%   { opacity: 0.7; }
+    50%  { opacity: 1; }
+    100% { opacity: 0.7; }
+}
+
+@keyframes pausedColumnReveal {
+    from {
+        clip-path: inset(0 0 100% 0);
+        opacity: 0;
+    }
+    to {
+        clip-path: inset(0 0 0 0);
+        opacity: 1;
+    }
+}
+
+/* Top-down ray */
+@keyframes pausedColumnRayDrop {
+    from {
+        transform: translateY(-40%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(120%);
+        opacity: 0;
+    }
+}
+
+/* =========================
+   EDGE ENERGY PULSE (BOTTOM → TOP)
+   ========================= */
+
+.paused-column-energy-pulse {
+    position: absolute;
+    left: -10px;
+    right: -10px;
+    bottom: -30%;
+    height: 40%;
+
+    pointer-events: none;
+    opacity: 0;
+
+    background:
+            linear-gradient(
+                    to right,
+                    rgba(255, 215, 120, 0.95),
+                    rgba(255, 215, 120, 0) 14%,
+                    rgba(255, 215, 120, 0) 86%,
+                    rgba(255, 215, 120, 0.95)
+            );
+
+    filter: blur(20px);
+    mix-blend-mode: screen;
+
+    animation: pausedColumnEnergyRise 1.4s ease-in-out infinite;
+    animation-delay: 180ms;
+
+
+    mask-image: linear-gradient(
+            to right,
+            rgba(0,0,0,1),
+            rgba(0,0,0,0) 18%,
+            rgba(0,0,0,0) 82%,
+            rgba(0,0,0,1)
+    );
+
+    -webkit-mask-image: linear-gradient(
+            to right,
+            rgba(0,0,0,1),
+            rgba(0,0,0,0) 18%,
+            rgba(0,0,0,0) 82%,
+            rgba(0,0,0,1)
+    );
+}
+
+@keyframes pausedColumnEnergyRise {
+    0% {
+        transform: translateY(0) scaleX(0.85);
+        opacity: 0;
+    }
+
+    20% {
+        opacity: 0.6;
+    }
+
+    50% {
+        opacity: 1;
+        transform: translateY(-120%) scaleX(1.15);
+    }
+
+    80% {
+        opacity: 0.5;
+    }
+
+    100% {
+        transform: translateY(-220%) scaleX(0.9);
+        opacity: 0;
+    }
+}
+
+/* =========================
+   INNER EMBER GLOW (EDGE-LOCKED)
+   ========================= */
+
+.paused-column-inner-ember {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+
+    background:
+            linear-gradient(
+                    to right,
+                        /* LEFT EMBER */ rgba(255, 101, 66, 0.35),
+                    rgba(255, 185, 75, 0.15) 10%,
+                    rgba(255, 185, 75, 0.02) 18%,
+
+                        /* CENTER VOID */
+                    rgba(255, 185, 75, 0.01) 35%,
+                    rgba(255, 185, 75, 0.01) 65%,
+
+                        /* RIGHT EMBER */
+                    rgba(255, 185, 75, 0.02) 82%,
+                    rgba(255, 185, 75, 0.15) 90%,
+                    rgba(255, 101, 66, 0.35),
+            );
+
+    filter: blur(22px); /* ↓ reduced from 26px */
+    opacity: 0.65;
+
+    animation: innerEmberBreathe 2.6s ease-in-out infinite;
+}
+@keyframes innerEmberBreathe {
+    0% {
+        opacity: 0.5;
+        transform: scaleX(0.96);
+    }
+    50% {
+        opacity: 0.75;
+        transform: scaleX(1.01);
+    }
+    100% {
+        opacity: 0.5;
+        transform: scaleX(0.96);
+    }
+}
