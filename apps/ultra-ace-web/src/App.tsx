@@ -214,28 +214,28 @@ export default function App() {
   const [introShown, setIntroShown] = useState(false)
 
   useEffect(() => {
-    if (phase === 'highlight' && pendingFreeSpins > 0 && !introShown) {
-      setAutoSpin(false)
-      setIntroShown(true)
+    if (pendingFreeSpins <= 0) return
+    if (introShown) return
 
-      const t = setTimeout(() => {
-        setShowFreeSpinIntro(true)
+    setAutoSpin(false)
+    setIntroShown(true)
 
-        const hide = setTimeout(() => {
-          setIsFreeSpinPreview(true)
-          setShowFreeSpinIntro(false)
-        }, 3000) // banner duration
-        return () => clearTimeout(hide)
-      }, 600)
+    setShowFreeSpinIntro(true)
 
-      return () => clearTimeout(t)
-    }
+    const hide = setTimeout(() => {
+      setIsFreeSpinPreview(true)
+      setShowFreeSpinIntro(false)
+    }, 3000)
 
+    return () => clearTimeout(hide)
+  }, [pendingFreeSpins])
+
+  useEffect(() => {
     if (phase === 'idle') {
       setIntroShown(false)
       setIsFreeSpinPreview(false)
     }
-  }, [phase, pendingFreeSpins])
+  }, [phase])
 
   function getBetIncrement(bet: number): number {
     if (bet < 10) return 1
