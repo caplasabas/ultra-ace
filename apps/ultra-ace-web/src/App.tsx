@@ -22,11 +22,11 @@ export default function App() {
   const turboMultiplier = useMemo(() => {
     switch (turboStage) {
       case 1:
-        return 1.5
-      case 2:
         return 2.5
+      case 2:
+        return 5
       case 3:
-        return 3.5
+        return 7.5
       default:
         return 1
     }
