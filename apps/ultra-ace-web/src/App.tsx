@@ -279,14 +279,17 @@ export default function App() {
 
   function getBetIncrement(bet: number): number {
     if (bet < 10) return 1
-    if (bet < 100) return 10
-    if (bet < 500) return 100
+    if (bet < 50) return 10
+    if (bet >= 50 && bet < 100) return 50
+    if (bet < 500 && bet >= 100) return 100
+    if (bet >= 500) return 500
     return 500
   }
 
   function getBetDecrement(bet: number): number {
     if (bet <= 10) return 1
     if (bet <= 100) return 10
+    if (bet <= 50 && bet > 100) return 50
     if (bet <= 500) return 100
     return 500
   }
@@ -354,7 +357,11 @@ export default function App() {
             <div className="top-container">
               {DEV && <DebugHud info={debugInfo} />}
 
-              <button className="buy-spin-btn" onClick={buyFreeSpins}>
+              <button
+                className="buy-spin-btn"
+                disabled={!isReady || balance === 0 || balance < bet * 50}
+                onClick={buyFreeSpins}
+              >
                 Buy
               </button>
 
