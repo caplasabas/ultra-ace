@@ -17,6 +17,20 @@ const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kin
 
 export default function App() {
   const [autoSpin, setAutoSpin] = useState(false)
+  const [turboStage, setTurboStage] = useState<0 | 1 | 2 | 3>(0)
+
+  const turboMultiplier = useMemo(() => {
+    switch (turboStage) {
+      case 1:
+        return 1.5
+      case 2:
+        return 2.5
+      case 3:
+        return 3.5
+      default:
+        return 1
+    }
+  }, [turboStage])
 
   const [audioOn, setAudioOn] = useState(() => {
     const saved = localStorage.getItem('audioOn')
@@ -67,7 +81,7 @@ export default function App() {
     isScatterHighlight,
     initialRefillColumn,
     activePausedColumn,
-  } = useCascadeTimeline(cascades, spinId, isFreeGame, commitSpin)
+  } = useCascadeTimeline(cascades, spinId, isFreeGame, turboMultiplier, commitSpin)
 
   const placeholderWindow = adaptWindow([
     makePlaceholder('A'),
@@ -312,6 +326,7 @@ export default function App() {
                         layer={spinId > 0 ? 'old' : 'new'}
                         initialRefillColumn={initialRefillColumn}
                         activePausedColumn={activePausedColumn}
+                        turboMultiplier={turboMultiplier}
                       />
                     ))}
 
@@ -327,6 +342,7 @@ export default function App() {
                           layer="old"
                           initialRefillColumn={initialRefillColumn}
                           activePausedColumn={activePausedColumn}
+                          turboMultiplier={turboMultiplier}
                         />
                       ))}
 
@@ -350,6 +366,7 @@ export default function App() {
                           layer="new"
                           initialRefillColumn={initialRefillColumn}
                           activePausedColumn={activePausedColumn}
+                          turboMultiplier={turboMultiplier}
                         />
                       ))}
                   </div>
@@ -422,7 +439,17 @@ export default function App() {
                       onClick={() => setAutoSpin(!autoSpin)}
                     />
 
-                    <button className={`spin-btn turbo`} disabled={true} />
+                    <button
+                      className={`spin-btn turbo spin-turbo-image ${turboMultiplier > 1 ? 'active' : ''} ${turboStage === 1 ? 'turbo-1' : ''} ${turboStage === 2 ? 'turbo-2' : ''}  ${turboStage === 3 ? 'turbo-3' : ''}`}
+                      disabled={isFreeGame || balance === 0 || balance < bet}
+                      onClick={() => {
+                        setTurboStage(prev => {
+                          const next = ((prev + 1) % 4) as 0 | 1 | 2 | 3
+                          if (next === 0) setAutoSpin(false)
+                          return next
+                        })
+                      }}
+                    />
 
                     <button className={`spin-btn settings`} />
                   </div>

@@ -131,6 +131,7 @@ export function useCascadeTimeline(
   cascades: CascadeStep[],
   spinId: number,
   isFreeGame: boolean,
+  turboMultiplier: number,
   onCommit?: () => void,
 ) {
   const [state, dispatch] = useReducer(reducer, initialState)
@@ -142,6 +143,10 @@ export function useCascadeTimeline(
 
   const pauseLockedRef = useRef(false)
   const pauseOriginRef = useRef<number | null>(null)
+
+  function scaled(ms: number) {
+    return ms / turboMultiplier
+  }
 
   /* -----------------------------
      Spin start
@@ -197,7 +202,7 @@ export function useCascadeTimeline(
         } else {
           dispatch({ type: 'NEXT', phase: 'settle' })
         }
-      }, 900) // original initialRefill duration
+      }, scaled(900)) // original initialRefill duration
 
       return () => clearTimeout(t)
     }
@@ -216,7 +221,7 @@ export function useCascadeTimeline(
           () => {
             dispatch({ type: 'SET_ACTIVE_PAUSED_COLUMN', column: col })
           },
-          INITIAL_REFILL_PAUSE_MS + offset * columnDuration,
+          scaled(INITIAL_REFILL_PAUSE_MS + offset * columnDuration),
         ),
       )
     }
@@ -239,7 +244,7 @@ export function useCascadeTimeline(
         } else {
           dispatch({ type: 'NEXT', phase: 'settle' })
         }
-      }, totalDuration),
+      }, scaled(totalDuration)),
     )
 
     return () => timers.forEach(clearTimeout)
@@ -254,7 +259,7 @@ export function useCascadeTimeline(
 
     const t = window.setTimeout(() => {
       dispatch({ type: 'SET_REFILL_COLUMN', column: null })
-    }, INITIAL_REFILL_PAUSE_MS)
+    }, scaled(INITIAL_REFILL_PAUSE_MS))
 
     return () => clearTimeout(t)
   }, [state.phase, state.initialRefillColumn])
@@ -281,11 +286,11 @@ export function useCascadeTimeline(
         t = window.setTimeout(() => {
           dispatch({ type: 'NEXT', phase: 'initialRefill' })
           onCommit?.()
-        }, 120)
+        }, scaled(120))
         break
 
       case 'highlight':
-        t = window.setTimeout(() => dispatch({ type: 'NEXT', phase: 'pop' }), 1200)
+        t = window.setTimeout(() => dispatch({ type: 'NEXT', phase: 'pop' }), scaled(1200))
         break
 
       case 'pop':
@@ -297,7 +302,7 @@ export function useCascadeTimeline(
           } else {
             dispatch({ type: 'NEXT', phase: 'settle' })
           }
-        }, 800)
+        }, scaled(800))
         break
 
       case 'cascadeRefill':
@@ -311,7 +316,7 @@ export function useCascadeTimeline(
               dispatch({ type: 'NEXT', phase: 'settle' })
             }
           },
-          hasGoldToWild || hasNextLineWin ? 1150 : 820,
+          scaled(hasGoldToWild || hasNextLineWin ? 1150 : 820),
         )
         break
 
@@ -322,11 +327,11 @@ export function useCascadeTimeline(
           } else {
             dispatch({ type: 'NEXT', phase: 'settle' })
           }
-        }, 900)
+        }, scaled(900))
         break
 
       case 'settle':
-        t = window.setTimeout(() => dispatch({ type: 'RESET' }), 250)
+        t = window.setTimeout(() => dispatch({ type: 'RESET' }), scaled(250))
         break
     }
 

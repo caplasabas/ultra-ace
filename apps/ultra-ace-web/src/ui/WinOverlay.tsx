@@ -8,7 +8,7 @@ interface Props {
 export function WinOverlay({ amount, phase }: Props) {
   if (!phase || amount <= 0) return null
 
-  const text = formatPeso(amount, false, true, 3)
+  const text = formatPeso(amount, false, true, 2)
 
   return (
     <div className="win-overlay">

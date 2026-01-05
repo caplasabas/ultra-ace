@@ -12,7 +12,7 @@ const INITIAL_ROW_DROP_DELAY = 65
 const CASCADE_ROW_DROP_DELAY = 120
 const CASCADE_COLUMN_EXTRA_DELAY = 90
 
-export const PAUSED_INITIAL_ROW_DROP_DELAY = 350
+export const PAUSED_INITIAL_ROW_DROP_DELAY = 250
 
 export interface UISymbol {
   id: string
@@ -40,6 +40,7 @@ interface Props {
   layer: 'old' | 'new'
   initialRefillColumn: number | null
   activePausedColumn: number | null
+  turboMultiplier: number
 }
 
 type CSSVars = CSSProperties & {
@@ -79,7 +80,15 @@ function ReelComponent({
   layer,
   initialRefillColumn,
   activePausedColumn,
+  turboMultiplier,
 }: Props) {
+  const speed = turboMultiplier
+
+  const columnDealDelay = COLUMN_DEAL_DELAY / speed
+  const initialRowDelay = INITIAL_ROW_DROP_DELAY / speed
+  const cascadeRowDelay = CASCADE_ROW_DROP_DELAY / speed
+  const cascadeColumnExtraDelay = CASCADE_COLUMN_EXTRA_DELAY / speed
+  const pausedInitialRowDelay = PAUSED_INITIAL_ROW_DROP_DELAY / speed
   /* ----------------------------------------
      INITIAL REFILL CONTROL
   ---------------------------------------- */
@@ -111,7 +120,7 @@ function ReelComponent({
 
   const CARDS_PER_COLUMN = symbols.length
 
-  const pausedColumnDuration = CARDS_PER_COLUMN * PAUSED_INITIAL_ROW_DROP_DELAY
+  const pausedColumnDuration = CARDS_PER_COLUMN * pausedInitialRowDelay
 
   const staggerDelay = hasPauseOccurred ? staggerIndex * pausedColumnDuration : 0
 
@@ -167,15 +176,15 @@ function ReelComponent({
         const rowDelay =
           (symbols.length - 1 - row) *
           (isStaggeredInitialDrop
-            ? PAUSED_INITIAL_ROW_DROP_DELAY
+            ? pausedInitialRowDelay
             : isCascadeRefill
-              ? CASCADE_ROW_DROP_DELAY
-              : INITIAL_ROW_DROP_DELAY)
+              ? cascadeRowDelay
+              : initialRowDelay)
 
         const baseColumnDelay = isImmediateInitialDrop
-          ? reelIndex * COLUMN_DEAL_DELAY
+          ? reelIndex * columnDealDelay
           : isCascadeDeal
-            ? reelIndex * (COLUMN_DEAL_DELAY + CASCADE_COLUMN_EXTRA_DELAY)
+            ? reelIndex * (columnDealDelay + cascadeColumnExtraDelay)
             : 0
 
         const totalDelay =
