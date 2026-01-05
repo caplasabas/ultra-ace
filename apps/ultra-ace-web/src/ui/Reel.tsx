@@ -84,10 +84,10 @@ function ReelComponent({
 }: Props) {
   const speed = turboMultiplier
 
-  const columnDealDelay = COLUMN_DEAL_DELAY / speed
-  const initialRowDelay = INITIAL_ROW_DROP_DELAY / speed
-  const cascadeRowDelay = CASCADE_ROW_DROP_DELAY / speed
-  const cascadeColumnExtraDelay = CASCADE_COLUMN_EXTRA_DELAY / speed
+  const columnDealDelay = speed === 10 ? 0 : COLUMN_DEAL_DELAY / speed
+  const initialRowDelay = speed === 10 ? 0 : INITIAL_ROW_DROP_DELAY / speed
+  const cascadeRowDelay = speed === 10 ? 0 : CASCADE_ROW_DROP_DELAY / speed
+  const cascadeColumnExtraDelay = speed === 10 ? 0 : CASCADE_COLUMN_EXTRA_DELAY / speed
   const pausedInitialRowDelay = PAUSED_INITIAL_ROW_DROP_DELAY / speed
   /* ----------------------------------------
      INITIAL REFILL CONTROL
