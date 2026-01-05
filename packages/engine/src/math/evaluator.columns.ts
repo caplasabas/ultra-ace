@@ -86,14 +86,10 @@ export function evaluateColumnWindow(window: Symbol[][], totalBet: number) {
     const reelsUsed = winningReels.length
     const cardCount = positions.length
 
-    const effectiveCards = Math.min(cardCount, 5)
-    /* ----------------------------------------
-       Payout calculation (LINEAR, CAPPED)
-    ---------------------------------------- */
-    const paytable = PAYTABLE[symbol]
-    const payIndex = Math.min(effectiveCards, 5) - 1
+    const payTable = PAYTABLE[symbol]
+    const payIndex = cardCount - 1
 
-    const basePay = paytable?.[payIndex] ?? 0
+    const basePay = payTable?.[payIndex] ?? 0
     if (basePay <= 0) continue
 
     const payout = basePay * totalBet

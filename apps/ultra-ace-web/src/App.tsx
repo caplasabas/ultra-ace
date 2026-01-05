@@ -251,6 +251,53 @@ export default function App() {
     return 500
   }
 
+  const addBet = () => {
+    setBet(prev => {
+      const normalized = Number.isInteger(prev) ? prev : Math.floor(prev)
+
+      const dec = getBetDecrement(normalized)
+      const next = normalized - dec
+
+      return Math.max(1, next)
+    })
+  }
+
+  const minusBet = () => {
+    setBet(prev => {
+      const next = prev + getBetIncrement(prev)
+      return Math.min(next, balance)
+    })
+  }
+
+  const addBalance = () => {
+    setBalance(balance + 5000)
+  }
+
+  useEffect(() => {
+    window.__ARCADE_INPUT__ = (action: string) => {
+      console.log('[APP INPUT]', action)
+
+      switch (action) {
+        case 'SPIN':
+          spin()
+          break
+        case 'BET_UP':
+          addBet()
+          break
+        case 'BET_DOWN':
+          minusBet()
+          break
+        case 'COIN':
+          addBalance()
+          break
+      }
+    }
+
+    return () => {
+      delete window.__ARCADE_INPUT__
+    }
+  }, [])
+
   return (
     <div className="viewport">
       <div className="game-root">
@@ -387,33 +434,11 @@ export default function App() {
                 <div className="bottom-controls">
                   <div className="controls-left">
                     <div className="bet-control">
-                      <button
-                        disabled={!isReady}
-                        onClick={() => {
-                          setBet(prev => {
-                            const normalized = Number.isInteger(prev) ? prev : Math.floor(prev)
-
-                            const dec = getBetDecrement(normalized)
-                            const next = normalized - dec
-
-                            return Math.max(1, next)
-                          })
-                        }}
-                        className="bet-btn minus"
-                      />
+                      <button disabled={!isReady} onClick={addBet} className="bet-btn minus" />
                       <span className="bet-amount">
                         {formatPeso(bet ?? 0, true, true, 2, true)}
                       </span>
-                      <button
-                        disabled={!isReady}
-                        onClick={() => {
-                          setBet(prev => {
-                            const next = prev + getBetIncrement(prev)
-                            return Math.min(next, balance)
-                          })
-                        }}
-                        className="bet-btn plus"
-                      />
+                      <button disabled={!isReady} onClick={minusBet} className="bet-btn plus" />
                     </div>
                   </div>
 
@@ -441,7 +466,7 @@ export default function App() {
 
                     <button
                       className={`spin-btn turbo spin-turbo-image ${turboMultiplier > 1 ? 'active' : ''} ${turboStage === 1 ? 'turbo-1' : ''} ${turboStage === 2 ? 'turbo-2' : ''}  ${turboStage === 3 ? 'turbo-3' : ''}`}
-                      disabled={isFreeGame || balance === 0 || balance < bet}
+                      disabled={balance === 0 || balance < bet}
                       onClick={() => {
                         setTurboStage(prev => {
                           const next = ((prev + 1) % 4) as 0 | 1 | 2 | 3
@@ -466,7 +491,7 @@ export default function App() {
 
                   <div className="balance-display">
                     Balance <span className="balance-amount">{formatPeso(balance ?? 0)}</span>
-                    <button className="add-btn" onClick={() => setBalance(balance + 5000)}>
+                    <button className="add-btn" onClick={addBalance}>
                       +{formatPeso(5000, true, true, 2)}
                     </button>
                   </div>

@@ -166,8 +166,8 @@ export function useCascadeTimeline(
     if (pauseLockedRef.current) return
     if (isFreeGame) return
 
-    const pauseColumn = detectScatterPauseColumn(activeCascade?.window)
-    // const pauseColumn = 1 // TEMP
+    // const pauseColumn = detectScatterPauseColumn(activeCascade?.window)
+    const pauseColumn = 1 // TEMP
 
     if (pauseColumn !== null) {
       pauseLockedRef.current = true
