@@ -4,7 +4,7 @@ import { REELS_FREE } from './math/reels.free.js'
 import { runCascades } from './math/cascade.js'
 import { SpinInput, SpinOutcome } from './types/spin.js'
 import { GAME_CONFIG } from './config/game.config.js'
-import type { Symbol } from './types/symbol.js'
+import { Symbol, SymbolKind } from './types/symbol.js'
 
 const GOLD_CHANCE_INITIAL = 0.0015
 const GOLD_TTL = 0
@@ -70,25 +70,28 @@ function forceThreeScatters(window: Symbol[][], rng: () => number) {
   const reels = window.length
   const rows = window[0].length
 
-  // 1️⃣ REMOVE all existing scatters
+  // 1️⃣ Remove existing scatters by REPLACING them (not EMPTY)
   for (let r = 0; r < reels; r++) {
     for (let row = 0; row < rows; row++) {
       if (window[r][row].kind === 'SCATTER') {
-        window[r][row] = { kind: 'EMPTY' }
+        window[r][row] = drawSafeFillSymbol(rng)
       }
     }
   }
 
-  // 2️⃣ Choose valid reels (avoid edges if desired)
-  const validReels = [1, 2, 3] // recommended for tease feel
-
-  const chosenReels = shuffleArray(validReels, rng).slice(0, 3)
+  // 2️⃣ Choose exactly 3 distinct reels (no edges)
+  const chosenReels = shuffleArray([1, 2, 3], rng)
 
   // 3️⃣ Place exactly one scatter per reel
   for (const reel of chosenReels) {
     const row = Math.floor(rng() * rows)
     window[reel][row] = { kind: 'SCATTER' }
   }
+}
+
+function drawSafeFillSymbol(rng: () => number): Symbol {
+  const pool = GAME_CONFIG.cascadeFillPool.filter(s => (s.kind as SymbolKind) !== 'SCATTER')
+  return { ...pool[Math.floor(rng() * pool.length)] }
 }
 
 function shuffleArray<T>(arr: T[], rng: () => number): T[] {

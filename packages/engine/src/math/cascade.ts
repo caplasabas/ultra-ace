@@ -37,6 +37,25 @@ export function runCascades(
   let totalWin = 0
   const cascades: CascadeStep[] = []
 
+  const scatterCount = window.flat().filter(s => s.kind === 'SCATTER').length
+
+  // 🚫 SCATTER LOCK — no line wins, no cascades
+  if (scatterCount >= 3) {
+    return {
+      totalWin: 0,
+      cascades: [
+        {
+          index: 0,
+          multiplier: 1,
+          lineWins: [],
+          win: 0,
+          removedPositions: [],
+          window: cloneWindow(window),
+        },
+      ],
+    }
+  }
+
   cascades.push({
     index: 0,
     multiplier: 1,

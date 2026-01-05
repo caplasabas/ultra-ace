@@ -72,6 +72,7 @@ export default function App() {
     pendingFreeSpins,
     buyFreeSpins,
     scatterTriggerType,
+    consumeFreeSpin,
   } = useEngine()
 
   const {
@@ -83,6 +84,7 @@ export default function App() {
     isScatterHighlight,
     initialRefillColumn,
     activePausedColumn,
+    spinCompleted,
   } = useCascadeTimeline(
     cascades,
     spinId,
@@ -209,6 +211,13 @@ export default function App() {
     }
   }, [phase])
 
+  useEffect(() => {
+    if (!spinCompleted) return
+    if (!isFreeGame) return
+
+    consumeFreeSpin()
+  }, [spinCompleted, isFreeGame])
+
   const BASE_MULTIPLIERS = [1, 2, 3, 5]
   const FREE_MULTIPLIERS = [2, 4, 6, 10]
 
@@ -238,12 +247,12 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (pendingFreeSpins <= 0) return
+    if (pendingFreeSpins <= 0 && freeSpinsLeft <= 0) return
     if (introShown) return
+    if (isFreeGame) return
 
     const pauseColumn = detectScatterPauseColumn(activeCascade?.window)
-
-    const delayMs = scatterTriggerType === 'buy' ? computeScatterDelay(pauseColumn) : 600
+    const delayMs = computeScatterDelay(pauseColumn)
 
     const show = setTimeout(() => {
       setAutoSpin(false)
@@ -259,7 +268,7 @@ export default function App() {
     }, delayMs)
 
     return () => clearTimeout(show)
-  }, [pendingFreeSpins, scatterTriggerType, introShown, activeCascade])
+  }, [pendingFreeSpins, scatterTriggerType, introShown, activeCascade, isFreeGame, freeSpinsLeft])
 
   useEffect(() => {
     if (phase === 'idle') {
@@ -462,7 +471,7 @@ export default function App() {
                 <div className="win-display">
                   WIN:{' '}
                   <span className="win-amount">
-                    {formatPeso(isFreeGame ? freeSpinTotal : totalWin)}
+                    {formatPeso(isFreeGame || freeSpinsLeft > 0 ? freeSpinTotal : totalWin)}
                   </span>
                 </div>
                 <div className="bottom-controls">

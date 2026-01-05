@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { spin, createRNG } from '@ultra-ace/engine'
 import type { CascadeStep, SpinOutcome } from '@ultra-ace/engine'
 import { DebugSpinInfo } from 'src/debug/DebugHud'
@@ -34,7 +34,6 @@ export function useEngine() {
 
   // 🎬 intro overlay
   const [showFreeSpinIntro, setShowFreeSpinIntro] = useState(false)
-
   /* -----------------------------
      Debug
   ----------------------------- */
@@ -45,18 +44,6 @@ export function useEngine() {
   ----------------------------- */
   const seed = new Date().toISOString()
   const rng = createRNG(seed)
-
-  /* -----------------------------
-     Spin execution
-  ----------------------------- */
-  function enterFreeSpins() {
-    if (pendingFreeSpins <= 0) return
-
-    setIsFreeGame(true)
-    setFreeSpinsLeft(pendingFreeSpins)
-    setFreeSpinTotal(0)
-    setPendingFreeSpins(0)
-  }
 
   function spinNow() {
     // 🔒 hard block during intro
@@ -144,32 +131,34 @@ export function useEngine() {
     }
   }
 
-  /* -----------------------------
-     End-of-spin commit
-  ----------------------------- */
   function commitSpin() {
     if (!pendingCascades) return
 
     setCommittedCascades(pendingCascades)
     setPendingCascades(null)
     setSpinning(false)
-
-    // 🔁 free spin decrement happens AFTER spins only
-    if (isFreeGame) {
-      setFreeSpinsLeft(v => {
-        const next = v - 1
-
-        if (next <= 0) {
-          setIsFreeGame(false)
-          setBalance(b => b + freeSpinTotal)
-          setFreeSpinTotal(0)
-          return 0
-        }
-
-        return next
-      })
-    }
   }
+
+  function consumeFreeSpin() {
+    setFreeSpinsLeft(v => Math.max(v - 1, 0))
+  }
+
+  useEffect(() => {
+    if (isFreeGame) {
+      if (freeSpinsLeft === 0 && pendingFreeSpins === 0 && !spinning) {
+        const t = setTimeout(() => {
+          setIsFreeGame(false)
+        }, 800)
+
+        return () => clearTimeout(t)
+      }
+
+      if ((freeSpinsLeft > 0 || pendingFreeSpins > 0) && spinning) {
+        setBalance(b => b + freeSpinTotal)
+        setFreeSpinTotal(0)
+      }
+    }
+  }, [isFreeGame, freeSpinsLeft, pendingFreeSpins, spinning])
 
   return {
     cascades: committedCascades,
@@ -197,6 +186,6 @@ export function useEngine() {
     debugInfo,
     buyFreeSpins,
     scatterTriggerType,
-    enterFreeSpins,
+    consumeFreeSpin,
   }
 }

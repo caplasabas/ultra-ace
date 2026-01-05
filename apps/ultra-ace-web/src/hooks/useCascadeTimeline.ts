@@ -149,6 +149,17 @@ export function useCascadeTimeline(
   const pauseLockedRef = useRef(false)
   const pauseOriginRef = useRef<number | null>(null)
 
+  const lastCompletedSpinRef = useRef<number | null>(null)
+
+  const spinCompleted =
+    state.phase === 'idle' && spinId > 0 && lastCompletedSpinRef.current !== spinId
+
+  useEffect(() => {
+    if (spinCompleted) {
+      lastCompletedSpinRef.current = spinId
+    }
+  }, [spinCompleted, spinId])
+
   function scaled(ms: number) {
     const v = ms / turboMultiplier
     return scatterTriggerType === 'buy'
@@ -357,5 +368,6 @@ export function useCascadeTimeline(
     isScatterHighlight: state.isScatterHighlight,
     initialRefillColumn: state.initialRefillColumn,
     activePausedColumn: state.activePausedColumn,
+    spinCompleted,
   }
 }
