@@ -917,7 +917,6 @@ button:focus-visible {
     justify-content: center;
     align-items: center;
     font-size: 10px;
-    z-index: 31;
 }
 
 .spin-btn:disabled {
@@ -1079,6 +1078,7 @@ button:focus-visible {
     transition:
             transform 120ms ease,
             filter 120ms ease;
+    z-index: 31;
 
 }
 
@@ -1160,7 +1160,6 @@ button:focus-visible {
     border: 1px solid #ffd84d;
     background-color: #0c1d3d;
     color: #ffd84d;
-    z-index: 31;
 
 }
 
@@ -1264,7 +1263,6 @@ button:focus-visible {
 .bet-control,
 .bet-btn {
     background-color: transparent !important;
-    z-index: 31;
 }
 
 .bet-btn.minus {
