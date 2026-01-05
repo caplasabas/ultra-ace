@@ -907,7 +907,44 @@ button:focus-visible {
     outline: none;
 }
 
+.buy-spin-btn {
+    position: absolute;
+    top: 3%;
+    right: 3%;
 
+    height: 40px;
+
+    display: flex;
+    align-items: center;
+
+    justify-content: center;
+
+
+    border-radius: 5px;
+    width: auto;
+    padding: 5px 7px;
+    font-size: 10px;
+    margin-left: 5px;
+    border: 1px solid #ffd84d;
+    background-color: #0c1d3d;
+    color: #ffd84d;
+
+
+
+    cursor: pointer;
+    /*margin-top: 1%;*/
+}
+
+.buy-spin-btn:hover {
+    border: 1px solid #ffd84d;
+    filter:
+            drop-shadow(0 0 1px rgba(255, 210, 120, 1))
+            drop-shadow(0 0 6px rgba(255, 160, 60, 0.7));
+}
+
+.buy-spin-btn.active {
+    transform: scale(1.15);
+}
 
 /* =========================
    Buttons

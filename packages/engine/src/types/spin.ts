@@ -4,6 +4,7 @@ export interface SpinInput {
   betPerSpin: number
   lines: number
   isFreeGame?: boolean
+  forceScatter?: boolean
 }
 
 export interface SpinOutcome {
@@ -14,4 +15,6 @@ export interface SpinOutcome {
 
   scatterCount: number
   freeSpinsAwarded: number
+
+  scatterTriggerType?: 'natural' | 'buy'
 }

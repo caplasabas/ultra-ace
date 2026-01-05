@@ -3,6 +3,7 @@ import { spin, createRNG } from '@ultra-ace/engine'
 import type { CascadeStep, SpinOutcome } from '@ultra-ace/engine'
 import { DebugSpinInfo } from 'src/debug/DebugHud'
 
+const BUY_FREE_SPIN_MULTIPLIER = 50
 export function useEngine() {
   /* -----------------------------
      Core spin state
@@ -21,6 +22,8 @@ export function useEngine() {
 
   const [totalWin, setTotalWin] = useState(0)
   const [freeSpinTotal, setFreeSpinTotal] = useState(0)
+
+  const [scatterTriggerType, setScatterTriggerType] = useState<'natural' | 'buy' | null>(null)
 
   /* -----------------------------
      Free spin state
@@ -46,9 +49,18 @@ export function useEngine() {
   /* -----------------------------
      Spin execution
   ----------------------------- */
+  function enterFreeSpins() {
+    if (pendingFreeSpins <= 0) return
+
+    setIsFreeGame(true)
+    setFreeSpinsLeft(pendingFreeSpins)
+    setFreeSpinTotal(0)
+    setPendingFreeSpins(0)
+  }
+
   function spinNow() {
     // 🔒 hard block during intro
-    if (spinning || showFreeSpinIntro) return
+    if (spinning) return
 
     // entering free spins happens HERE
     if (!isFreeGame && pendingFreeSpins > 0) {
@@ -56,6 +68,7 @@ export function useEngine() {
       setFreeSpinsLeft(pendingFreeSpins)
       setFreeSpinTotal(0)
       setPendingFreeSpins(0)
+      setShowFreeSpinIntro(false)
       return
     }
 
@@ -69,6 +82,8 @@ export function useEngine() {
       lines: 5,
       isFreeGame,
     })
+
+    setScatterTriggerType(outcome.scatterTriggerType ?? null)
 
     if (!isFreeGame) {
       setBalance(b => b - bet)
@@ -100,6 +115,33 @@ export function useEngine() {
   ----------------------------- */
   function commitWin(amount: number) {
     setTotalWin(v => v + amount)
+  }
+
+  function buyFreeSpins() {
+    if (spinning || showFreeSpinIntro) return
+
+    const cost = bet * BUY_FREE_SPIN_MULTIPLIER
+    if (balance < cost) return
+
+    setBalance(b => b - cost)
+    setSpinning(true)
+    setTotalWin(0)
+
+    const outcome: SpinOutcome = spin(rng, {
+      betPerSpin: bet,
+      lines: 5,
+      isFreeGame: false,
+      forceScatter: true, // 🔑 HERE
+    })
+
+    setScatterTriggerType('buy')
+
+    setPendingCascades(outcome.cascades ?? [])
+    setSpinId(v => v + 1)
+
+    if (outcome.freeSpinsAwarded > 0) {
+      setPendingFreeSpins(outcome.freeSpinsAwarded)
+    }
   }
 
   /* -----------------------------
@@ -153,5 +195,8 @@ export function useEngine() {
     showFreeSpinIntro,
     setShowFreeSpinIntro,
     debugInfo,
+    buyFreeSpins,
+    scatterTriggerType,
+    enterFreeSpins,
   }
 }

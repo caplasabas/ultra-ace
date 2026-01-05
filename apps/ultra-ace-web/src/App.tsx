@@ -3,7 +3,7 @@ import { Reel } from './ui/Reel'
 import { DimOverlay } from './ui/DimOverlay'
 import { WinOverlay } from './ui/WinOverlay'
 import { adaptWindow } from './game/adaptWindow'
-import { useCascadeTimeline } from './hooks/useCascadeTimeline'
+import { detectScatterPauseColumn, useCascadeTimeline } from './hooks/useCascadeTimeline'
 import { DebugHud } from './debug/DebugHud'
 import { useEffect, useMemo, useState } from 'react'
 import { formatPeso } from '@ultra-ace/engine'
@@ -70,6 +70,8 @@ export default function App() {
     showFreeSpinIntro,
     setShowFreeSpinIntro,
     pendingFreeSpins,
+    buyFreeSpins,
+    scatterTriggerType,
   } = useEngine()
 
   const {
@@ -81,7 +83,14 @@ export default function App() {
     isScatterHighlight,
     initialRefillColumn,
     activePausedColumn,
-  } = useCascadeTimeline(cascades, spinId, isFreeGame, turboMultiplier, commitSpin)
+  } = useCascadeTimeline(
+    cascades,
+    spinId,
+    isFreeGame,
+    turboMultiplier,
+    scatterTriggerType,
+    commitSpin,
+  )
 
   const placeholderWindow = adaptWindow([
     makePlaceholder('A'),
@@ -158,7 +167,7 @@ export default function App() {
 
   const [isFreeSpinPreview, setIsFreeSpinPreview] = useState(false)
 
-  const isReady = isIdle && !spinning && !showFreeSpinIntro
+  const isReady = (isIdle && !spinning) || showFreeSpinIntro
 
   useEffect(() => {
     if (!autoSpin) return
@@ -213,22 +222,44 @@ export default function App() {
   const activeMultiplierIndex = getMultiplierIndex(cascadeIndex)
   const [introShown, setIntroShown] = useState(false)
 
+  function computeScatterDelay(pauseColumn: number | null) {
+    if (pauseColumn == null) return 600
+
+    const TOTAL_REELS = 5
+    const CARDS_PER_COLUMN = 4
+    const PAUSED_INITIAL_ROW_DROP_DELAY = 300
+    const INITIAL_REFILL_PAUSE_MS = 600
+    const BUFFER_MS = 850
+
+    const pausedColumns = TOTAL_REELS - (pauseColumn + 1)
+    const columnDuration = CARDS_PER_COLUMN * PAUSED_INITIAL_ROW_DROP_DELAY
+
+    return INITIAL_REFILL_PAUSE_MS + pausedColumns * columnDuration + BUFFER_MS
+  }
+
   useEffect(() => {
     if (pendingFreeSpins <= 0) return
     if (introShown) return
 
-    setAutoSpin(false)
-    setIntroShown(true)
+    const pauseColumn = detectScatterPauseColumn(activeCascade?.window)
 
-    setShowFreeSpinIntro(true)
+    const delayMs = scatterTriggerType === 'buy' ? computeScatterDelay(pauseColumn) : 600
 
-    const hide = setTimeout(() => {
-      setIsFreeSpinPreview(true)
-      setShowFreeSpinIntro(false)
-    }, 3000)
+    const show = setTimeout(() => {
+      setAutoSpin(false)
+      setIntroShown(true)
+      setShowFreeSpinIntro(true)
 
-    return () => clearTimeout(hide)
-  }, [pendingFreeSpins])
+      const hide = setTimeout(() => {
+        setIsFreeSpinPreview(true)
+        setShowFreeSpinIntro(false)
+      }, 10_000)
+
+      return () => clearTimeout(hide)
+    }, delayMs)
+
+    return () => clearTimeout(show)
+  }, [pendingFreeSpins, scatterTriggerType, introShown, activeCascade])
 
   useEffect(() => {
     if (phase === 'idle') {
@@ -306,7 +337,6 @@ export default function App() {
             <div className={`bg-inner ${isFreeGame || isFreeSpinPreview ? 'free-spin' : ''}`}>
               <div className="frame-inner-shadow" />
             </div>
-
             <div className="bg-frame" />
           </div>
 
@@ -314,6 +344,10 @@ export default function App() {
             {showFreeSpinIntro && <FreeSpinIntro spins={pendingFreeSpins || 0} />}
             <div className="top-container">
               {DEV && <DebugHud info={debugInfo} />}
+
+              <button className="buy-spin-btn" onClick={buyFreeSpins}>
+                Buy
+              </button>
 
               <div className="free-spin-banner">
                 <div
@@ -450,7 +484,7 @@ export default function App() {
                         autoSpin ||
                         balance === 0 ||
                         balance < bet ||
-                        (isFreeGame && freeSpinsLeft < 10)
+                        (isFreeGame && freeSpinsLeft < 10 && !showFreeSpinIntro)
                       }
                       onClick={spin}
                       aria-label="Spin"

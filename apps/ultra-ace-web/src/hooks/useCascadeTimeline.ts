@@ -42,7 +42,7 @@ type Action =
 /* ----------------------------------------
    SCATTER PAUSE DETECTION
 ---------------------------------------- */
-function detectScatterPauseColumn(window?: EngineSymbol[][]): number | null {
+export function detectScatterPauseColumn(window?: EngineSymbol[][]): number | null {
   if (!window) return null
 
   const cols: number[] = []
@@ -50,7 +50,10 @@ function detectScatterPauseColumn(window?: EngineSymbol[][]): number | null {
     if (col.some(s => s.kind === 'SCATTER')) cols.push(i)
   })
 
-  return cols.length >= 2 ? cols[1] : null
+  if (cols.length < 2) return null
+
+  // Prefer reel 2 or 3 for buy-tease feel
+  return cols.includes(2) ? 2 : cols[1]
 }
 
 /* ----------------------------------------
@@ -132,6 +135,8 @@ export function useCascadeTimeline(
   spinId: number,
   isFreeGame: boolean,
   turboMultiplier: number,
+  scatterTriggerType?: 'natural' | 'buy' | null,
+
   onCommit?: () => void,
 ) {
   const [state, dispatch] = useReducer(reducer, initialState)
@@ -145,7 +150,10 @@ export function useCascadeTimeline(
   const pauseOriginRef = useRef<number | null>(null)
 
   function scaled(ms: number) {
-    return ms / turboMultiplier
+    const v = ms / turboMultiplier
+    return scatterTriggerType === 'buy'
+      ? Math.max(v, 250) // ⛔ do not fully skip tease
+      : v
   }
 
   /* -----------------------------
