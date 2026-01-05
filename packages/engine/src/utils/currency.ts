@@ -2,7 +2,7 @@ export function formatPeso(
   amount: number | string,
   withSymbol = true,
   withDecimal = true,
-  decimalCount = 3,
+  decimalCount = 2,
   abbreviate = false,
 ): string {
   const num = Number(amount)
