@@ -157,6 +157,15 @@
     z-index: 1;
 }
 
+.reel,
+.reels-clip,
+.reels-row,
+.symbol {
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
+}
+
 
 /* =========================
    Reel Stage
@@ -191,8 +200,10 @@
             var(--highlight-pad) * 8
     );
 
-    overflow-x: hidden;
-    overflow-y: hidden; /* ✅ allow glow escape */
+    /*overflow-x: hidden;*/
+    /*overflow-y: hidden; !* ✅ allow glow escape *!*/
+    overflow: visible !important;
+
 
 }
 
