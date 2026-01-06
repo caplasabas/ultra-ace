@@ -5,8 +5,8 @@ import { PAUSED_INITIAL_ROW_DROP_DELAY } from '../ui/Reel'
 /* ----------------------------------------
    CONFIG
 ---------------------------------------- */
-const INITIAL_REFILL_PAUSE_MS = 1000
-const TOTAL_REELS = 5
+export const INITIAL_REFILL_PAUSE_MS = 1000
+export const TOTAL_REELS = 5
 
 /* ----------------------------------------
    TYPES
@@ -244,17 +244,16 @@ export function useCascadeTimeline(
         ),
       )
     }
+    const hasScatterWin = cascades[0]?.window?.flat().filter(s => s.kind === 'SCATTER').length >= 3
 
     const totalDuration =
-      INITIAL_REFILL_PAUSE_MS + (TOTAL_REELS - (pauseOrigin + 1)) * columnDuration + 350
+      INITIAL_REFILL_PAUSE_MS + (TOTAL_REELS - (pauseOrigin + 1)) * columnDuration
 
     timers.push(
       window.setTimeout(() => {
         dispatch({ type: 'SET_ACTIVE_PAUSED_COLUMN', column: null })
 
         const hasNextLineWin = Boolean(nextCascade?.lineWins?.length)
-        const hasScatterWin =
-          cascades[0]?.window?.flat().filter(s => s.kind === 'SCATTER').length >= 3
 
         if (hasNextLineWin) {
           dispatch({ type: 'ADVANCE', cascades })

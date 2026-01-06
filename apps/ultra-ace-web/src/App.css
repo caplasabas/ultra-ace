@@ -225,14 +225,14 @@
 
 @keyframes oldReelDown {
     0% {
-        transform: translate3d(0, 0%, 0);
+        transform: translateY(0%);
         filter: blur(0px);
     }
     40% {
         filter: blur(3px);
     }
     100% {
-        transform: translate3d(0, 140%, 0);
+        transform: translateY(140%);
         filter: blur(8px);
         opacity: 0;
     }
@@ -255,7 +255,7 @@
     align-items: center;
 
     will-change: transform, opacity;
-    transform: translate3d(0, 0, 0);
+    transform: translate(0);
     z-index: 1;
 }
 
@@ -396,7 +396,6 @@
     height: var(--scaled-card-height);
     pointer-events: none;
     z-index: 1;
-    isolation: isolate;
 }
 
 /* =========================
@@ -409,8 +408,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    isolation: isolate;
-
 }
 
 /* =========================
@@ -470,6 +467,30 @@
     100% {
         transform: scale(1);
         filter: brightness(1);
+    }
+}
+
+@supports (-webkit-touch-callout: none) {
+
+    /* 🔴 Remove compositor isolation */
+    .card-shell,
+    .card-inner,
+    .spin-btn.turbo.spin-turbo-image.active {
+        isolation: auto !important;
+    }
+
+    /* 🔴 Kill 3D transforms */
+    .card,
+    .symbol-img,
+    .reel {
+        transform: translate(0, 0) !important;
+        -webkit-transform: translate(0, 0) !important;
+    }
+
+    /* 🔴 Disable aggressive layer promotion */
+    .card,
+    .symbol-img {
+        will-change: auto !important;
     }
 }
 

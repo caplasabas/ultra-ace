@@ -1,9 +1,14 @@
 import { useEngine } from './hooks/useEngine'
-import { Reel } from './ui/Reel'
+import { PAUSED_INITIAL_ROW_DROP_DELAY, Reel } from './ui/Reel'
 import { DimOverlay } from './ui/DimOverlay'
 import { WinOverlay } from './ui/WinOverlay'
 import { adaptWindow } from './game/adaptWindow'
-import { detectScatterPauseColumn, useCascadeTimeline } from './hooks/useCascadeTimeline'
+import {
+  detectScatterPauseColumn,
+  INITIAL_REFILL_PAUSE_MS,
+  TOTAL_REELS,
+  useCascadeTimeline,
+} from './hooks/useCascadeTimeline'
 import { DebugHud } from './debug/DebugHud'
 import { useEffect, useMemo, useState } from 'react'
 import { formatPeso } from '@ultra-ace/engine'
@@ -232,16 +237,14 @@ export default function App() {
   const [introShown, setIntroShown] = useState(false)
 
   function computeScatterDelay(pauseColumn: number | null) {
-    if (pauseColumn == null) return 600
+    if (pauseColumn == null) return 900
 
-    const TOTAL_REELS = 5
-    const CARDS_PER_COLUMN = 4
-    const PAUSED_INITIAL_ROW_DROP_DELAY = 300
-    const INITIAL_REFILL_PAUSE_MS = 600
-    const BUFFER_MS = 850
+    const cardsPerColumn = activeCascade?.window?.[0]?.length ?? 4
+
+    const BUFFER_MS = 1050
 
     const pausedColumns = TOTAL_REELS - (pauseColumn + 1)
-    const columnDuration = CARDS_PER_COLUMN * PAUSED_INITIAL_ROW_DROP_DELAY
+    const columnDuration = cardsPerColumn * PAUSED_INITIAL_ROW_DROP_DELAY
 
     return INITIAL_REFILL_PAUSE_MS + pausedColumns * columnDuration + BUFFER_MS
   }

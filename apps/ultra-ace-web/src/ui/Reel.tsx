@@ -12,7 +12,7 @@ const INITIAL_ROW_DROP_DELAY = 65
 const CASCADE_ROW_DROP_DELAY = 120
 const CASCADE_COLUMN_EXTRA_DELAY = 90
 
-export const PAUSED_INITIAL_ROW_DROP_DELAY = 250
+export const PAUSED_INITIAL_ROW_DROP_DELAY = 450
 
 export interface UISymbol {
   id: string
@@ -255,11 +255,13 @@ function ReelComponent({
                     : undefined
                 }
               >
-                <div
+                <img
+                  src={imgSrc}
                   className={['symbol-img', wildHighlight && 'wild-highlight']
                     .filter(Boolean)
                     .join(' ')}
                   style={{ backgroundImage: `url(${imgSrc})` }}
+                  draggable={false}
                 />
               </div>
             </div>
