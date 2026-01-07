@@ -5,7 +5,7 @@ type Position = { reel: number; row: number }
 
 const MIN_REELS = 3
 const MAX_REELS = 5
-const WILD_ALLOWED_COLUMNS = new Set([1, 2, 3])
+const WILD_ALLOWED_COLUMNS = new Set([1, 2, 3, 4])
 
 export function evaluateColumnWindow(window: Symbol[][], totalBet: number) {
   const reelCount = window.length

@@ -33,23 +33,7 @@ export function runCascades(
   const cascades: CascadeStep[] = []
 
   const scatterCount = window.flat().filter(s => s.kind === 'SCATTER').length
-
-  // 🚫 SCATTER LOCK — no line wins, no cascades
-  if (scatterCount >= 3) {
-    return {
-      totalWin: 0,
-      cascades: [
-        {
-          index: 0,
-          multiplier: 1,
-          lineWins: [],
-          win: 0,
-          removedPositions: [],
-          window: cloneWindow(window),
-        },
-      ],
-    }
-  }
+  const scatterLocked = scatterCount >= 3
 
   cascades.push({
     index: 0,
@@ -73,7 +57,7 @@ export function runCascades(
     if (multiplier >= MAX_MULTIPLIER) break
 
     const { wins } = evaluateColumnWindow(window, totalBet)
-    if (wins.length === 0) break
+    if (wins.length === 0 && scatterLocked) break
 
     const removedSet = new Set<string>()
     const removed: { reel: number; row: number }[] = []
@@ -119,7 +103,7 @@ export function runCascades(
 
       for (const pos of w.positions) {
         const s = window[pos.reel][pos.row]
-        const isEdge = pos.reel === 0 || pos.reel === window.length - 1
+        const isEdge = pos.reel === 0
 
         markForRemoval(pos)
 
@@ -128,7 +112,7 @@ export function runCascades(
           continue
         }
 
-        if (s.isGold && !s.isDecorativeGold) {
+        if (s.isGold) {
           const redWildChange = isFreeGame ? FREE_RED_WILD_CHANCE : RED_WILD_CHANCE
           const isRed = DEV_FORCE_RED_WILD || DEV_FORCE_BIG_JOKER || rng() < redWildChange
 
@@ -152,10 +136,29 @@ export function runCascades(
     totalWin += win
     if (totalWin >= MAX_PAYOUT) break
 
-    const refilled = refillInPlace(window, rng, isFreeGame)
+    if (scatterLocked) {
+      const removed: { reel: number; row: number }[] = []
 
-    // const intensity = isFreeGame ? Math.min(0.15 + i * 0.08, 0.7) : 0.15
-    // decorateFreeSpinGoldOnRefill(window, refilled, rng, intensity)
+      for (const w of wins) {
+        for (const pos of w.positions) {
+          removed.push(pos)
+          window[pos.reel][pos.row] = { kind: 'EMPTY' }
+        }
+      }
+
+      cascades.push({
+        index: i,
+        multiplier,
+        lineWins: wins.filter(w => w.symbol !== 'SCATTER'),
+        win: baseWin * multiplier,
+        removedPositions: removed,
+        window: cloneWindow(window), // ⬅️ now reflects removal
+      })
+
+      break
+    }
+
+    refillInPlace(window, rng, isFreeGame)
 
     cascades.push({
       index: i,

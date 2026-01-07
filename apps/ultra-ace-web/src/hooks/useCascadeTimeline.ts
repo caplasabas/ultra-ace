@@ -204,13 +204,12 @@ export function useCascadeTimeline(
     const timers: number[] = []
 
     const pauseOrigin = pauseOriginRef.current
-
+    const hasNextLineWin = Boolean(nextCascade?.lineWins?.length)
     // ---------------------------------
     // 🟢 NO PAUSE COLUMN → NORMAL FLOW
     // ---------------------------------
     if (pauseOrigin === null) {
       const t = window.setTimeout(() => {
-        const hasNextLineWin = Boolean(nextCascade?.lineWins?.length)
         const hasScatterWin =
           cascades[0]?.window?.flat().filter(s => s.kind === 'SCATTER').length >= 3
 
@@ -252,8 +251,6 @@ export function useCascadeTimeline(
     timers.push(
       window.setTimeout(() => {
         dispatch({ type: 'SET_ACTIVE_PAUSED_COLUMN', column: null })
-
-        const hasNextLineWin = Boolean(nextCascade?.lineWins?.length)
 
         if (hasNextLineWin) {
           dispatch({ type: 'ADVANCE', cascades })
@@ -298,6 +295,10 @@ export function useCascadeTimeline(
 
     const hasNextLineWin = Boolean(nextCascade?.lineWins?.length)
     const hasRemovals = Boolean(activeCascade?.removedPositions?.length)
+    const hasLineWin = Boolean(activeCascade?.lineWins.length)
+
+    const hasScatterWin =
+      activeCascade?.window?.flat().filter(s => s.kind === 'SCATTER').length >= 3
 
     switch (state.phase) {
       case 'reelSweepOut':
@@ -313,7 +314,9 @@ export function useCascadeTimeline(
 
       case 'pop':
         t = window.setTimeout(() => {
-          if (state.isScatterHighlight) {
+          if (hasLineWin && hasScatterWin) {
+            dispatch({ type: 'ADVANCE_SCATTER' })
+          } else if (state.isScatterHighlight) {
             dispatch({ type: 'NEXT', phase: 'settle' })
           } else if (hasRemovals) {
             dispatch({ type: 'NEXT', phase: 'cascadeRefill' })

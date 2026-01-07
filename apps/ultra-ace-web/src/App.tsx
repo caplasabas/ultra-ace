@@ -125,7 +125,7 @@ export default function App() {
     })
 
     // scatter win
-    if (hasScatterWin && activeCascade?.window) {
+    if (hasScatterWin && activeCascade?.window && set.size === 0) {
       activeCascade.window.forEach((col, reel) => {
         col.forEach((s, row) => {
           if (s.kind === 'SCATTER') {
@@ -138,7 +138,6 @@ export default function App() {
     // wild extension
     if (activeCascade?.window) {
       activeCascade.window.forEach((col, reel) => {
-        if (reel !== 4) return
         col.forEach((s, row) => {
           if (s.kind === 'WILD' && (set.has(`3-${row}`) || set.has(`2-${row}`))) {
             set.add(`4-${row}`)
@@ -242,9 +241,9 @@ export default function App() {
 
     const cardsPerColumn = activeCascade?.window?.[0]?.length ?? 4
 
-    const BUFFER_MS = 1050
+    const BUFFER_MS = 300
 
-    const pausedColumns = TOTAL_REELS - (pauseColumn + 1)
+    const pausedColumns = TOTAL_REELS - pauseColumn - 1
     const columnDuration = cardsPerColumn * PAUSED_INITIAL_ROW_DROP_DELAY
 
     return INITIAL_REFILL_PAUSE_MS + pausedColumns * columnDuration + BUFFER_MS
@@ -512,17 +511,37 @@ export default function App() {
                 <div className="bottom-controls">
                   <div className="controls-left">
                     <div className="bet-control">
-                      <button disabled={!isReady || pauseColumn !== null || isFreeGame || freeSpinsLeft > 0 || pendingFreeSpins > 0} onClick={addBet} className="bet-btn minus" />
+                      <button
+                        disabled={
+                          !isReady ||
+                          pauseColumn !== null ||
+                          isFreeGame ||
+                          freeSpinsLeft > 0 ||
+                          pendingFreeSpins > 0
+                        }
+                        onClick={addBet}
+                        className="bet-btn minus"
+                      />
                       <span className="bet-amount">
                         {formatPeso(bet ?? 0, true, true, 2, true)}
                       </span>
-                      <button disabled={!isReady || pauseColumn !== null || isFreeGame || freeSpinsLeft > 0 || pendingFreeSpins > 0} onClick={minusBet} className="bet-btn plus" />
+                      <button
+                        disabled={
+                          !isReady ||
+                          pauseColumn !== null ||
+                          isFreeGame ||
+                          freeSpinsLeft > 0 ||
+                          pendingFreeSpins > 0
+                        }
+                        onClick={minusBet}
+                        className="bet-btn plus"
+                      />
                     </div>
                   </div>
 
                   <div className="controls-center">
                     <button
-                      className={`spin-btn spin ${(isReady || !autoSpin && !showFreeSpinIntro && !isFreeGame) ? 'spin-image active' : 'stop-image'}`}
+                      className={`spin-btn spin ${isReady || (!autoSpin && !showFreeSpinIntro && !isFreeGame) ? 'spin-image active' : 'stop-image'}`}
                       disabled={
                         !isReady ||
                         balance === 0 ||

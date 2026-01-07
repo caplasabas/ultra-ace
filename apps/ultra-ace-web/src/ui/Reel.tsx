@@ -54,9 +54,10 @@ type CSSVars = CSSProperties & {
    SYMBOL IMAGE
 ---------------------------------------- */
 function resolveSymbolImage(symbol: UISymbol): string {
+  if (symbol.kind === 'EMPTY') return ''
   if (symbol.kind === 'BACK') return SYMBOL_MAP.BACK.normal
 
-  if (symbol.isGold === true || symbol.goldTTL !== undefined || symbol.isDecorativeGold === true) {
+  if (symbol.isGold === true) {
     const gold = SYMBOL_MAP[symbol.kind]?.gold
     if (gold) return gold
   }
@@ -71,7 +72,7 @@ function resolveSymbolImage(symbol: UISymbol): string {
     }
   }
 
-  return SYMBOL_MAP[symbol.kind].normal
+  return SYMBOL_MAP[symbol.kind]?.normal
 }
 
 function ReelComponent({
@@ -152,6 +153,10 @@ function ReelComponent({
         const isScatter = symbol.kind === 'SCATTER'
         const isBack = symbol.kind === 'BACK'
         const isWild = symbol.kind === 'WILD'
+
+        if (isCascadeRefill) {
+          console.log(symbol)
+        }
 
         const wildHighlight = isWild && isWin && phase === 'highlight'
 
