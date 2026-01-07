@@ -48,6 +48,8 @@ export function adaptWindow(
         isGold: false,
         goldTTL: symbol.goldTTL,
 
+        isDecorativeGold: symbol.isDecorativeGold,
+
         goldToWild: shouldFlip,
         wildColor: symbol.wildColor,
 

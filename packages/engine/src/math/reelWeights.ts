@@ -1,13 +1,13 @@
 export const REEL_WEIGHTS = {
   DIAMOND: 1.6,
   CLUB: 1.6,
-  SPADE: 1.1,
-  HEART: 1.1,
+  SPADE: 1.2,
+  HEART: 1.2,
 
-  J: 0.55,
-  Q: 0.42,
-  K: 0.28,
-  A: 0.28,
+  J: 0.48,
+  Q: 0.32,
+  K: 0.18,
+  A: 0.12,
 
   WILD: 0,
   SCATTER: 0.06,

@@ -18,6 +18,8 @@ export interface Symbol {
   isGold?: boolean
   goldTTL?: number
 
+  isDecorativeGold?: boolean
+
   /* WILD */
   isWild?: boolean
   wildColor?: 'blue' | 'red'

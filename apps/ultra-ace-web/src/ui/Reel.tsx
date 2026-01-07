@@ -25,6 +25,8 @@ export interface UISymbol {
   isGold?: boolean
   goldTTL?: number
 
+  isDecorativeGold?: boolean
+
   goldToWild?: boolean
   wildColor?: 'red' | 'blue'
 
@@ -54,7 +56,7 @@ type CSSVars = CSSProperties & {
 function resolveSymbolImage(symbol: UISymbol): string {
   if (symbol.kind === 'BACK') return SYMBOL_MAP.BACK.normal
 
-  if (symbol.isGold === true || symbol.goldTTL !== undefined) {
+  if (symbol.isGold === true || symbol.goldTTL !== undefined || symbol.isDecorativeGold === true) {
     const gold = SYMBOL_MAP[symbol.kind]?.gold
     if (gold) return gold
   }

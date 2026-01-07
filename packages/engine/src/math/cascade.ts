@@ -13,8 +13,8 @@ import {
   BLOCKED_JOKER_KINDS,
 } from '../config/wild.config.js'
 
-const GOLD_CHANCE_REFILL = 0.00000055
-const FREE_GOLD_CHANCE_REFILL = 0.0025
+const GOLD_CHANCE_REFILL = 0.025
+const FREE_GOLD_CHANCE_REFILL = 0.055
 
 const GOLD_TTL = 0
 const MAX_PAYOUT = 2_000_000
@@ -60,9 +60,9 @@ export function runCascades(
     window: cloneWindow(window),
   })
 
-  for (let i = 1; i <= GAME_CONFIG.maxCascades; i++) {
-    if (isFreeGame && i >= 5) break
+  clearDecorativeGold(window)
 
+  for (let i = 1; i <= GAME_CONFIG.maxCascades; i++) {
     const multiplier = getCascadeMultiplier(
       i,
       isFreeGame,
@@ -128,7 +128,7 @@ export function runCascades(
           continue
         }
 
-        if (s.isGold) {
+        if (s.isGold && !s.isDecorativeGold) {
           const redWildChange = isFreeGame ? FREE_RED_WILD_CHANCE : RED_WILD_CHANCE
           const isRed = DEV_FORCE_RED_WILD || DEV_FORCE_BIG_JOKER || rng() < redWildChange
 
@@ -147,26 +147,15 @@ export function runCascades(
       }
     }
 
-    /* ───────── CASCADE DENSITY FACTOR ───────── */
-
-    // const filledCount = window.flat().filter(s => s.kind !== 'EMPTY').length
-
-    // let densityFactor = 1
-    // if (filledCount > TARGET_DENSITY) {
-    //   const t = (filledCount - TARGET_DENSITY) / (MAX_DENSITY - TARGET_DENSITY)
-    //
-    //   const densityBias = isFreeGame ? 0.75 : 1
-    //   densityFactor = Math.max(MIN_DENSITY_FACTOR, 1 - t)
-    //   densityFactor *= densityBias
-    // }
-    //
-    // const decay = isFreeGame ? CASCADE_DECAY_FREE : CASCADE_DECAY_BASE
     const win = baseWin * multiplier
 
     totalWin += win
     if (totalWin >= MAX_PAYOUT) break
 
-    refillInPlace(window, rng, isFreeGame)
+    const refilled = refillInPlace(window, rng, isFreeGame)
+
+    const intensity = isFreeGame ? Math.min(0.15 + i * 0.08, 0.7) : 0.15
+    decorateFreeSpinGoldOnRefill(window, refilled, rng, intensity)
 
     cascades.push({
       index: i,
@@ -210,8 +199,9 @@ function propagateBigJoker(window: Symbol[][], rng: () => number) {
 }
 
 /* ───────── REFILL (STACK-LIMITED) ───────── */
-
 function refillInPlace(window: Symbol[][], rng: () => number, isFreeGame: boolean) {
+  const refilled: { r: number; row: number }[] = []
+
   for (let r = 0; r < window.length; r++) {
     for (let row = 0; row < window[r].length; row++) {
       if (window[r][row].kind !== 'EMPTY') continue
@@ -243,6 +233,37 @@ function refillInPlace(window: Symbol[][], rng: () => number, isFreeGame: boolea
       }
 
       window[r][row] = symbol
+      refilled.push({ r, row })
+    }
+  }
+
+  return refilled
+}
+
+function decorateFreeSpinGoldOnRefill(
+  window: Symbol[][],
+  refilled: { r: number; row: number }[],
+  rng: () => number,
+  intensity: number,
+) {
+  shuffle(refilled, rng)
+
+  const count = Math.floor(refilled.length * intensity)
+
+  for (let i = 0; i < count; i++) {
+    const { r, row } = refilled[i]
+    const s = window[r][row]
+
+    if (s.kind === 'SCATTER' || s.kind === 'WILD' || s.isGold) continue
+
+    s.isDecorativeGold = true
+  }
+}
+
+function clearDecorativeGold(window: Symbol[][]) {
+  for (const col of window) {
+    for (const s of col) {
+      if (s.isDecorativeGold) delete s.isDecorativeGold
     }
   }
 }
