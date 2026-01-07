@@ -239,19 +239,22 @@ function refillInPlace(window: Symbol[][], rng: () => number, isFreeGame: boolea
 
   return refilled
 }
-
 function decorateFreeSpinGoldOnRefill(
   window: Symbol[][],
   refilled: { r: number; row: number }[],
   rng: () => number,
   intensity: number,
 ) {
-  shuffle(refilled, rng)
+  const eligible = refilled.filter(({ r }) => r !== 0)
 
-  const count = Math.floor(refilled.length * intensity)
+  if (eligible.length === 0) return
+
+  shuffle(eligible, rng)
+
+  const count = Math.floor(eligible.length * intensity)
 
   for (let i = 0; i < count; i++) {
-    const { r, row } = refilled[i]
+    const { r, row } = eligible[i]
     const s = window[r][row]
 
     if (s.kind === 'SCATTER' || s.kind === 'WILD' || s.isGold) continue

@@ -12,7 +12,7 @@ const GOLD_CHANCE_INITIAL = 0.0095
 const FREE_GOLD_CHANCE_INITIAL = 0.055
 
 const GOLD_TTL = 0
-const FORBIDDEN_GOLD_REELS = new Set([0, 4])
+const FORBIDDEN_GOLD_REELS = new Set([0])
 export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
   const isFreeGame = Boolean(input.isFreeGame)
   const totalBet = isFreeGame ? 0 : input.betPerSpin
