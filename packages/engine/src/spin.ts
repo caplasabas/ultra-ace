@@ -53,7 +53,13 @@ export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
 
   const scatterCount = window.flat().filter(s => s.kind === 'SCATTER').length
 
-  const { totalWin, cascades } = runCascades(window, input.betPerSpin, isFreeGame, rng)
+  const { totalWin, cascades } = runCascades(
+    window,
+    input.betPerSpin,
+    isFreeGame,
+    Boolean(input.forceScatter),
+    rng,
+  )
 
   let freeSpinsAwarded = !isFreeGame && scatterCount >= 3 ? GAME_CONFIG.freeSpinsAwarded : 0
 

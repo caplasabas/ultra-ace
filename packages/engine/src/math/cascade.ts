@@ -1,4 +1,4 @@
-import { Symbol, SymbolKind } from '../types/symbol.js'
+import { Symbol } from '../types/symbol.js'
 import { CascadeStep } from '../types/cascade.js'
 import { evaluateColumnWindow } from './evaluator.columns.js'
 import { GAME_CONFIG } from '../config/game.config.js'
@@ -21,37 +21,38 @@ const MAX_PAYOUT = 2_000_000
 const MAX_MULTIPLIER = 10_000
 const MAX_SAME_SYMBOL_PER_REEL = 20
 
+function makeInitialCascade(window: Symbol[][]): CascadeStep {
+  return {
+    index: 0,
+    multiplier: 1,
+    lineWins: [],
+    win: 0,
+    removedPositions: [],
+    window: cloneWindow(window),
+  }
+}
+
 export function runCascades(
   initialWindow: Symbol[][],
   totalBet: number,
   isFreeGame: boolean,
+  isForceScatter: boolean,
   rng: () => number,
 ) {
   const window = cloneWindow(initialWindow)
   let totalWin = 0
   const cascades: CascadeStep[] = []
 
+  cascades.push(makeInitialCascade(window))
+
   /* -------------------------------------------------
      SCATTER LOCK — TERMINAL, NO OTHER WINS ALLOWED
   ------------------------------------------------- */
   const scatterCount = window.flat().filter(s => s.kind === 'SCATTER').length
 
-  if (scatterCount >= 3) {
+  if (scatterCount >= 3 && isForceScatter) {
     sanitizeNonScatterWins(window, rng)
-
-    return {
-      totalWin: 0,
-      cascades: [
-        {
-          index: 0,
-          multiplier: 1,
-          lineWins: [],
-          win: 0,
-          removedPositions: [],
-          window: cloneWindow(window),
-        },
-      ],
-    }
+    return { totalWin: 0, cascades: [makeInitialCascade(window)] }
   }
 
   /* -------------------------------------------------
@@ -225,7 +226,9 @@ function sanitizeNonScatterWins(window: Symbol[][], rng: () => number) {
     for (const r of reelsToClear) {
       for (let row = 0; row < rowCount; row++) {
         if (window[r][row].kind === kind) {
-          window[r][row] = drawSafeNonWinningSymbol(rng, kind)
+          const s = drawSafeNonWinningSymbol(rng, kind)
+          if (s.kind === 'EMPTY') throw new Error('sanitizeNonScatterWins produced EMPTY')
+          window[r][row] = s
         }
       }
     }
