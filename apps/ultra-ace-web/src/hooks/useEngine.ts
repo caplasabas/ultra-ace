@@ -111,7 +111,7 @@ export function useEngine() {
   }
 
   function buyFreeSpins() {
-    if (spinning || showFreeSpinIntro || isFreeGame || freeSpinsLeft > 0) return
+    if (spinning || showFreeSpinIntro || freeSpinsLeft > 0 || pendingFreeSpins > 0) return
 
     const cost = bet * BUY_FREE_SPIN_MULTIPLIER
     if (balance < cost) return
