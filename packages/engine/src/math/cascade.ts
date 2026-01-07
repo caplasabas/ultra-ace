@@ -1,4 +1,4 @@
-import { Symbol } from '../types/symbol.js'
+import { Symbol, SymbolKind } from '../types/symbol.js'
 import { CascadeStep } from '../types/cascade.js'
 import { evaluateColumnWindow } from './evaluator.columns.js'
 import { GAME_CONFIG } from '../config/game.config.js'
@@ -19,7 +19,6 @@ const FREE_GOLD_CHANCE_REFILL = 0.055
 const GOLD_TTL = 0
 const MAX_PAYOUT = 2_000_000
 const MAX_MULTIPLIER = 10_000
-
 const MAX_SAME_SYMBOL_PER_REEL = 20
 
 export function runCascades(
@@ -32,20 +31,32 @@ export function runCascades(
   let totalWin = 0
   const cascades: CascadeStep[] = []
 
+  /* -------------------------------------------------
+     SCATTER LOCK — TERMINAL, NO OTHER WINS ALLOWED
+  ------------------------------------------------- */
   const scatterCount = window.flat().filter(s => s.kind === 'SCATTER').length
-  const scatterLocked = scatterCount >= 3
 
-  cascades.push({
-    index: 0,
-    multiplier: 1,
-    lineWins: [],
-    win: 0,
-    removedPositions: [],
-    window: cloneWindow(window),
-  })
+  if (scatterCount >= 3) {
+    sanitizeNonScatterWins(window, rng)
 
-  clearDecorativeGold(window)
+    return {
+      totalWin: 0,
+      cascades: [
+        {
+          index: 0,
+          multiplier: 1,
+          lineWins: [],
+          win: 0,
+          removedPositions: [],
+          window: cloneWindow(window),
+        },
+      ],
+    }
+  }
 
+  /* -------------------------------------------------
+     NORMAL CASCADE FLOW
+  ------------------------------------------------- */
   for (let i = 1; i <= GAME_CONFIG.maxCascades; i++) {
     const multiplier = getCascadeMultiplier(
       i,
@@ -57,37 +68,11 @@ export function runCascades(
     if (multiplier >= MAX_MULTIPLIER) break
 
     const { wins } = evaluateColumnWindow(window, totalBet)
-    if (wins.length === 0 && scatterLocked) break
+    if (wins.length === 0) break
 
     const removedSet = new Set<string>()
     const removed: { reel: number; row: number }[] = []
     let baseWin = 0
-
-    const wildTriggered = wins.some(w =>
-      w.positions.some(p => window[p.reel][p.row].kind === 'WILD'),
-    )
-
-    /* ───────── PROMOTE ALL WILDS TO WINNERS (visual only) ───────── */
-
-    if (wildTriggered) {
-      const wildPositions: { reel: number; row: number }[] = []
-
-      for (let reel = 0; reel < window.length; reel++) {
-        for (let row = 0; row < window[reel].length; row++) {
-          if (window[reel][row].kind === 'WILD') {
-            wildPositions.push({ reel, row })
-          }
-        }
-      }
-
-      wins.push({
-        symbol: 'WILD',
-        count: wildPositions.length,
-        reels: wildPositions.length,
-        payout: 0,
-        positions: wildPositions,
-      })
-    }
 
     function markForRemoval(pos: { reel: number; row: number }) {
       const key = `${pos.reel}-${pos.row}`
@@ -96,8 +81,9 @@ export function runCascades(
       removed.push(pos)
     }
 
-    /* ───────── PROCESS ALL WIN GROUPS ───────── */
-
+    /* -----------------------------
+       APPLY WINS
+    ----------------------------- */
     for (const w of wins) {
       baseWin += w.payout
 
@@ -113,8 +99,8 @@ export function runCascades(
         }
 
         if (s.isGold) {
-          const redWildChange = isFreeGame ? FREE_RED_WILD_CHANCE : RED_WILD_CHANCE
-          const isRed = DEV_FORCE_RED_WILD || DEV_FORCE_BIG_JOKER || rng() < redWildChange
+          const redChance = isFreeGame ? FREE_RED_WILD_CHANCE : RED_WILD_CHANCE
+          const isRed = DEV_FORCE_RED_WILD || DEV_FORCE_BIG_JOKER || rng() < redChance
 
           window[pos.reel][pos.row] = {
             kind: 'WILD',
@@ -132,31 +118,8 @@ export function runCascades(
     }
 
     const win = baseWin * multiplier
-
     totalWin += win
     if (totalWin >= MAX_PAYOUT) break
-
-    if (scatterLocked) {
-      const removed: { reel: number; row: number }[] = []
-
-      for (const w of wins) {
-        for (const pos of w.positions) {
-          removed.push(pos)
-          window[pos.reel][pos.row] = { kind: 'EMPTY' }
-        }
-      }
-
-      cascades.push({
-        index: i,
-        multiplier,
-        lineWins: wins.filter(w => w.symbol !== 'SCATTER'),
-        win: baseWin * multiplier,
-        removedPositions: removed,
-        window: cloneWindow(window), // ⬅️ now reflects removal
-      })
-
-      break
-    }
 
     refillInPlace(window, rng, isFreeGame)
 
@@ -173,8 +136,9 @@ export function runCascades(
   return { totalWin, cascades }
 }
 
-/* ───────── BIG JOKER (RED WILD PROPAGATION) ───────── */
-
+/* -------------------------------------------------
+   BIG JOKER (RED WILD PROPAGATION)
+------------------------------------------------- */
 function propagateBigJoker(window: Symbol[][], rng: () => number) {
   const candidates: { reel: number; row: number }[] = []
 
@@ -201,10 +165,10 @@ function propagateBigJoker(window: Symbol[][], rng: () => number) {
   }
 }
 
-/* ───────── REFILL (STACK-LIMITED) ───────── */
+/* -------------------------------------------------
+   REFILL (STACK-LIMITED)
+------------------------------------------------- */
 function refillInPlace(window: Symbol[][], rng: () => number, isFreeGame: boolean) {
-  const refilled: { r: number; row: number }[] = []
-
   for (let r = 0; r < window.length; r++) {
     for (let row = 0; row < window[r].length; row++) {
       if (window[r][row].kind !== 'EMPTY') continue
@@ -216,66 +180,66 @@ function refillInPlace(window: Symbol[][], rng: () => number, isFreeGame: boolea
         symbol = {
           ...GAME_CONFIG.cascadeFillPool[Math.floor(rng() * GAME_CONFIG.cascadeFillPool.length)],
         }
-
         attempts++
 
         const sameKindCount = window[r].filter(s => s.kind === symbol.kind).length
-
-        if (symbol.kind !== 'WILD' && sameKindCount < MAX_SAME_SYMBOL_PER_REEL) {
-          break
-        }
+        if (symbol.kind !== 'WILD' && sameKindCount < MAX_SAME_SYMBOL_PER_REEL) break
       } while (attempts < 20)
 
       const goldAllowed = r !== 0 && r !== window.length - 1
+      const goldChance = isFreeGame ? FREE_GOLD_CHANCE_REFILL : GOLD_CHANCE_REFILL
 
-      const goldChangeRefill = isFreeGame ? FREE_GOLD_CHANCE_REFILL : GOLD_CHANCE_REFILL
-
-      if (goldAllowed && symbol.kind !== 'SCATTER' && rng() < goldChangeRefill) {
+      if (goldAllowed && symbol.kind !== 'SCATTER' && rng() < goldChance) {
         symbol.isGold = true
         symbol.goldTTL = GOLD_TTL
       }
 
       window[r][row] = symbol
-      refilled.push({ r, row })
-    }
-  }
-
-  return refilled
-}
-function decorateFreeSpinGoldOnRefill(
-  window: Symbol[][],
-  refilled: { r: number; row: number }[],
-  rng: () => number,
-  intensity: number,
-) {
-  const eligible = refilled.filter(({ r }) => r !== 0)
-
-  if (eligible.length === 0) return
-
-  shuffle(eligible, rng)
-
-  const count = Math.floor(eligible.length * intensity)
-
-  for (let i = 0; i < count; i++) {
-    const { r, row } = eligible[i]
-    const s = window[r][row]
-
-    if (s.kind === 'SCATTER' || s.kind === 'WILD' || s.isGold) continue
-
-    s.isDecorativeGold = true
-  }
-}
-
-function clearDecorativeGold(window: Symbol[][]) {
-  for (const col of window) {
-    for (const s of col) {
-      if (s.isDecorativeGold) delete s.isDecorativeGold
     }
   }
 }
+function sanitizeNonScatterWins(window: Symbol[][], rng: () => number) {
+  const reelCount = window.length
+  const rowCount = window[0].length
 
-/* ───────── UTILS ───────── */
+  // 1️⃣ Build symbol → reels map
+  const symbolReels = new Map<string, Set<number>>()
 
+  for (let r = 0; r < reelCount; r++) {
+    for (let row = 0; row < rowCount; row++) {
+      const k = window[r][row].kind
+      if (k === 'SCATTER') continue
+
+      if (!symbolReels.has(k)) symbolReels.set(k, new Set())
+      symbolReels.get(k)!.add(r)
+    }
+  }
+
+  // 2️⃣ For any symbol present in 3+ reels, break it
+  for (const [kind, reels] of symbolReels.entries()) {
+    if (reels.size < 3) continue
+
+    // Keep at most 2 reels
+    const reelsToClear = [...reels].slice(2)
+
+    for (const r of reelsToClear) {
+      for (let row = 0; row < rowCount; row++) {
+        if (window[r][row].kind === kind) {
+          window[r][row] = drawSafeNonWinningSymbol(rng, kind)
+        }
+      }
+    }
+  }
+}
+
+function drawSafeNonWinningSymbol(rng: () => number, forbidden: string): Symbol {
+  const pool = GAME_CONFIG.cascadeFillPool.filter(s => s.kind !== forbidden)
+  return { ...pool[Math.floor(rng() * pool.length)] }
+}
+
+/* -------------------------------------------------
+   UTILS
+------------------------------------------------- */
 function cloneWindow(w: Symbol[][]): Symbol[][] {
   return w.map(col => col.map(s => ({ ...s })))
 }

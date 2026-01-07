@@ -119,35 +119,23 @@ export default function App() {
   const winningPositions = useMemo(() => {
     const set = new Set<string>()
 
-    // normal symbol wins
     activeCascade?.lineWins?.forEach(lw => {
       lw.positions.forEach(p => set.add(`${p.reel}-${p.row}`))
     })
 
-    // scatter win
-    if (hasScatterWin && activeCascade?.window && set.size === 0) {
-      activeCascade.window.forEach((col, reel) => {
+    // 🔒 Scatter-only highlight
+    if (isScatterHighlight && activeCascade?.window) {
+      activeCascade.window.forEach((col, r) => {
         col.forEach((s, row) => {
           if (s.kind === 'SCATTER') {
-            set.add(`${reel}-${row}`)
-          }
-        })
-      })
-    }
-
-    // wild extension
-    if (activeCascade?.window) {
-      activeCascade.window.forEach((col, reel) => {
-        col.forEach((s, row) => {
-          if (s.kind === 'WILD' && (set.has(`3-${row}`) || set.has(`2-${row}`))) {
-            set.add(`4-${row}`)
+            set.add(`${r}-${row}`)
           }
         })
       })
     }
 
     return set
-  }, [activeCascade, hasScatterWin])
+  }, [activeCascade, isScatterHighlight])
 
   const hasWin = Boolean(activeCascade?.lineWins?.length) || hasScatterWin
 
