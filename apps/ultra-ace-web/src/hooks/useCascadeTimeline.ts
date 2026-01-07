@@ -146,6 +146,7 @@ export function useCascadeTimeline(
   const previousCascade = state.previous
   const isIdle = state.phase === 'idle'
 
+  const pauseColumn = detectScatterPauseColumn(activeCascade?.window)
   const pauseLockedRef = useRef(false)
   const pauseOriginRef = useRef<number | null>(null)
 
@@ -161,7 +162,7 @@ export function useCascadeTimeline(
   }, [spinCompleted, spinId])
 
   function scaled(ms: number) {
-    const v = ms / turboMultiplier
+    const v = ms / (pauseColumn ? 1 : turboMultiplier)
     return scatterTriggerType === 'buy'
       ? Math.max(v, 250) // ⛔ do not fully skip tease
       : v
@@ -185,7 +186,6 @@ export function useCascadeTimeline(
     if (pauseLockedRef.current) return
     if (isFreeGame) return
 
-    const pauseColumn = detectScatterPauseColumn(activeCascade?.window)
     // const pauseColumn = 1 // TEMP
 
     if (pauseColumn !== null) {

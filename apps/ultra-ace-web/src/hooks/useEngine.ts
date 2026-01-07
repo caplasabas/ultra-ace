@@ -4,7 +4,7 @@ import type { CascadeStep, SpinOutcome } from '@ultra-ace/engine'
 import { DebugSpinInfo } from 'src/debug/DebugHud'
 
 const BUY_FREE_SPIN_MULTIPLIER = 50
-const SCATTER_BANNER_DELAY = 1500
+
 const SCATTER_BANNER_DURATION = 5000
 
 export function useEngine() {
@@ -36,13 +36,10 @@ export function useEngine() {
   const [pendingFreeSpins, setPendingFreeSpins] = useState(0)
 
   // Marks that the LAST free spin has been consumed
-  const [freeSpinEnded, setFreeSpinEnded] = useState(false)
-
   const [showFreeSpinIntro, setShowFreeSpinIntro] = useState(false)
   const [showScatterWinBanner, setShowScatterWinBanner] = useState(false)
 
   const [freezeUI, setFreezeUI] = useState(false)
-  const [bannerDelayMs, setBannerDelayMs] = useState(SCATTER_BANNER_DELAY)
 
   /* -----------------------------
      Debug
@@ -67,7 +64,6 @@ export function useEngine() {
       setFreeSpinsLeft(pendingFreeSpins)
       setFreeSpinTotal(0)
       setPendingFreeSpins(0)
-      setFreeSpinEnded(false)
       setShowFreeSpinIntro(false)
       return
     }
@@ -155,62 +151,28 @@ export function useEngine() {
   ----------------------------- */
   function consumeFreeSpin() {
     setFreeSpinsLeft(v => {
-      const next = Math.max(v - 1, 0)
-      if (next === 0) {
-        setFreeSpinEnded(true)
+      const next = Math.max(v - 1, -1)
+      if (next === -1) {
+        endFreeSpin()
       }
       return next
     })
   }
 
-  /* -----------------------------
-     FREE SPIN EXIT + BANNER FLOW
-  ----------------------------- */
-  useEffect(() => {
-    if (
-      !isFreeGame ||
-      !freeSpinEnded ||
-      spinning ||
-      committedCascades.length === 0 ||
-      showScatterWinBanner
-    )
-      return
-
-    if (committedCascades.length === 0) return
-
-    // 🔢 Cascade-based delay
-    const cascadeCount = committedCascades.length
-    const computedDelay = Math.min(600 + cascadeCount * 420, 2400) + 1000
-
-    setBannerDelayMs(computedDelay)
+  const endFreeSpin = () => {
+    setIsFreeGame(false)
     setFreezeUI(true)
+    setShowScatterWinBanner(true)
 
-    const delay = setTimeout(() => {
-      setShowScatterWinBanner(true)
+    setTimeout(() => {
+      setBalance(b => b + freeSpinTotal)
+      setFreeSpinTotal(0)
+      setTotalWin(0)
 
-      const duration = setTimeout(() => {
-        setBalance(b => b + freeSpinTotal)
-        setFreeSpinTotal(0)
-        setTotalWin(0)
-
-        setShowScatterWinBanner(false)
-        setIsFreeGame(false)
-        setFreeSpinEnded(false)
-        setFreezeUI(false)
-      }, SCATTER_BANNER_DURATION)
-
-      return () => clearTimeout(duration)
-    }, computedDelay)
-
-    return () => clearTimeout(delay)
-  }, [
-    isFreeGame,
-    freeSpinEnded,
-    spinning,
-    committedCascades.length,
-    freeSpinTotal,
-    showScatterWinBanner,
-  ])
+      setShowScatterWinBanner(false)
+      setFreezeUI(false)
+    }, SCATTER_BANNER_DURATION)
+  }
 
   /* -----------------------------
      Public API
@@ -246,6 +208,5 @@ export function useEngine() {
     consumeFreeSpin,
 
     freezeUI,
-    bannerDelayMs,
   }
 }

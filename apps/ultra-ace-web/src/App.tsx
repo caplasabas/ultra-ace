@@ -92,7 +92,6 @@ export default function App() {
     isScatterHighlight,
     initialRefillColumn,
     activePausedColumn,
-    spinCompleted,
   } = useCascadeTimeline(
     cascades,
     spinId,
@@ -153,6 +152,8 @@ export default function App() {
 
   const hasWin = Boolean(activeCascade?.lineWins?.length) || hasScatterWin
 
+  const pauseColumn = detectScatterPauseColumn(activeCascade?.window)
+
   const windowForRender =
     hasWin && ['highlight', 'pop'].includes(phase)
       ? isScatterHighlight
@@ -184,6 +185,7 @@ export default function App() {
     if (!isReady) return
     if (balance < bet || balance === 0) {
       setAutoSpin(false)
+      setTurboStage(0)
       return
     }
 
@@ -197,10 +199,13 @@ export default function App() {
   useEffect(() => {
     if (!isFreeGame) return
     if (!isIdle) return
-    if (freeSpinsLeft <= 0) return
+    if (freeSpinsLeft <= -1) return
 
     const t = setTimeout(() => {
-      spin()
+      consumeFreeSpin()
+      if (freeSpinsLeft > 0) {
+        spin()
+      }
     }, 300)
 
     return () => clearTimeout(t)
@@ -218,16 +223,6 @@ export default function App() {
       setBalance(v => v + activeCascade.win)
     }
   }, [phase])
-
-  useEffect(() => {
-    if (!spinCompleted) return
-    if (!isFreeGame) return
-
-    // ✅ only consume AFTER the LAST cascade of the spin
-    if (cascadeIndex !== cascades.length - 1) return
-
-    consumeFreeSpin()
-  }, [spinCompleted, isFreeGame, cascadeIndex, cascades.length])
 
   const BASE_MULTIPLIERS = [1, 2, 3, 5]
   const FREE_MULTIPLIERS = [2, 4, 6, 10]
@@ -256,11 +251,14 @@ export default function App() {
   }
 
   useEffect(() => {
+    if (pauseColumn) {
+      setTurboStage(0)
+      setAutoSpin(false)
+    }
     if (pendingFreeSpins <= 0 && freeSpinsLeft <= 0) return
     if (introShown) return
     if (isFreeGame) return
 
-    const pauseColumn = detectScatterPauseColumn(activeCascade?.window)
     const delayMs = computeScatterDelay(pauseColumn)
 
     const show = setTimeout(() => {
@@ -528,13 +526,15 @@ export default function App() {
                   <div className="controls-right">
                     <button
                       className={`spin-btn auto spin-auto-image ${autoSpin ? 'active' : ''}`}
-                      disabled={isFreeGame || balance === 0 || balance < bet}
+                      disabled={
+                        isFreeGame || balance === 0 || balance < bet || pauseColumn !== null
+                      }
                       onClick={() => setAutoSpin(!autoSpin)}
                     />
 
                     <button
                       className={`spin-btn turbo spin-turbo-image ${turboMultiplier > 1 ? 'active' : ''} ${turboStage === 1 ? 'turbo-1' : ''} ${turboStage === 2 ? 'turbo-2' : ''}  ${turboStage === 3 ? 'turbo-3' : ''}`}
-                      disabled={balance === 0 || balance < bet}
+                      disabled={balance === 0 || balance < bet || pauseColumn !== null}
                       onClick={() => {
                         setTurboStage(prev => {
                           const next = ((prev + 1) % 4) as 0 | 1 | 2 | 3
