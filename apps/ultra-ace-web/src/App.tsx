@@ -373,7 +373,11 @@ export default function App() {
 
               <button
                 className="buy-spin-btn"
-                disabled={!isReady || balance === 0 || balance < bet * 50}
+                disabled={
+                  (!isReady || balance === 0 || balance < bet * 50) &&
+                  !isFreeGame &&
+                  freeSpinsLeft <= 0
+                }
                 onClick={buyFreeSpins}
               >
                 Buy
@@ -382,25 +386,32 @@ export default function App() {
               <div className="free-spin-banner">
                 <div
                   className={`free-spin-text font-plasma ${
-                    !(isFreeGame || isFreeSpinPreview) ? 'base' : ''
+                    !(isFreeGame || isFreeSpinPreview) || freeSpinsLeft < 0 ? 'base' : ''
                   }`}
                 >
                   <span className="free-spin-base superace-base">
-                    {isFreeGame || isFreeSpinPreview ? 'FREE SPINS' : 'UltraAce'}{' '}
+                    {(isFreeGame || isFreeSpinPreview) && freeSpinsLeft >= 0
+                      ? 'FREE SPINS'
+                      : 'UltraAce'}{' '}
                   </span>
 
                   <span className="free-spin-face superace-face">
-                    {isFreeGame || isFreeSpinPreview ? 'FREE SPINS' : 'UltraAce'}{' '}
+                    {(isFreeGame || isFreeSpinPreview) && freeSpinsLeft >= 0
+                      ? 'FREE SPINS'
+                      : 'UltraAce'}{' '}
                   </span>
                 </div>
 
                 <span className="free-spin-count">
                   {(isFreeGame || isFreeSpinPreview) &&
+                    freeSpinsLeft >= 0 &&
                     (isFreeGame ? freeSpinsLeft : pendingFreeSpins)}
                 </span>
               </div>
 
-              <div className={`multiplier-strip ${isFreeGame || isFreeSpinPreview ? 'free' : ''}`}>
+              <div
+                className={`multiplier-strip ${(isFreeGame || isFreeSpinPreview) && freeSpinsLeft >= 0 ? 'free' : ''}`}
+              >
                 {ladder.map((m, i) => (
                   <div
                     key={m}
