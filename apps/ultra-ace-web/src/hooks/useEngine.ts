@@ -160,18 +160,20 @@ export function useEngine() {
   }
 
   const endFreeSpin = () => {
-    setIsFreeGame(false)
-    setFreezeUI(true)
-    setShowScatterWinBanner(true)
-
     setTimeout(() => {
-      setBalance(b => b + freeSpinTotal)
-      setFreeSpinTotal(0)
-      setTotalWin(0)
+      setIsFreeGame(false)
+      setFreezeUI(true)
+      setShowScatterWinBanner(true)
 
-      setShowScatterWinBanner(false)
-      setFreezeUI(false)
-    }, SCATTER_BANNER_DURATION)
+      setTimeout(() => {
+        setBalance(b => b + freeSpinTotal)
+        setFreeSpinTotal(0)
+        setTotalWin(0)
+
+        setShowScatterWinBanner(false)
+        setFreezeUI(false)
+      }, SCATTER_BANNER_DURATION)
+    }, 600)
   }
 
   /* -----------------------------
