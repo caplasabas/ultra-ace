@@ -4,6 +4,9 @@ import type { CascadeStep, SpinOutcome } from '@ultra-ace/engine'
 import { DebugSpinInfo } from 'src/debug/DebugHud'
 
 const BUY_FREE_SPIN_MULTIPLIER = 50
+const SCATTER_BANNER_DELAY = 1500
+const SCATTER_BANNER_DURATION = 5000
+
 export function useEngine() {
   /* -----------------------------
      Core spin state
@@ -32,8 +35,15 @@ export function useEngine() {
   const [freeSpinsLeft, setFreeSpinsLeft] = useState(0)
   const [pendingFreeSpins, setPendingFreeSpins] = useState(0)
 
-  // 🎬 intro overlay
+  // Marks that the LAST free spin has been consumed
+  const [freeSpinEnded, setFreeSpinEnded] = useState(false)
+
   const [showFreeSpinIntro, setShowFreeSpinIntro] = useState(false)
+  const [showScatterWinBanner, setShowScatterWinBanner] = useState(false)
+
+  const [freezeUI, setFreezeUI] = useState(false)
+  const [bannerDelayMs, setBannerDelayMs] = useState(SCATTER_BANNER_DELAY)
+
   /* -----------------------------
      Debug
   ----------------------------- */
@@ -45,16 +55,19 @@ export function useEngine() {
   const seed = new Date().toISOString()
   const rng = createRNG(seed)
 
+  /* -----------------------------
+     Spin execution
+  ----------------------------- */
   function spinNow() {
-    // 🔒 hard block during intro
     if (spinning) return
 
-    // entering free spins happens HERE
+    // Enter free spins
     if (!isFreeGame && pendingFreeSpins > 0) {
       setIsFreeGame(true)
       setFreeSpinsLeft(pendingFreeSpins)
       setFreeSpinTotal(0)
       setPendingFreeSpins(0)
+      setFreeSpinEnded(false)
       setShowFreeSpinIntro(false)
       return
     }
@@ -62,7 +75,11 @@ export function useEngine() {
     if (balance < bet || balance === 0) return
 
     setSpinning(true)
-    setTotalWin(0)
+
+    if (!isFreeGame) {
+      setTotalWin(0)
+      setBalance(b => b - bet)
+    }
 
     const outcome: SpinOutcome = spin(rng, {
       betPerSpin: bet,
@@ -71,11 +88,6 @@ export function useEngine() {
     })
 
     setScatterTriggerType(outcome.scatterTriggerType ?? null)
-
-    if (!isFreeGame) {
-      setBalance(b => b - bet)
-    }
-
     setPendingCascades(outcome.cascades ?? [])
     setSpinId(v => v + 1)
 
@@ -86,13 +98,11 @@ export function useEngine() {
       cascadeWins: (outcome.cascades ?? []).map(c => c.win ?? 0),
     })
 
-    let freeSpinsAwarded = outcome.freeSpinsAwarded
-
-    if (freeSpinsAwarded > 0) {
+    if (outcome.freeSpinsAwarded > 0) {
       if (!isFreeGame) {
-        setPendingFreeSpins(freeSpinsAwarded)
+        setPendingFreeSpins(outcome.freeSpinsAwarded)
       } else {
-        setFreeSpinsLeft(v => v + freeSpinsAwarded)
+        setFreeSpinsLeft(v => v + outcome.freeSpinsAwarded)
       }
     }
   }
@@ -118,11 +128,10 @@ export function useEngine() {
       betPerSpin: bet,
       lines: 5,
       isFreeGame: false,
-      forceScatter: true, // 🔑 HERE
+      forceScatter: true,
     })
 
     setScatterTriggerType('buy')
-
     setPendingCascades(outcome.cascades ?? [])
     setSpinId(v => v + 1)
 
@@ -131,35 +140,80 @@ export function useEngine() {
     }
   }
 
+  /* -----------------------------
+     Commit spin visuals
+  ----------------------------- */
   function commitSpin() {
     if (!pendingCascades) return
-
     setCommittedCascades(pendingCascades)
     setPendingCascades(null)
     setSpinning(false)
   }
 
+  /* -----------------------------
+     Consume free spin (AFTER settle)
+  ----------------------------- */
   function consumeFreeSpin() {
-    setFreeSpinsLeft(v => Math.max(v - 1, 0))
+    setFreeSpinsLeft(v => {
+      const next = Math.max(v - 1, 0)
+      if (next === 0) {
+        setFreeSpinEnded(true)
+      }
+      return next
+    })
   }
 
+  /* -----------------------------
+     FREE SPIN EXIT + BANNER FLOW
+  ----------------------------- */
   useEffect(() => {
-    if (isFreeGame) {
-      if (freeSpinsLeft === 0 && pendingFreeSpins === 0 && !spinning) {
-        const t = setTimeout(() => {
-          setIsFreeGame(false)
-        }, 800)
+    if (
+      !isFreeGame ||
+      !freeSpinEnded ||
+      spinning ||
+      committedCascades.length === 0 ||
+      showScatterWinBanner
+    ) {
+      return
+    }
 
-        return () => clearTimeout(t)
-      }
+    // 🔢 Cascade-based delay
+    const cascadeCount = committedCascades.length
+    const computedDelay = Math.min(600 + cascadeCount * 420, 2400)
 
-      if ((freeSpinsLeft > 0 || pendingFreeSpins > 0) && spinning) {
+    setBannerDelayMs(computedDelay + 1000)
+    setFreezeUI(true)
+
+    const delay = setTimeout(() => {
+      setShowScatterWinBanner(true)
+
+      const duration = setTimeout(() => {
         setBalance(b => b + freeSpinTotal)
         setFreeSpinTotal(0)
-      }
-    }
-  }, [isFreeGame, freeSpinsLeft, pendingFreeSpins, spinning])
+        setTotalWin(0)
 
+        setShowScatterWinBanner(false)
+        setIsFreeGame(false)
+        setFreeSpinEnded(false)
+        setFreezeUI(false)
+      }, SCATTER_BANNER_DURATION)
+
+      return () => clearTimeout(duration)
+    }, computedDelay)
+
+    return () => clearTimeout(delay)
+  }, [
+    isFreeGame,
+    freeSpinEnded,
+    spinning,
+    committedCascades.length,
+    freeSpinTotal,
+    showScatterWinBanner,
+  ])
+
+  /* -----------------------------
+     Public API
+  ----------------------------- */
   return {
     cascades: committedCascades,
     spinning,
@@ -183,9 +237,14 @@ export function useEngine() {
 
     showFreeSpinIntro,
     setShowFreeSpinIntro,
+    showScatterWinBanner,
+
     debugInfo,
     buyFreeSpins,
     scatterTriggerType,
     consumeFreeSpin,
+
+    freezeUI,
+    bannerDelayMs,
   }
 }

@@ -16,6 +16,7 @@ import { useBackgroundAudio } from './audio/useBackgroundAudio'
 import BGM from './assets/audio/bgm.mp3'
 
 import { FreeSpinIntro } from './ui/FreeSpinIntro'
+import { ScatterWinBanner } from './ui/ScatterWinBanner'
 const DEV = import.meta.env.DEV
 
 const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kind }))
@@ -78,6 +79,8 @@ export default function App() {
     buyFreeSpins,
     scatterTriggerType,
     consumeFreeSpin,
+    showScatterWinBanner,
+    freezeUI,
   } = useEngine()
 
   const {
@@ -174,7 +177,7 @@ export default function App() {
 
   const [isFreeSpinPreview, setIsFreeSpinPreview] = useState(false)
 
-  const isReady = (isIdle && !spinning) || showFreeSpinIntro
+  const isReady = (isIdle && !spinning) || (showFreeSpinIntro && !freezeUI)
 
   useEffect(() => {
     if (!autoSpin) return
@@ -321,7 +324,7 @@ export default function App() {
 
   useEffect(() => {
     window.__ARCADE_INPUT__ = (action: string) => {
-      console.log('[APP INPUT]', action)
+      if (!isReady) return
 
       switch (action) {
         case 'SPIN':
@@ -356,7 +359,14 @@ export default function App() {
           </div>
 
           <div className="game-content">
-            {showFreeSpinIntro && <FreeSpinIntro spins={pendingFreeSpins || 0} />}
+            <div className={`banner-layer intro ${showFreeSpinIntro ? 'visible' : ''}`}>
+              <FreeSpinIntro spins={pendingFreeSpins || 0} />
+            </div>
+
+            <div className={`banner-layer win ${showScatterWinBanner ? 'visible' : ''}`}>
+              <ScatterWinBanner amount={showScatterWinBanner ? freeSpinTotal : 0} />
+            </div>
+
             <div className="top-container">
               {DEV && <DebugHud info={debugInfo} />}
 
@@ -497,13 +507,15 @@ export default function App() {
 
                   <div className="controls-center">
                     <button
-                      className={`spin-btn spin spin-image ${isReady && !autoSpin ? 'active' : ''}`}
+                      className={`spin-btn spin ${isReady ? 'spin-image active' : 'stop-image'}`}
                       disabled={
                         !isReady ||
-                        autoSpin ||
                         balance === 0 ||
                         balance < bet ||
-                        (isFreeGame && freeSpinsLeft < 10 && !showFreeSpinIntro)
+                        (isFreeGame &&
+                          freeSpinsLeft < 10 &&
+                          !showFreeSpinIntro &&
+                          !showScatterWinBanner)
                       }
                       onClick={spin}
                       aria-label="Spin"

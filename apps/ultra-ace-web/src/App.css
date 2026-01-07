@@ -1207,6 +1207,34 @@ button:focus-visible {
     transform: none;
 }
 
+.spin-btn.stop-image {
+    width: 82px;
+    height: 82px;
+
+    margin-top: 15%;
+
+    background-image: url('assets/images/stop.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+
+    border: none;
+    background-color: transparent;
+
+    padding: 0;
+
+    transition:
+            transform 120ms ease,
+            filter 120ms ease;
+    z-index: 31;
+    filter: grayscale(0.4);
+    cursor: not-allowed;
+    transform: none;
+
+}
+
+
+
 
 .spin-btn.spin-image.active {
     filter: drop-shadow(0 0 10px rgba(255, 60, 0, 0.8));
@@ -1919,6 +1947,127 @@ button:focus-visible {
 }
 
 /* =========================
+   SCATTER WIN BANNER (FINAL)
+   ========================= */
+
+.scatter-intro.scatter-win {
+    pointer-events: all;
+    z-index: 40;
+}
+
+.scatter-win-bg {
+    position: absolute;
+    inset: 0;
+
+    background-image: url('./assets/images/scatter_bg.jpg');
+    background-size: cover;
+    background-position: center;
+}
+
+.scatter-win-glow {
+    position: absolute;
+    inset: -10%;
+    background: radial-gradient(
+            circle,
+            rgba(255, 200, 120, 0.55) 0%,
+            rgba(255, 140, 40, 0.25) 35%,
+            rgba(0, 0, 0, 0) 65%
+    );
+    animation: winGlowBreath 2.2s ease-in-out infinite;
+}
+
+@keyframes winGlowBreath {
+    0% { opacity: 0.55; }
+    50% { opacity: 0.85; }
+    100% { opacity: 0.55; }
+}
+
+.scatter-win-content {
+    position: relative;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 18px;
+    text-align: center;
+}
+
+.scatter-win-title {
+    font-family: 'Bebas Neue', sans-serif;
+
+    line-height: 0.85;
+    letter-spacing: 0.02em;
+
+    font-size: 72px;
+    font-weight: 900;
+
+    color: #9f3103;
+    -webkit-text-stroke: 1px #fff86b;
+    text-shadow:
+            0 0 10px rgba(255, 220, 140, 0.95),
+            0 0 24px rgba(255, 180, 60, 0.75),
+            0 0 48px rgba(255, 140, 0, 0.55);
+}
+
+.scatter-win-amount {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 78px;
+    font-weight: 900;
+
+    color: #9f3103;
+    -webkit-text-stroke: 1px #fff86b;
+    text-shadow:
+            0 0 10px rgba(255, 220, 140, 0.95),
+            0 0 24px rgba(255, 180, 60, 0.75),
+            0 0 48px rgba(255, 140, 0, 0.55);
+}
+
+/* =========================
+   Banner Animation Layer
+   ========================= */
+
+.banner-layer {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+
+    opacity: 0;
+    transform: scale(0.96) translateY(12px);
+    pointer-events: none;
+
+    transition:
+            opacity 420ms cubic-bezier(0.22, 1, 0.36, 1),
+            transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+    filter: blur(6px);
+
+}
+
+/* Visible state */
+.banner-layer.visible {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    pointer-events: all;
+    filter: blur(0);
+
+}
+
+.banner-layer.intro {
+    transition-duration: 360ms;
+}
+
+.banner-layer.visible.intro {
+    z-index: 31;
+}
+
+.banner-layer.win {
+    transition-duration: 520ms;
+}
+
+.banner-layer.visible.win {
+    z-index: 35;
+}
+/* =========================
    Free Spins Banner
    ========================= */
 
@@ -2242,7 +2391,7 @@ button:focus-visible {
     position: absolute;
     inset: 0;
 
-    background-image: url('./assets/images/scatter_bg.png');
+    background-image: url('./assets/images/scatter_bg.jpg');
     background-size: cover;
     background-position: center;
 }
