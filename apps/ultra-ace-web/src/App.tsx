@@ -374,7 +374,7 @@ export default function App() {
               <button
                 className="buy-spin-btn"
                 disabled={
-                  spinning ||
+                  !isReady ||
                   pauseColumn !== null ||
                   balance === 0 ||
                   balance < bet * 50 ||
@@ -512,17 +512,17 @@ export default function App() {
                 <div className="bottom-controls">
                   <div className="controls-left">
                     <div className="bet-control">
-                      <button disabled={!isReady} onClick={addBet} className="bet-btn minus" />
+                      <button disabled={!isReady || pauseColumn !== null || isFreeGame || freeSpinsLeft > 0 || pendingFreeSpins > 0} onClick={addBet} className="bet-btn minus" />
                       <span className="bet-amount">
                         {formatPeso(bet ?? 0, true, true, 2, true)}
                       </span>
-                      <button disabled={!isReady} onClick={minusBet} className="bet-btn plus" />
+                      <button disabled={!isReady || pauseColumn !== null || isFreeGame || freeSpinsLeft > 0 || pendingFreeSpins > 0} onClick={minusBet} className="bet-btn plus" />
                     </div>
                   </div>
 
                   <div className="controls-center">
                     <button
-                      className={`spin-btn spin ${isReady || !autoSpin ? 'spin-image active' : 'stop-image'}`}
+                      className={`spin-btn spin ${(isReady || !autoSpin && !showFreeSpinIntro && !isFreeGame) ? 'spin-image active' : 'stop-image'}`}
                       disabled={
                         !isReady ||
                         balance === 0 ||

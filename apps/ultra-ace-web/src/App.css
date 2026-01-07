@@ -1422,6 +1422,11 @@ button:focus-visible {
     background-color: transparent;
 }
 
+.bet-btn.minus:disabled{
+    cursor: not-allowed;
+    filter: grayscale(0.4);
+}
+
 
 .bet-btn.plus {
     width: 40px;
@@ -1433,6 +1438,12 @@ button:focus-visible {
 
     border: none;
     background-color: transparent;
+}
+
+
+.bet-btn.plus:disabled{
+    cursor: not-allowed;
+    filter: grayscale(0.4);
 }
 
 /* interaction polish */

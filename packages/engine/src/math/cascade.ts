@@ -154,8 +154,8 @@ export function runCascades(
 
     const refilled = refillInPlace(window, rng, isFreeGame)
 
-    const intensity = isFreeGame ? Math.min(0.15 + i * 0.08, 0.7) : 0.15
-    decorateFreeSpinGoldOnRefill(window, refilled, rng, intensity)
+    // const intensity = isFreeGame ? Math.min(0.15 + i * 0.08, 0.7) : 0.15
+    // decorateFreeSpinGoldOnRefill(window, refilled, rng, intensity)
 
     cascades.push({
       index: i,
