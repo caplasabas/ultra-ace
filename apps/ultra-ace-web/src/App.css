@@ -2449,16 +2449,16 @@ button:focus-visible {
 
     /* BIGGER */
     width: 120%;
-    height: 70%;
+    height: 110%;
 
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -55%);
     pointer-events: none;
 
     background: radial-gradient(
             ellipse at center,
-            rgba(255, 240, 180, 0.75) 0%,
-            rgba(255, 200, 100, 0.45) 40%,
-            rgba(255, 160, 40, 0.15) 65%,
+            rgba(255, 247, 214, 1) 0%,
+            rgba(255, 200, 100, 0.85%) 40%,
+            rgba(255, 160, 40, 0.35) 75%,
             rgba(255, 120, 0, 0) 80%
     );
 
@@ -2471,9 +2471,10 @@ button:focus-visible {
     display: flex;
     flex-direction: column;
     justify-content: center;
+    margin-top: -10vh;
     align-items: center;
 
-    gap: 32px;
+    gap: 10vh;
 }
 
 .scatter-title-container {
@@ -2485,32 +2486,36 @@ button:focus-visible {
     font-family: 'Bebas Neue', sans-serif;
 
     line-height: 0.85;
-    letter-spacing: 0.02em;
+    letter-spacing: -0.03em;
 
-    font-size: 72px;
+    transform: scale(1, 0.7);
+
+    font-size: 60px;
     font-weight: 900;
 
     color: #9f3103;
-    -webkit-text-stroke: 1px #fff86b;
+    -webkit-text-stroke: 1px #ffea7e;
+
     text-shadow:
-            0 0 10px rgba(255, 220, 140, 0.95),
-            0 0 24px rgba(255, 180, 60, 0.75),
-            0 0 48px rgba(255, 140, 0, 0.55);
+            -1px 3px 3px rgba(90, 20, 5, 0.72);
 }
 
 .scatter-count {
     font-family: 'Bebas Neue', sans-serif;
 
     line-height: 0.85;
-    letter-spacing: 0.02em;
-    font-size: 64px;
+    letter-spacing: -0.03em;
+
+    transform: scale(1, 0.8);
+
+    font-size: 90px;
     font-weight: 900;
-    color: #0c1d3d;
-    /*-webkit-text-stroke: 1px #fff86b;*/
+
+    color: #9f3103;
+    -webkit-text-stroke: 1px #ffea7e;
+
     text-shadow:
-            0 0 14px rgba(255, 255, 220, 1),
-            0 0 32px rgba(255, 200, 120, 0.85),
-            0 0 64px rgba(255, 160, 40, 0.65);
+            -1px 3px 3px rgba(90, 20, 5, 0.72);
 }
 
 .scatter-multiplier {
@@ -2527,14 +2532,18 @@ button:focus-visible {
     font-family: 'Bebas Neue', sans-serif;
 
     line-height: 0.85;
-    letter-spacing: 0.02em;
-    font-size: 34px;
+    letter-spacing: -0.03em;
+
+    transform: scale(1, 0.7);
+
+    font-size: 40px;
     font-weight: 900;
+
     color: #9f3103;
-    /*-webkit-text-stroke: 1px #fff86b;*/
-    text-shadow: 0 0 14px rgba(255, 255, 220, 1),
-    0 0 32px rgba(255, 200, 120, 0.85),
-    0 0 64px rgba(255, 160, 40, 0.65);
+    -webkit-text-stroke: 0.5px #f8eba6;
+
+    text-shadow:
+            0 2px 0 rgba(90, 20, 5, 0.32);
 }
 
 
@@ -2544,7 +2553,8 @@ button:focus-visible {
 
     line-height: 0.85;
     letter-spacing: 0.02em;
-    font-size: 24px;
+    transform: scale(1, 0.7);
+    font-size: 40px;
     font-weight: 900;
     color: #9f3103;
 
