@@ -934,7 +934,7 @@ button:focus-visible {
     top: 3%;
     right: 3%;
 
-    height: 40px;
+    height: 30px;
 
     display: flex;
     align-items: center;
@@ -962,6 +962,13 @@ button:focus-visible {
     filter:
             drop-shadow(0 0 1px rgba(255, 210, 120, 1))
             drop-shadow(0 0 6px rgba(255, 160, 60, 0.7));
+}
+
+.buy-spin-btn:disabled {
+    cursor: not-allowed;
+    background-color: #212836;
+    border: 1px solid rgb(96, 89, 68);
+    filter: none;
 }
 
 .buy-spin-btn.active {

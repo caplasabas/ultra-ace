@@ -374,13 +374,16 @@ export default function App() {
               <button
                 className="buy-spin-btn"
                 disabled={
-                  (!isReady || balance === 0 || balance < bet * 50) &&
-                  !isFreeGame &&
-                  freeSpinsLeft <= 0
+                  spinning ||
+                  pauseColumn !== null ||
+                  balance === 0 ||
+                  balance < bet * 50 ||
+                  isFreeGame ||
+                  freeSpinsLeft > 0
                 }
                 onClick={buyFreeSpins}
               >
-                Buy
+                Buy Bonus
               </button>
 
               <div className="free-spin-banner">
