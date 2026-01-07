@@ -54,10 +54,9 @@ type CSSVars = CSSProperties & {
    SYMBOL IMAGE
 ---------------------------------------- */
 function resolveSymbolImage(symbol: UISymbol): string {
-  if (symbol.kind === 'EMPTY') return ''
   if (symbol.kind === 'BACK') return SYMBOL_MAP.BACK.normal
 
-  if (symbol.isGold === true) {
+  if (symbol.isGold === true || symbol.goldTTL !== undefined || symbol.isDecorativeGold === true) {
     const gold = SYMBOL_MAP[symbol.kind]?.gold
     if (gold) return gold
   }
@@ -72,7 +71,7 @@ function resolveSymbolImage(symbol: UISymbol): string {
     }
   }
 
-  return SYMBOL_MAP[symbol.kind]?.normal
+  return symbol.kind === 'EMPTY' ? '' : SYMBOL_MAP[symbol.kind]?.normal
 }
 
 function ReelComponent({
