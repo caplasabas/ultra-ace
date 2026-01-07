@@ -36,9 +36,15 @@ export function ScatterWinBanner({ amount }: Props) {
       <div className="scatter-win-glow" />
 
       <div className="scatter-win-content">
-        <div className="scatter-win-title">CONGRATS!</div>
-        <div className="scatter-win-title">YOU HAVE WON</div>
-        <div className="scatter-win-amount">{formatPeso(display)}</div>
+        <div className="scatter-win-title-container">
+          <div className="scatter-win-title">CONGRATS!</div>
+          <div className="scatter-win-title">YOU HAVE WON</div>
+        </div>
+
+        <div className="scatter-win-amount-wrap">
+          <div className="scatter-win-amount-bg" />
+          <div className="scatter-win-amount">{formatPeso(display)}</div>
+        </div>
       </div>
     </div>
   )
