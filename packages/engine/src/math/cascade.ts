@@ -13,21 +13,14 @@ import {
   BLOCKED_JOKER_KINDS,
 } from '../config/wild.config.js'
 
-const GOLD_CHANCE_REFILL = 0.000025
-const FREE_GOLD_CHANCE_REFILL = 0.25
+const GOLD_CHANCE_REFILL = 0.00000055
+const FREE_GOLD_CHANCE_REFILL = 0.0025
 
 const GOLD_TTL = 0
 const MAX_PAYOUT = 2_000_000
 const MAX_MULTIPLIER = 10_000
 
-const CASCADE_DECAY_BASE = 0.84
-const CASCADE_DECAY_FREE = 0.42
-
-const TARGET_DENSITY = 14
-const MAX_DENSITY = 19
-const MIN_DENSITY_FACTOR = 0.35
-
-const MAX_SAME_SYMBOL_PER_REEL = 4
+const MAX_SAME_SYMBOL_PER_REEL = 20
 
 export function runCascades(
   initialWindow: Symbol[][],
@@ -156,19 +149,19 @@ export function runCascades(
 
     /* ───────── CASCADE DENSITY FACTOR ───────── */
 
-    const filledCount = window.flat().filter(s => s.kind !== 'EMPTY').length
+    // const filledCount = window.flat().filter(s => s.kind !== 'EMPTY').length
 
-    let densityFactor = 1
-    if (filledCount > TARGET_DENSITY) {
-      const t = (filledCount - TARGET_DENSITY) / (MAX_DENSITY - TARGET_DENSITY)
-
-      const densityBias = isFreeGame ? 0.75 : 1
-      densityFactor = Math.max(MIN_DENSITY_FACTOR, 1 - t)
-      densityFactor *= densityBias
-    }
-
-    const decay = isFreeGame ? CASCADE_DECAY_FREE : CASCADE_DECAY_BASE
-    const win = baseWin * multiplier * Math.pow(decay, i - 1) * densityFactor
+    // let densityFactor = 1
+    // if (filledCount > TARGET_DENSITY) {
+    //   const t = (filledCount - TARGET_DENSITY) / (MAX_DENSITY - TARGET_DENSITY)
+    //
+    //   const densityBias = isFreeGame ? 0.75 : 1
+    //   densityFactor = Math.max(MIN_DENSITY_FACTOR, 1 - t)
+    //   densityFactor *= densityBias
+    // }
+    //
+    // const decay = isFreeGame ? CASCADE_DECAY_FREE : CASCADE_DECAY_BASE
+    const win = baseWin * multiplier
 
     totalWin += win
     if (totalWin >= MAX_PAYOUT) break

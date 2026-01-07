@@ -1,5 +1,5 @@
-export const RED_WILD_CHANCE = 0.12
-export const FREE_RED_WILD_CHANCE = 0.35
+export const RED_WILD_CHANCE = 0.007
+export const FREE_RED_WILD_CHANCE = 0.02
 
 // Big Joker replaces 1–4 symbols
 export const BIG_JOKER_MIN = 1

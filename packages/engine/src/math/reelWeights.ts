@@ -1,31 +1,31 @@
 export const REEL_WEIGHTS = {
-  SPADE: 1.8,
-  HEART: 1.8,
-  DIAMOND: 1.5,
-  CLUB: 1.5,
+  DIAMOND: 1.6,
+  CLUB: 1.6,
+  SPADE: 1.1,
+  HEART: 1.1,
 
-  J: 0.75,
-  Q: 0.7,
-  K: 0.52,
-  A: 0.42,
+  J: 0.55,
+  Q: 0.42,
+  K: 0.28,
+  A: 0.28,
 
   WILD: 0,
-  SCATTER: 0.09,
+  SCATTER: 0.06,
   // SCATTER: 1.2,
 }
 
 export const REEL_WEIGHTS_FREE = {
-  SPADE: 1.4,
-  HEART: 1.4,
-  DIAMOND: 1.0,
-  CLUB: 1.0,
+  SPADE: 1.3,
+  HEART: 1.3,
+  DIAMOND: 0.95,
+  CLUB: 0.95,
 
-  J: 0.6,
-  Q: 0.45,
-  K: 0.3,
-  A: 0.2,
+  J: 0.35,
+  Q: 0.22,
+  K: 0.12,
+  A: 0.04,
 
   WILD: 0,
-  SCATTER: 0.04,
+  SCATTER: 0.025,
   // SCATTER: 0.9,
 }

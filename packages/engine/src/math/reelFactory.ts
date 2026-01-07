@@ -9,7 +9,7 @@ export function buildReel(weights: Record<string, number> = REEL_WEIGHTS): Symbo
   const total = Object.values(weights).reduce((a, b) => a + b, 0)
 
   for (const [kind, weight] of Object.entries(weights)) {
-    const count = Math.round((weight / total) * REEL_SIZE)
+    const count = Math.floor((weight / total) * REEL_SIZE)
     for (let i = 0; i < count; i++) {
       reel.push({ kind } as Symbol)
     }
