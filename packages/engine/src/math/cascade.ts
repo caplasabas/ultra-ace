@@ -5,6 +5,7 @@ import { GAME_CONFIG } from '../config/game.config.js'
 import { getCascadeMultiplier } from './multiplier.js'
 import {
   RED_WILD_CHANCE,
+  FREE_RED_WILD_CHANCE,
   BIG_JOKER_MIN,
   BIG_JOKER_MAX,
   DEV_FORCE_RED_WILD,
@@ -12,7 +13,8 @@ import {
   BLOCKED_JOKER_KINDS,
 } from '../config/wild.config.js'
 
-const GOLD_CHANCE_REFILL = 0.025
+const GOLD_CHANCE_REFILL = 0.000025
+const FREE_GOLD_CHANCE_REFILL = 0.25
 
 const GOLD_TTL = 0
 const MAX_PAYOUT = 2_000_000
@@ -134,7 +136,8 @@ export function runCascades(
         }
 
         if (s.isGold) {
-          const isRed = DEV_FORCE_RED_WILD || DEV_FORCE_BIG_JOKER || rng() < RED_WILD_CHANCE
+          const redWildChange = isFreeGame ? FREE_RED_WILD_CHANCE : RED_WILD_CHANCE
+          const isRed = DEV_FORCE_RED_WILD || DEV_FORCE_BIG_JOKER || rng() < redWildChange
 
           window[pos.reel][pos.row] = {
             kind: 'WILD',
@@ -170,7 +173,7 @@ export function runCascades(
     totalWin += win
     if (totalWin >= MAX_PAYOUT) break
 
-    refillInPlace(window, rng)
+    refillInPlace(window, rng, isFreeGame)
 
     cascades.push({
       index: i,
@@ -215,7 +218,7 @@ function propagateBigJoker(window: Symbol[][], rng: () => number) {
 
 /* ───────── REFILL (STACK-LIMITED) ───────── */
 
-function refillInPlace(window: Symbol[][], rng: () => number) {
+function refillInPlace(window: Symbol[][], rng: () => number, isFreeGame: boolean) {
   for (let r = 0; r < window.length; r++) {
     for (let row = 0; row < window[r].length; row++) {
       if (window[r][row].kind !== 'EMPTY') continue
@@ -239,7 +242,9 @@ function refillInPlace(window: Symbol[][], rng: () => number) {
 
       const goldAllowed = r !== 0 && r !== window.length - 1
 
-      if (goldAllowed && symbol.kind !== 'SCATTER' && rng() < GOLD_CHANCE_REFILL) {
+      const goldChangeRefill = isFreeGame ? FREE_GOLD_CHANCE_REFILL : GOLD_CHANCE_REFILL
+
+      if (goldAllowed && symbol.kind !== 'SCATTER' && rng() < goldChangeRefill) {
         symbol.isGold = true
         symbol.goldTTL = GOLD_TTL
       }

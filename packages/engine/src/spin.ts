@@ -6,7 +6,8 @@ import { SpinInput, SpinOutcome } from './types/spin.js'
 import { GAME_CONFIG } from './config/game.config.js'
 import { Symbol, SymbolKind } from './types/symbol.js'
 
-const GOLD_CHANCE_INITIAL = 0.0015
+const GOLD_CHANCE_INITIAL = 0.00000055
+const FREE_GOLD_CHANCE_INITIAL = 0.095
 const GOLD_TTL = 0
 const FORBIDDEN_GOLD_REELS = new Set([0, 4])
 export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
@@ -35,10 +36,11 @@ export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
   ---------------------------------------- */
   for (let reelIndex = 0; reelIndex < window.length; reelIndex++) {
     for (const symbol of window[reelIndex]) {
+      const goldChangeInitial = isFreeGame ? FREE_GOLD_CHANCE_INITIAL : GOLD_CHANCE_INITIAL
       if (
         !FORBIDDEN_GOLD_REELS.has(reelIndex) &&
         symbol.kind !== 'SCATTER' &&
-        rng() < GOLD_CHANCE_INITIAL
+        rng() < goldChangeInitial
       ) {
         symbol.isGold = true
         symbol.goldTTL = GOLD_TTL

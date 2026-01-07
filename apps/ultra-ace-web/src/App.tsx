@@ -223,8 +223,11 @@ export default function App() {
     if (!spinCompleted) return
     if (!isFreeGame) return
 
+    // ✅ only consume AFTER the LAST cascade of the spin
+    if (cascadeIndex !== cascades.length - 1) return
+
     consumeFreeSpin()
-  }, [spinCompleted, isFreeGame])
+  }, [spinCompleted, isFreeGame, cascadeIndex, cascades.length])
 
   const BASE_MULTIPLIERS = [1, 2, 3, 5]
   const FREE_MULTIPLIERS = [2, 4, 6, 10]
@@ -507,7 +510,7 @@ export default function App() {
 
                   <div className="controls-center">
                     <button
-                      className={`spin-btn spin ${isReady ? 'spin-image active' : 'stop-image'}`}
+                      className={`spin-btn spin ${isReady || !autoSpin ? 'spin-image active' : 'stop-image'}`}
                       disabled={
                         !isReady ||
                         balance === 0 ||

@@ -173,15 +173,16 @@ export function useEngine() {
       spinning ||
       committedCascades.length === 0 ||
       showScatterWinBanner
-    ) {
+    )
       return
-    }
+
+    if (committedCascades.length === 0) return
 
     // 🔢 Cascade-based delay
     const cascadeCount = committedCascades.length
-    const computedDelay = Math.min(600 + cascadeCount * 420, 2400)
+    const computedDelay = Math.min(600 + cascadeCount * 420, 2400) + 1000
 
-    setBannerDelayMs(computedDelay + 1000)
+    setBannerDelayMs(computedDelay)
     setFreezeUI(true)
 
     const delay = setTimeout(() => {
