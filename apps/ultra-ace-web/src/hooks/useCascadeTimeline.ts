@@ -327,18 +327,15 @@ export function useCascadeTimeline(
         break
 
       case 'cascadeRefill':
-        t = window.setTimeout(
-          () => {
-            if (hasGoldToWild) {
-              dispatch({ type: 'NEXT', phase: 'postGoldTransform' })
-            } else if (hasNextLineWin) {
-              dispatch({ type: 'ADVANCE', cascades })
-            } else {
-              dispatch({ type: 'NEXT', phase: 'settle' })
-            }
-          },
-          scaled(hasGoldToWild || hasNextLineWin ? 1150 : 820),
-        )
+        t = window.setTimeout(() => {
+          if (hasGoldToWild) {
+            dispatch({ type: 'NEXT', phase: 'postGoldTransform' })
+          } else if (hasNextLineWin) {
+            dispatch({ type: 'ADVANCE', cascades })
+          } else {
+            dispatch({ type: 'NEXT', phase: 'settle' })
+          }
+        }, scaled(1350))
         break
 
       case 'postGoldTransform':
