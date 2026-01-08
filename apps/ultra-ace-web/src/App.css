@@ -169,10 +169,11 @@
     display: flex;
 
     /*justify-content: center;*/
-    overflow: visible;
+    overflow: hidden;
+
     /*margin-top: -0.vh;*/
 
-    height: 50vh;
+    height: 55vh;
 
 }
 
@@ -189,11 +190,11 @@
     );
     height: calc(
             var(--reel-height) +
-            var(--highlight-pad) * 8
+            var(--highlight-pad) * 20
     );
 
-    overflow-x: hidden;
-    overflow-y: hidden; /* ✅ allow glow escape */
+    /*overflow: hidden; !* KEEP *!*/
+
 
 }
 
@@ -206,7 +207,6 @@
 
     width: var(--reels-total-width);
     height: var(--reel-height);
-    overflow: visible;
 }
 
 .reel {
@@ -216,24 +216,27 @@
     top: 0;
     left: 0;
 
+
 }
 
 
 .reel.sweep-out-old {
     animation: oldReelDown 380ms cubic-bezier(0.32, 0.0, 0.58, 1) forwards;
+    transform: translate3d(0, 0, 0);
+
 }
 
 @keyframes oldReelDown {
     0% {
-        transform: translateY(0%);
-        filter: blur(0px);
+        transform: translate3d(0, 0px, 0);
+
     }
     40% {
-        filter: blur(3px);
+
     }
     100% {
-        transform: translateY(140%);
-        filter: blur(8px);
+        transform: translate3d(0, calc(var(--reel-height) * 1.4), 0);
+
         opacity: 0;
     }
 }
@@ -478,29 +481,6 @@
     }
 }
 
-@supports (-webkit-touch-callout: none) {
-
-    /* 🔴 Remove compositor isolation */
-    .card-shell,
-    .card-inner,
-    .spin-btn.turbo.spin-turbo-image.active {
-        isolation: auto !important;
-    }
-
-    /* 🔴 Kill 3D transforms */
-    .card,
-    .symbol-img,
-    .reel {
-        transform: translate(0, 0) !important;
-        -webkit-transform: translate(0, 0) !important;
-    }
-
-    /* 🔴 Disable aggressive layer promotion */
-    .card,
-    .symbol-img {
-        will-change: auto !important;
-    }
-}
 
 /* =========================
    BACK — NO SCALE EVER
@@ -908,7 +888,7 @@
 .bottom-container {
     width: 100%;
     height: 22vh;
-    margin-top: 6%;
+    /*margin-top: %;*/
     /*padding: 10px 0;*/
 
     display: flex;
