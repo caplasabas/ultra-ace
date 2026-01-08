@@ -233,16 +233,15 @@
 @keyframes oldReelDown {
     0% {
         transform: translateY(0px);
-        filter: blur(0);
+
 
     }
     40% {
-        filter: blur(3px);
+
 
     }
     100% {
-        transform: translateY(calc(var(--reel-height) * 1.4));
-        filter: blur(8px);
+        transform: translate3d(0, calc(var(--reel-height) * 2.2), 0);
         opacity: 0;
     }
 }
