@@ -35,14 +35,25 @@ export function adaptWindow(
           ? 'BACK'
           : symbol.kind
 
+      const symbolChanged =
+        prev &&
+        (prev.kind !== symbol.kind ||
+          prev.isGold !== symbol.isGold ||
+          prev.wildColor !== symbol.wildColor)
+
       const isPersisted =
-        prev !== undefined && prev.kind !== 'EMPTY' && !removedSet.has(`${reelIndex}-${row}`)
+        prev !== undefined &&
+        prev.kind !== 'EMPTY' &&
+        !removedSet.has(`${reelIndex}-${row}`) &&
+        !symbolChanged
+
+      const isNew = removedSet.has(`${reelIndex}-${row}`) || prev?.kind === 'EMPTY' || symbolChanged
 
       return {
         id: `${reelIndex}-${row}`,
         kind: visualKind,
 
-        isNew: removedSet.has(`${reelIndex}-${row}`),
+        isNew,
         isPersisted,
 
         isGold: false,
