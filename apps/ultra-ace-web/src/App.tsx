@@ -369,9 +369,7 @@ export default function App() {
                   freeSpinsLeft > 0
                 }
                 onClick={buyFreeSpins}
-              >
-                Buy Bonus
-              </button>
+              />
 
               <div className="free-spin-banner">
                 <div
