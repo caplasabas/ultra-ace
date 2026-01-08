@@ -354,7 +354,7 @@ export function useCascadeTimeline(
       case 'settle':
         t = window.setTimeout(
           () => {
-            if (!hasNextLineWin && hasScatterWin) {
+            if (!hasNextLineWin && hasScatterWin && !state.isScatterHighlight) {
               dispatch({ type: 'ADVANCE_SCATTER', cascades })
             } else {
               dispatch({ type: 'RESET' })
