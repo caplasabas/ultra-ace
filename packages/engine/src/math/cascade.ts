@@ -70,23 +70,23 @@ export function runCascades(
     /* ----------------------------------------
        NO MORE LINE WINS → POSSIBLE SCATTER TERMINAL
     ---------------------------------------- */
-    if (wins.length === 0) {
-      // const scatterCount = window.flat().filter(s => s.kind === 'SCATTER').length
+    // if (wins.length === 0) {
+    // const scatterCount = window.flat().filter(s => s.kind === 'SCATTER').length
 
-      // if (scatterCount >= 3) {
-      //   cascades.push({
-      //     index: i,
-      //     multiplier,
-      //     lineWins: [],
-      //     win: 0,
-      //     removedPositions: [],
-      //     isScatterTerminal: true,
-      //     window: cloneWindow(cascades[cascades.length - 1].window), // 🔒 post-pop, pre-refill
-      //   })
-      // }
+    // if (scatterCount >= 3) {
+    //   cascades.push({
+    //     index: i,
+    //     multiplier,
+    //     lineWins: [],
+    //     win: 0,
+    //     removedPositions: [],
+    //     isScatterTerminal: true,
+    //     window: cloneWindow(cascades[cascades.length - 1].window), // 🔒 post-pop, pre-refill
+    //   })
+    // }
 
-      break
-    }
+    //   break
+    // }
 
     /* ----------------------------------------
        APPLY LINE WINS

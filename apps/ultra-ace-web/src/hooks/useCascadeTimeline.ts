@@ -216,7 +216,7 @@ export function useCascadeTimeline(
 
         if (hasNextLineWin) {
           dispatch({ type: 'ADVANCE', cascades })
-        } else if (hasLineWin && hasScatterWin) {
+        } else if (!hasLineWin && hasScatterWin) {
           dispatch({ type: 'ADVANCE_SCATTER', cascades })
         } else {
           dispatch({ type: 'NEXT', phase: 'settle' })
@@ -256,7 +256,7 @@ export function useCascadeTimeline(
 
         if (hasNextLineWin) {
           dispatch({ type: 'ADVANCE', cascades })
-        } else if (hasLineWin && hasScatterWin) {
+        } else if (!hasNextLineWin && hasScatterWin) {
           dispatch({ type: 'ADVANCE_SCATTER', cascades })
         } else {
           dispatch({ type: 'NEXT', phase: 'settle' })
@@ -323,8 +323,6 @@ export function useCascadeTimeline(
         t = window.setTimeout(() => {
           if (hasRemovals) {
             dispatch({ type: 'NEXT', phase: 'cascadeRefill' })
-          } else if (hasLineWin && hasScatterWin) {
-            dispatch({ type: 'ADVANCE_SCATTER', cascades })
           } else if (hasNextLineScatter) {
             dispatch({ type: 'NEXT', phase: 'settle' })
           }
@@ -335,8 +333,6 @@ export function useCascadeTimeline(
         t = window.setTimeout(() => {
           if (hasGoldToWild) {
             dispatch({ type: 'NEXT', phase: 'postGoldTransform' })
-          } else if (hasLineWin && hasScatterWin) {
-            dispatch({ type: 'ADVANCE_SCATTER', cascades })
           } else if (hasNextLineWin) {
             dispatch({ type: 'ADVANCE', cascades })
           } else {
@@ -356,7 +352,16 @@ export function useCascadeTimeline(
         break
 
       case 'settle':
-        t = window.setTimeout(() => dispatch({ type: 'RESET' }), scaled(250))
+        t = window.setTimeout(
+          () => {
+            if (!hasNextLineWin && hasScatterWin) {
+              dispatch({ type: 'ADVANCE_SCATTER', cascades })
+            } else {
+              dispatch({ type: 'RESET' })
+            }
+          },
+          scaled(!hasNextLineWin && hasScatterWin ? 550 : 250),
+        )
         break
     }
 

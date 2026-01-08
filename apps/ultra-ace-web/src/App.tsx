@@ -272,7 +272,7 @@ export default function App() {
 
     const cardsPerColumn = activeCascade?.window?.[0]?.length ?? 4
 
-    const BUFFER_MS = cascades.length * 600
+    const BUFFER_MS = 200
 
     const pausedColumns = TOTAL_REELS - pauseColumn - 1
     const columnDuration = cardsPerColumn * PAUSED_INITIAL_ROW_DROP_DELAY
@@ -289,20 +289,9 @@ export default function App() {
     if (pendingFreeSpins <= 0 && freeSpinsLeft <= 0) return
     if (introShown) return
     if (isFreeGame) return
-
-    if (cascades.length > 0) {
-      const delayMs = computeScatterDelay(pauseColumn)
-
-      console.log(delayMs)
-      const show = onShowFreeSpinIntro(delayMs)
-      return () => clearTimeout(show)
-    } else {
-      console.log(cascades.length)
-      if (isScatterOnlyTerminal) {
-        const show = onShowFreeSpinIntro(700 + cascades.length * 1000)
-        return () => clearTimeout(show)
-      }
-    }
+    if (!isScatterHighlight) return
+    const show = onShowFreeSpinIntro(300)
+    return () => clearTimeout(show)
   }, [
     pendingFreeSpins,
     scatterTriggerType,
