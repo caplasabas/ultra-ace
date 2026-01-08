@@ -43,6 +43,7 @@ interface Props {
   initialRefillColumn: number | null
   activePausedColumn: number | null
   turboMultiplier: number
+  isScatterHighlight: boolean
 }
 
 type CSSVars = CSSProperties & {
@@ -53,7 +54,8 @@ type CSSVars = CSSProperties & {
 /* ----------------------------------------
    SYMBOL IMAGE
 ---------------------------------------- */
-function resolveSymbolImage(symbol: UISymbol): string {
+function resolveSymbolImage(symbol: UISymbol): string | undefined {
+  if (symbol.kind === 'EMPTY') return undefined
   if (symbol.kind === 'BACK') return SYMBOL_MAP.BACK.normal
 
   if (symbol.isGold === true || symbol.goldTTL !== undefined || symbol.isDecorativeGold === true) {
@@ -71,7 +73,7 @@ function resolveSymbolImage(symbol: UISymbol): string {
     }
   }
 
-  return symbol.kind === 'EMPTY' ? '' : SYMBOL_MAP[symbol.kind]?.normal
+  return SYMBOL_MAP[symbol.kind]?.normal
 }
 
 function ReelComponent({
@@ -83,6 +85,7 @@ function ReelComponent({
   initialRefillColumn,
   activePausedColumn,
   turboMultiplier,
+  isScatterHighlight,
 }: Props) {
   const speed = turboMultiplier
 
@@ -165,8 +168,9 @@ function ReelComponent({
         const isGoldLocked =
           symbol.isGold === true || symbol.goldTTL !== undefined || symbol.wasGold
 
-        const isGoldWin = isGoldLocked && isWin && phase === 'pop'
-        const isNormalPop = isWin && phase === 'pop' && !isGoldLocked
+        const isGoldWin = isGoldLocked && isWin && phase === 'pop' && symbol.kind !== 'SCATTER'
+
+        const isNormalPop = isWin && phase === 'pop' && !isGoldLocked && symbol.kind !== 'SCATTER'
 
         const isScatterIdle =
           isScatter &&
@@ -175,6 +179,11 @@ function ReelComponent({
           (phase === 'highlight' || phase === 'idle' || phase === 'settle')
 
         const shouldFlip = symbol.goldToWild === true
+
+        const isScatterHover =
+          symbol.kind === 'SCATTER' &&
+          isScatterHighlight &&
+          (phase === 'highlight' || phase === 'settle')
 
         /* ----------------------------------------
            DEAL TIMING
@@ -230,6 +239,7 @@ function ReelComponent({
                 isCascadeDeal && 'deal',
                 isNormalPop && 'pop',
                 isGoldWin && 'gold-pop-lock',
+                isScatterHover && 'scatter-hover',
                 shouldFlip && 'flip-to-wild',
                 symbol.isSettledWild && 'settled',
               ]
@@ -261,14 +271,16 @@ function ReelComponent({
                     : undefined
                 }
               >
-                <img
-                  src={imgSrc}
-                  className={['symbol-img', wildHighlight && 'wild-highlight']
-                    .filter(Boolean)
-                    .join(' ')}
-                  style={{ backgroundImage: `url(${imgSrc})` }}
-                  draggable={false}
-                />
+                {imgSrc && (
+                  <img
+                    src={imgSrc}
+                    className={['symbol-img', wildHighlight && 'wild-highlight']
+                      .filter(Boolean)
+                      .join(' ')}
+                    style={{ backgroundImage: `url(${imgSrc})` }}
+                    draggable={false}
+                  />
+                )}
               </div>
             </div>
 

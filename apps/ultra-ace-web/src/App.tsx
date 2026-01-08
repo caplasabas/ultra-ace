@@ -3,6 +3,8 @@ import { PAUSED_INITIAL_ROW_DROP_DELAY, Reel } from './ui/Reel'
 import { DimOverlay } from './ui/DimOverlay'
 import { WinOverlay } from './ui/WinOverlay'
 import { adaptWindow } from './game/adaptWindow'
+import type { CascadeStep, Symbol as EngineSymbol } from '@ultra-ace/engine'
+
 import {
   detectScatterPauseColumn,
   INITIAL_REFILL_PAUSE_MS,
@@ -20,6 +22,35 @@ import { ScatterWinBanner } from './ui/ScatterWinBanner'
 const DEV = import.meta.env.DEV
 
 const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kind }))
+
+function logWindowKinds(label: string, window: EngineSymbol[][]) {
+  if (!window?.length) return
+
+  const reels = window.length
+  const rows = window[0].length
+
+  console.group(`[BOARD] ${label}`)
+
+  // Print top row first (visual match)
+  for (let row = rows - 1; row >= 0; row--) {
+    const line = []
+    for (let reel = 0; reel < reels; reel++) {
+      const k = window[reel][row]?.kind ?? '???'
+      line.push(k.padEnd(9, ' '))
+    }
+    console.log(line.join(' | '))
+  }
+
+  console.groupEnd()
+}
+
+const EMPTY_SYMBOL: EngineSymbol = {
+  kind: 'EMPTY',
+  isGold: false,
+  goldTTL: undefined,
+  isDecorativeGold: false,
+  wildColor: undefined,
+}
 
 export default function App() {
   const [autoSpin, setAutoSpin] = useState(false)
@@ -114,16 +145,22 @@ export default function App() {
     activeCascade.window &&
     activeCascade.window.flat().filter(s => s.kind === 'SCATTER').length >= 3
 
+  const isScatterOnlyTerminal =
+    Boolean(activeCascade) &&
+    activeCascade.lineWins.length === 0 &&
+    activeCascade.window.flat().filter(s => s.kind === 'SCATTER').length >= 3
+
   const EMPTY_WIN_SET = new Set<string>()
 
   const winningPositions = useMemo(() => {
     const set = new Set<string>()
 
-    activeCascade?.lineWins?.forEach(lw => {
-      lw.positions.forEach(p => set.add(`${p.reel}-${p.row}`))
-    })
+    if (!isScatterHighlight) {
+      activeCascade?.lineWins?.forEach(lw => {
+        lw.positions.forEach(p => set.add(`${p.reel}-${p.row}`))
+      })
+    }
 
-    // 🔒 Scatter-only highlight
     if (isScatterHighlight && activeCascade?.window) {
       activeCascade.window.forEach((col, r) => {
         col.forEach((s, row) => {
@@ -152,7 +189,7 @@ export default function App() {
     phase === 'highlight' ||
     phase === 'pop' ||
     phase === 'cascadeRefill' ||
-    phase === 'postGoldTransform'
+    (phase === 'postGoldTransform' && !isScatterOnlyTerminal)
 
   const adaptedWindow =
     windowForRender &&
@@ -162,6 +199,12 @@ export default function App() {
       shouldUsePrevious ? previousCascade?.window : undefined,
       phase,
     )
+  //
+  // useEffect(() => {
+  //   if (adaptedWindow) {
+  //     logWindowKinds('adaptedWindow', adaptedWindow as EngineSymbol[][])
+  //   }
+  // }, [adaptedWindow])
 
   const [isFreeSpinPreview, setIsFreeSpinPreview] = useState(false)
 
@@ -229,7 +272,7 @@ export default function App() {
 
     const cardsPerColumn = activeCascade?.window?.[0]?.length ?? 4
 
-    const BUFFER_MS = 300
+    const BUFFER_MS = cascades.length * 600
 
     const pausedColumns = TOTAL_REELS - pauseColumn - 1
     const columnDuration = cardsPerColumn * PAUSED_INITIAL_ROW_DROP_DELAY
@@ -242,13 +285,36 @@ export default function App() {
       setTurboStage(0)
       setAutoSpin(false)
     }
+
     if (pendingFreeSpins <= 0 && freeSpinsLeft <= 0) return
     if (introShown) return
     if (isFreeGame) return
 
-    const delayMs = computeScatterDelay(pauseColumn)
+    if (cascades.length > 0) {
+      const delayMs = computeScatterDelay(pauseColumn)
 
-    const show = setTimeout(() => {
+      console.log(delayMs)
+      const show = onShowFreeSpinIntro(delayMs)
+      return () => clearTimeout(show)
+    } else {
+      console.log(cascades.length)
+      if (isScatterOnlyTerminal) {
+        const show = onShowFreeSpinIntro(700 + cascades.length * 1000)
+        return () => clearTimeout(show)
+      }
+    }
+  }, [
+    pendingFreeSpins,
+    scatterTriggerType,
+    introShown,
+    activeCascade,
+    isFreeGame,
+    freeSpinsLeft,
+    pauseColumn,
+  ])
+
+  const onShowFreeSpinIntro = (delayMs: number) => {
+    return setTimeout(() => {
       setAutoSpin(false)
       setIntroShown(true)
       setShowFreeSpinIntro(true)
@@ -260,9 +326,7 @@ export default function App() {
 
       return () => clearTimeout(hide)
     }, delayMs)
-
-    return () => clearTimeout(show)
-  }, [pendingFreeSpins, scatterTriggerType, introShown, activeCascade, isFreeGame, freeSpinsLeft])
+  }
 
   useEffect(() => {
     if (phase === 'idle') {
@@ -423,7 +487,23 @@ export default function App() {
               />
 
               <div className="reels-stage">
-                <div className="gpu-prewarm" />
+                <div className="gpu-prewarm" />{' '}
+                {previousCascade &&
+                  ['reelSweepOut', 'initialRefill'].includes(phase) &&
+                  adaptWindow(previousCascade.window).map((col, i) => (
+                    <Reel
+                      key={`old-${cascadeIndex}-${i}`}
+                      symbols={col}
+                      reelIndex={i}
+                      winningPositions={winningPositions}
+                      phase="reelSweepOut"
+                      layer="old"
+                      initialRefillColumn={initialRefillColumn}
+                      activePausedColumn={activePausedColumn}
+                      turboMultiplier={turboMultiplier}
+                      isScatterHighlight={isScatterHighlight}
+                    />
+                  ))}
                 <div className="reels-clip">
                   <div className="reels-row">
                     {placeholderWindow.map((col, i) => (
@@ -437,24 +517,9 @@ export default function App() {
                         initialRefillColumn={initialRefillColumn}
                         activePausedColumn={activePausedColumn}
                         turboMultiplier={turboMultiplier}
+                        isScatterHighlight={isScatterHighlight}
                       />
                     ))}
-
-                    {previousCascade &&
-                      ['reelSweepOut', 'initialRefill'].includes(phase) &&
-                      adaptWindow(previousCascade.window).map((col, i) => (
-                        <Reel
-                          key={`old-${cascadeIndex}-${i}`}
-                          symbols={col}
-                          reelIndex={i}
-                          winningPositions={winningPositions}
-                          phase="reelSweepOut"
-                          layer="old"
-                          initialRefillColumn={initialRefillColumn}
-                          activePausedColumn={activePausedColumn}
-                          turboMultiplier={turboMultiplier}
-                        />
-                      ))}
 
                     {adaptedWindow &&
                       [
@@ -477,6 +542,7 @@ export default function App() {
                           initialRefillColumn={initialRefillColumn}
                           activePausedColumn={activePausedColumn}
                           turboMultiplier={turboMultiplier}
+                          isScatterHighlight={isScatterHighlight}
                         />
                       ))}
                   </div>

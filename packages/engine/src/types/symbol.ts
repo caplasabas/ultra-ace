@@ -26,4 +26,6 @@ export interface Symbol {
 
   /* 🔑 UI-ONLY METADATA */
   fromGold?: boolean
+
+  isScatterTerminal?: boolean
 }

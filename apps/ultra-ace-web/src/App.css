@@ -398,6 +398,14 @@
     z-index: 1;
 }
 
+.card-shell.empty {
+    pointer-events: none;
+}
+
+.card-shell.empty::after {
+    content: '';
+}
+
 /* =========================
    Card Inner (highlight layer)
    ========================= */
@@ -1967,6 +1975,16 @@ button:focus-visible {
     100% { transform: scale(1.25); }
 }
 
+
+.scatter-hover {
+    animation: scatter-float 1.6s ease-in-out infinite;
+}
+
+@keyframes scatter-float {
+    0%   { transform: translateY(0); }
+    50%  { transform: translateY(-6px); }
+    100% { transform: translateY(0); }
+}
 /* =========================
    SCATTER WIN BANNER (FINAL)
    ========================= */

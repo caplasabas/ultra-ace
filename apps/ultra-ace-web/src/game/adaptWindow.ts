@@ -18,17 +18,38 @@ export function adaptWindow(
     col.map((symbol, row) => {
       const prev = previousWindow?.[reelIndex]?.[row]
 
+      // 🔒 EMPTY IS TERMINAL VISUALLY
+      if (symbol.kind === 'EMPTY') {
+        return {
+          id: `${reelIndex}-${row}`,
+          kind: 'EMPTY',
+
+          isNew: false,
+          isPersisted: false,
+
+          isGold: false,
+          goldTTL: undefined,
+
+          isDecorativeGold: false,
+
+          goldToWild: false,
+          wildColor: undefined,
+
+          isSettledWild: false,
+
+          prevKind: undefined,
+          wasGold: false,
+        }
+      }
+
       const wasGold = prev?.isGold === true
       const becameWild = symbol.kind === 'WILD'
 
       const isFinalPhase = phase === 'settle' || phase === 'idle'
-      // 🔒 FINAL WILD LATCH (CRITICAL)
       const isSettledWild = becameWild && (phase === 'postGoldTransform' || prev?.kind === 'WILD')
 
-      // 🔒 Flip ONLY once
       const shouldFlip = wasGold && becameWild && phase === 'postGoldTransform'
 
-      // 🔒 BACK only allowed BEFORE flip AND not settled
       const visualKind = isFinalPhase
         ? symbol.kind
         : wasGold && becameWild && !isSettledWild && phase !== 'postGoldTransform'

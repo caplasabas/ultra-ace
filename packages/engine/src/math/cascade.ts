@@ -13,6 +13,9 @@ import {
   BLOCKED_JOKER_KINDS,
 } from '../config/wild.config.js'
 
+/* ----------------------------------------
+   CONSTANTS
+---------------------------------------- */
 const GOLD_CHANCE_REFILL = 0.025
 const FREE_GOLD_CHANCE_REFILL = 0.055
 
@@ -21,6 +24,9 @@ const MAX_PAYOUT = 2_000_000
 const MAX_MULTIPLIER = 10_000
 const MAX_SAME_SYMBOL_PER_REEL = 20
 
+/* ----------------------------------------
+   HELPERS
+---------------------------------------- */
 function makeInitialCascade(window: Symbol[][]): CascadeStep {
   return {
     index: 0,
@@ -28,10 +34,14 @@ function makeInitialCascade(window: Symbol[][]): CascadeStep {
     lineWins: [],
     win: 0,
     removedPositions: [],
+    isScatterTerminal: false,
     window: cloneWindow(window),
   }
 }
 
+/* ----------------------------------------
+   MAIN
+---------------------------------------- */
 export function runCascades(
   initialWindow: Symbol[][],
   totalBet: number,
@@ -45,19 +55,6 @@ export function runCascades(
 
   cascades.push(makeInitialCascade(window))
 
-  /* -------------------------------------------------
-     SCATTER LOCK — TERMINAL, NO OTHER WINS ALLOWED
-  ------------------------------------------------- */
-  const scatterCount = window.flat().filter(s => s.kind === 'SCATTER').length
-
-  if (scatterCount >= 3 && isForceScatter) {
-    sanitizeNonScatterWins(window, rng)
-    return { totalWin: 0, cascades: [makeInitialCascade(window)] }
-  }
-
-  /* -------------------------------------------------
-     NORMAL CASCADE FLOW
-  ------------------------------------------------- */
   for (let i = 1; i <= GAME_CONFIG.maxCascades; i++) {
     const multiplier = getCascadeMultiplier(
       i,
@@ -69,8 +66,31 @@ export function runCascades(
     if (multiplier >= MAX_MULTIPLIER) break
 
     const { wins } = evaluateColumnWindow(window, totalBet)
-    if (wins.length === 0) break
 
+    /* ----------------------------------------
+       NO MORE LINE WINS → POSSIBLE SCATTER TERMINAL
+    ---------------------------------------- */
+    if (wins.length === 0) {
+      // const scatterCount = window.flat().filter(s => s.kind === 'SCATTER').length
+
+      // if (scatterCount >= 3) {
+      //   cascades.push({
+      //     index: i,
+      //     multiplier,
+      //     lineWins: [],
+      //     win: 0,
+      //     removedPositions: [],
+      //     isScatterTerminal: true,
+      //     window: cloneWindow(cascades[cascades.length - 1].window), // 🔒 post-pop, pre-refill
+      //   })
+      // }
+
+      break
+    }
+
+    /* ----------------------------------------
+       APPLY LINE WINS
+    ---------------------------------------- */
     const removedSet = new Set<string>()
     const removed: { reel: number; row: number }[] = []
     let baseWin = 0
@@ -82,9 +102,6 @@ export function runCascades(
       removed.push(pos)
     }
 
-    /* -----------------------------
-       APPLY WINS
-    ----------------------------- */
     for (const w of wins) {
       baseWin += w.payout
 
@@ -94,11 +111,13 @@ export function runCascades(
 
         markForRemoval(pos)
 
+        // Edge reel always empties
         if (isEdge) {
           window[pos.reel][pos.row] = { kind: 'EMPTY' }
           continue
         }
 
+        // Gold → Wild
         if (s.isGold) {
           const redChance = isFreeGame ? FREE_RED_WILD_CHANCE : RED_WILD_CHANCE
           const isRed = DEV_FORCE_RED_WILD || DEV_FORCE_BIG_JOKER || rng() < redChance
@@ -114,6 +133,7 @@ export function runCascades(
           continue
         }
 
+        // Normal symbol
         window[pos.reel][pos.row] = { kind: 'EMPTY' }
       }
     }
@@ -121,6 +141,16 @@ export function runCascades(
     const win = baseWin * multiplier
     totalWin += win
     if (totalWin >= MAX_PAYOUT) break
+
+    // /* ----------------------------------------
+    //    CHECK FOR SCATTER TERMINAL AFTER POP
+    // ---------------------------------------- */
+    // const scatterCountAfterPop = window.flat().filter(s => s.kind === 'SCATTER').length
+    //
+    // const isScatterTerminalNext = scatterCountAfterPop >= 3
+    //
+    // // Capture post-pop window BEFORE refill
+    // const postPopWindow = cloneWindow(window)
 
     refillInPlace(window, rng, isFreeGame)
 
@@ -130,16 +160,30 @@ export function runCascades(
       lineWins: wins,
       win,
       removedPositions: removed,
+      isScatterTerminal: false,
       window: cloneWindow(window),
     })
+
+    // if (isScatterTerminalNext) {
+    //   cascades.push({
+    //     index: i + 1,
+    //     multiplier,
+    //     lineWins: [],
+    //     win: 0,
+    //     removedPositions: removed,
+    //     isScatterTerminal: true,
+    //     window: postPopWindow, // 🔒 BLANKS PRESERVED
+    //   })
+    //   break
+    // }
   }
 
   return { totalWin, cascades }
 }
 
-/* -------------------------------------------------
+/* ----------------------------------------
    BIG JOKER (RED WILD PROPAGATION)
-------------------------------------------------- */
+---------------------------------------- */
 function propagateBigJoker(window: Symbol[][], rng: () => number) {
   const candidates: { reel: number; row: number }[] = []
 
@@ -166,9 +210,9 @@ function propagateBigJoker(window: Symbol[][], rng: () => number) {
   }
 }
 
-/* -------------------------------------------------
-   REFILL (STACK-LIMITED)
-------------------------------------------------- */
+/* ----------------------------------------
+   REFILL
+---------------------------------------- */
 function refillInPlace(window: Symbol[][], rng: () => number, isFreeGame: boolean) {
   for (let r = 0; r < window.length; r++) {
     for (let row = 0; row < window[r].length; row++) {
@@ -184,6 +228,7 @@ function refillInPlace(window: Symbol[][], rng: () => number, isFreeGame: boolea
         attempts++
 
         const sameKindCount = window[r].filter(s => s.kind === symbol.kind).length
+
         if (symbol.kind !== 'WILD' && sameKindCount < MAX_SAME_SYMBOL_PER_REEL) break
       } while (attempts < 20)
 
@@ -199,50 +244,10 @@ function refillInPlace(window: Symbol[][], rng: () => number, isFreeGame: boolea
     }
   }
 }
-function sanitizeNonScatterWins(window: Symbol[][], rng: () => number) {
-  const reelCount = window.length
-  const rowCount = window[0].length
 
-  // 1️⃣ Build symbol → reels map
-  const symbolReels = new Map<string, Set<number>>()
-
-  for (let r = 0; r < reelCount; r++) {
-    for (let row = 0; row < rowCount; row++) {
-      const k = window[r][row].kind
-      if (k === 'SCATTER') continue
-
-      if (!symbolReels.has(k)) symbolReels.set(k, new Set())
-      symbolReels.get(k)!.add(r)
-    }
-  }
-
-  // 2️⃣ For any symbol present in 3+ reels, break it
-  for (const [kind, reels] of symbolReels.entries()) {
-    if (reels.size < 3) continue
-
-    // Keep at most 2 reels
-    const reelsToClear = [...reels].slice(2)
-
-    for (const r of reelsToClear) {
-      for (let row = 0; row < rowCount; row++) {
-        if (window[r][row].kind === kind) {
-          const s = drawSafeNonWinningSymbol(rng, kind)
-          if (s.kind === 'EMPTY') throw new Error('sanitizeNonScatterWins produced EMPTY')
-          window[r][row] = s
-        }
-      }
-    }
-  }
-}
-
-function drawSafeNonWinningSymbol(rng: () => number, forbidden: string): Symbol {
-  const pool = GAME_CONFIG.cascadeFillPool.filter(s => s.kind !== forbidden)
-  return { ...pool[Math.floor(rng() * pool.length)] }
-}
-
-/* -------------------------------------------------
+/* ----------------------------------------
    UTILS
-------------------------------------------------- */
+---------------------------------------- */
 function cloneWindow(w: Symbol[][]): Symbol[][] {
   return w.map(col => col.map(s => ({ ...s })))
 }

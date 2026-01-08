@@ -13,6 +13,7 @@ export interface CascadeStep {
   multiplier: number
   lineWins: LineWin[]
   win: number
+  isScatterTerminal?: boolean
   removedPositions: { reel: number; row: number }[]
   window: Symbol[][]
 }
