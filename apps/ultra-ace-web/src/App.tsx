@@ -360,7 +360,7 @@ export default function App() {
   }
 
   const addBalance = () => {
-    setBalance(balance + 5000)
+    setBalance(b => b + 5000)
   }
 
   useEffect(() => {
@@ -369,7 +369,17 @@ export default function App() {
 
       switch (action) {
         case 'SPIN':
-          spin()
+          if (
+            (isReady && balance > 0) ||
+            (balance >= bet &&
+              !isFreeGame &&
+              !showFreeSpinIntro &&
+              !showScatterWinBanner &&
+              freeSpinsLeft <= 0)
+          ) {
+            spin()
+          }
+
           break
         case 'BET_UP':
           addBet()
