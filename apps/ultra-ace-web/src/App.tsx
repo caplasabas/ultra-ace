@@ -374,12 +374,13 @@ export default function App() {
       switch (action) {
         case 'SPIN':
           if (
-            (isReady && balance > 0) ||
-            (balance >= bet &&
-              !isFreeGame &&
-              !showFreeSpinIntro &&
-              !showScatterWinBanner &&
-              freeSpinsLeft <= 0)
+            isReady &&
+            balance > 0 &&
+            balance >= bet &&
+            !isFreeGame &&
+            !showFreeSpinIntro &&
+            !showScatterWinBanner &&
+            freeSpinsLeft <= 0
           ) {
             spin()
           }
