@@ -363,6 +363,10 @@ export default function App() {
     setBalance(b => b + 5000)
   }
 
+  const minusBalance = () => {
+    setBalance(b => b - 5000)
+  }
+
   useEffect(() => {
     window.__ARCADE_INPUT__ = (action: string) => {
       if (!isReady) return
@@ -389,6 +393,9 @@ export default function App() {
           break
         case 'COIN':
           addBalance()
+          break
+        case 'WITHDRAW':
+          minusBalance()
           break
       }
     }
