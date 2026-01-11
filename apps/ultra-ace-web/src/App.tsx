@@ -387,10 +387,30 @@ export default function App() {
 
           break
         case 'BET_UP':
-          addBet()
+          if (
+            isReady &&
+            !spinning &&
+            !autoSpin &&
+            !isFreeGame &&
+            !showFreeSpinIntro &&
+            !showScatterWinBanner &&
+            freeSpinsLeft <= 0
+          ) {
+            addBet()
+          }
           break
         case 'BET_DOWN':
-          minusBet()
+          if (
+            isReady &&
+            !spinning &&
+            !autoSpin &&
+            !isFreeGame &&
+            !showFreeSpinIntro &&
+            !showScatterWinBanner &&
+            freeSpinsLeft <= 0
+          ) {
+            minusBet()
+          }
           break
         case 'AUTO':
           if (!isFreeGame && balance > 0 && balance >= bet && pauseColumn === null) {
@@ -401,7 +421,26 @@ export default function App() {
           addBalance()
           break
         case 'WITHDRAW':
-          minusBalance()
+          if (
+            isReady &&
+            !spinning &&
+            !autoSpin &&
+            !isFreeGame &&
+            !showFreeSpinIntro &&
+            !showScatterWinBanner &&
+            freeSpinsLeft <= 0
+          ) {
+            minusBalance()
+          }
+          break
+        case 'TURBO':
+          if (balance > 0 && balance >= bet && pauseColumn === null) {
+            setTurboStage(prev => {
+              const next = ((prev + 1) % 4) as 0 | 1 | 2 | 3
+              if (next === 0) setAutoSpin(false)
+              return next
+            })
+          }
           break
       }
     }
