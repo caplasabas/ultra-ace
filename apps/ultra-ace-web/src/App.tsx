@@ -375,8 +375,8 @@ export default function App() {
         case 'SPIN':
           if (
             isReady &&
-            balance > 0 &&
-            balance >= bet &&
+            !spinning &&
+            !autoSpin &&
             !isFreeGame &&
             !showFreeSpinIntro &&
             !showScatterWinBanner &&
@@ -391,6 +391,11 @@ export default function App() {
           break
         case 'BET_DOWN':
           minusBet()
+          break
+        case 'AUTO':
+          if (!isFreeGame && balance > 0 && balance >= bet && pauseColumn === null) {
+            setAutoSpin(!autoSpin)
+          }
           break
         case 'COIN':
           addBalance()
