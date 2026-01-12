@@ -110,10 +110,10 @@ export function useEngine() {
     setTotalWin(v => v + amount)
   }
 
-  function buyFreeSpins() {
+  function buyFreeSpins(betAmount: number) {
     if (spinning || showFreeSpinIntro || freeSpinsLeft > 0 || pendingFreeSpins > 0) return
 
-    const cost = bet * BUY_FREE_SPIN_MULTIPLIER
+    const cost = betAmount * BUY_FREE_SPIN_MULTIPLIER
     if (balance < cost) return
 
     setBalance(b => b - cost)
@@ -121,7 +121,7 @@ export function useEngine() {
     setTotalWin(0)
 
     const outcome: SpinOutcome = spin(rng, {
-      betPerSpin: bet,
+      betPerSpin: betAmount,
       lines: 5,
       isFreeGame: false,
       forceScatter: true,

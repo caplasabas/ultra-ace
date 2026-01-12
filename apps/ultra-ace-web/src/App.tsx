@@ -12,13 +12,14 @@ import {
   useCascadeTimeline,
 } from './hooks/useCascadeTimeline'
 import { DebugHud } from './debug/DebugHud'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { formatPeso } from '@ultra-ace/engine'
 import { useBackgroundAudio } from './audio/useBackgroundAudio'
 import BGM from './assets/audio/bgm.mp3'
 
 import { FreeSpinIntro } from './ui/FreeSpinIntro'
 import { ScatterWinBanner } from './ui/ScatterWinBanner'
+import { BuySpinModal } from './ui/BuySpinModal'
 const DEV = import.meta.env.DEV
 
 const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kind }))
@@ -53,6 +54,21 @@ const EMPTY_SYMBOL: EngineSymbol = {
 }
 
 export default function App() {
+  const spinLockRef = useRef(false)
+  const gameStateRef = useRef({
+    isReady: false,
+    spinning: false,
+    autoSpin: false,
+    isFreeGame: false,
+    showFreeSpinIntro: false,
+    showScatterWinBanner: false,
+    freeSpinsLeft: 0,
+    pauseColumn: null as number | null,
+    balance: 0,
+    bet: 0,
+    showBuySpinModal: false,
+  })
+
   const [autoSpin, setAutoSpin] = useState(false)
   const [turboStage, setTurboStage] = useState<0 | 1 | 2 | 3>(0)
 
@@ -149,6 +165,15 @@ export default function App() {
     Boolean(activeCascade) &&
     activeCascade.lineWins.length === 0 &&
     activeCascade.window.flat().filter(s => s.kind === 'SCATTER').length >= 3
+
+  const [showBuySpinModal, setShowBuySpinModal] = useState(false)
+  const [buySpinBet, setBuySpinBet] = useState(bet)
+
+  useEffect(() => {
+    if (showBuySpinModal) {
+      setBuySpinBet(bet)
+    }
+  }, [showBuySpinModal, bet])
 
   const EMPTY_WIN_SET = new Set<string>()
 
@@ -359,6 +384,20 @@ export default function App() {
     })
   }
 
+  const addBuySpinBet = () => {
+    setBuySpinBet(prev => {
+      const inc = getBetIncrement(prev)
+      return Math.min(prev + inc, balance)
+    })
+  }
+
+  const minusBuySpinBet = () => {
+    setBuySpinBet(prev => {
+      const dec = getBetDecrement(prev)
+      return Math.max(1, prev - dec)
+    })
+  }
+
   const addBalance = () => {
     setBalance(b => b + 5000)
   }
@@ -368,53 +407,96 @@ export default function App() {
   }
 
   useEffect(() => {
+    gameStateRef.current = {
+      isReady,
+      spinning,
+      autoSpin,
+      isFreeGame,
+      showFreeSpinIntro,
+      showScatterWinBanner,
+      freeSpinsLeft,
+      pauseColumn,
+      balance,
+      bet,
+      showBuySpinModal,
+    }
+  }, [
+    isReady,
+    spinning,
+    autoSpin,
+    isFreeGame,
+    showFreeSpinIntro,
+    showScatterWinBanner,
+    freeSpinsLeft,
+    pauseColumn,
+    balance,
+    bet,
+    showBuySpinModal,
+  ])
+
+  useEffect(() => {
+    if (spinning) {
+      spinLockRef.current = true
+    } else {
+      spinLockRef.current = false
+    }
+  }, [spinning])
+
+  useEffect(() => {
     window.__ARCADE_INPUT__ = (action: string) => {
-      if (!isReady) return
+      const s = gameStateRef.current
+
+      if (!s.isReady) return
 
       switch (action) {
         case 'SPIN':
+          if (spinLockRef.current || s.showBuySpinModal) return
+
           if (
-            isReady &&
-            !spinning &&
-            !autoSpin &&
-            !isFreeGame &&
-            !showFreeSpinIntro &&
-            !showScatterWinBanner &&
-            freeSpinsLeft <= 0
+            !s.spinning &&
+            !s.autoSpin &&
+            !s.isFreeGame &&
+            !s.showFreeSpinIntro &&
+            !s.showScatterWinBanner &&
+            s.freeSpinsLeft <= 0 &&
+            s.balance > 0 &&
+            s.balance >= s.bet &&
+            pauseColumn === null
           ) {
+            spinLockRef.current = true
+
             spin()
           }
 
           break
         case 'BET_UP':
           if (
-            isReady &&
-            !spinning &&
-            !autoSpin &&
-            !isFreeGame &&
-            !showFreeSpinIntro &&
-            !showScatterWinBanner &&
-            freeSpinsLeft <= 0
+            !s.spinning &&
+            !s.autoSpin &&
+            !s.isFreeGame &&
+            !s.showFreeSpinIntro &&
+            !s.showScatterWinBanner &&
+            s.freeSpinsLeft <= 0
           ) {
             addBet()
           }
           break
         case 'BET_DOWN':
           if (
-            isReady &&
-            !spinning &&
-            !autoSpin &&
-            !isFreeGame &&
-            !showFreeSpinIntro &&
-            !showScatterWinBanner &&
-            freeSpinsLeft <= 0
+            !s.spinning &&
+            !s.autoSpin &&
+            !s.isFreeGame &&
+            !s.showFreeSpinIntro &&
+            !s.showScatterWinBanner &&
+            s.freeSpinsLeft <= 0
           ) {
             minusBet()
           }
           break
         case 'AUTO':
-          if (!isFreeGame && balance > 0 && balance >= bet && pauseColumn === null) {
-            setAutoSpin(!autoSpin)
+          if (spinLockRef.current || s.showBuySpinModal) return
+          if (!s.isFreeGame && s.balance > 0 && s.balance >= s.bet && s.pauseColumn === null) {
+            setAutoSpin(!s.autoSpin)
           }
           break
         case 'COIN':
@@ -422,19 +504,25 @@ export default function App() {
           break
         case 'WITHDRAW':
           if (
-            isReady &&
-            !spinning &&
-            !autoSpin &&
-            !isFreeGame &&
-            !showFreeSpinIntro &&
-            !showScatterWinBanner &&
-            freeSpinsLeft <= 0
+            !s.spinning &&
+            !s.autoSpin &&
+            !s.isFreeGame &&
+            !s.showFreeSpinIntro &&
+            !s.showScatterWinBanner &&
+            s.freeSpinsLeft <= 0 &&
+            s.balance >= 5000 &&
+            !s.showBuySpinModal
           ) {
             minusBalance()
           }
           break
         case 'TURBO':
-          if (balance > 0 && balance >= bet && pauseColumn === null) {
+          if (
+            s.balance > 0 &&
+            s.balance >= s.bet &&
+            s.pauseColumn === null &&
+            !s.showBuySpinModal
+          ) {
             setTurboStage(prev => {
               const next = ((prev + 1) % 4) as 0 | 1 | 2 | 3
               if (next === 0) setAutoSpin(false)
@@ -483,7 +571,7 @@ export default function App() {
                   isFreeGame ||
                   freeSpinsLeft > 0
                 }
-                onClick={buyFreeSpins}
+                onClick={() => setShowBuySpinModal(true)}
               />
 
               <div className="free-spin-banner">
@@ -528,6 +616,20 @@ export default function App() {
                 ))}
               </div>
             </div>
+            {showBuySpinModal && (
+              <BuySpinModal
+                bet={buySpinBet}
+                balance={balance}
+                onAddBet={addBuySpinBet}
+                onMinusBet={minusBuySpinBet}
+                onCancel={() => setShowBuySpinModal(false)}
+                onConfirm={() => {
+                  setShowBuySpinModal(false)
+                  setBet(buySpinBet) // optional: sync main bet
+                  buyFreeSpins(buySpinBet)
+                }}
+              />
+            )}
             <div className="dim-zone">
               <DimOverlay
                 active={
