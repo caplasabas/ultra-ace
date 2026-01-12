@@ -69,7 +69,9 @@ export default function App() {
     showBuySpinModal: false,
   })
 
+  const [prevAutoSpin, setPrevAutoSpin] = useState(false)
   const [autoSpin, setAutoSpin] = useState(false)
+  const [prevTurboStage, setPrevTurboStage] = useState<0 | 1 | 2 | 3>(0)
   const [turboStage, setTurboStage] = useState<0 | 1 | 2 | 3>(0)
 
   const turboMultiplier = useMemo(() => {
@@ -307,16 +309,30 @@ export default function App() {
 
   useEffect(() => {
     if (pauseColumn) {
-      setTurboStage(0)
-      setAutoSpin(false)
-    }
+      if (pendingFreeSpins <= 0 && freeSpinsLeft <= 0) {
+        if (phase === 'initialRefill') {
+          setPrevTurboStage(turboStage)
+          setTurboStage(0)
+          setPrevAutoSpin(autoSpin)
+          setAutoSpin(false)
+        }
+        if (phase === 'idle') {
+          console.log('prevTurboStage', prevTurboStage)
+          console.log('prevAutoSpin', prevAutoSpin)
+          setTurboStage(prevTurboStage)
+          setPrevTurboStage(0)
+          setAutoSpin(prevAutoSpin)
+          setPrevAutoSpin(false)
+        }
 
-    if (pendingFreeSpins <= 0 && freeSpinsLeft <= 0) return
-    if (introShown) return
-    if (isFreeGame) return
-    if (!isScatterHighlight) return
-    const show = onShowFreeSpinIntro(300)
-    return () => clearTimeout(show)
+        return
+      }
+      if (introShown) return
+      if (isFreeGame) return
+      if (!isScatterHighlight) return
+      const show = onShowFreeSpinIntro(300)
+      return () => clearTimeout(show)
+    }
   }, [
     pendingFreeSpins,
     scatterTriggerType,
@@ -325,6 +341,7 @@ export default function App() {
     isFreeGame,
     freeSpinsLeft,
     pauseColumn,
+    phase,
   ])
 
   const onShowFreeSpinIntro = (delayMs: number) => {
