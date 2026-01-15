@@ -4,7 +4,7 @@ import { DimOverlay } from './ui/DimOverlay'
 import { WinOverlay } from './ui/WinOverlay'
 import { adaptWindow } from './game/adaptWindow'
 import type { CascadeStep, Symbol as EngineSymbol } from '@ultra-ace/engine'
-
+import { getDeviceName, setDeviceName } from './lib/device'
 import {
   detectScatterPauseColumn,
   INITIAL_REFILL_PAUSE_MS,
@@ -20,6 +20,9 @@ import BGM from './assets/audio/bgm.mp3'
 import { FreeSpinIntro } from './ui/FreeSpinIntro'
 import { ScatterWinBanner } from './ui/ScatterWinBanner'
 import { BuySpinModal } from './ui/BuySpinModal'
+import { getDeviceId, registerDevice } from './lib/device'
+import { logLedgerEvent } from './lib/accounting'
+import { supabase } from './lib/supabase'
 const DEV = import.meta.env.DEV
 
 const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kind }))
@@ -73,6 +76,12 @@ export default function App() {
   const [autoSpin, setAutoSpin] = useState(false)
   const [prevTurboStage, setPrevTurboStage] = useState<0 | 1 | 2 | 3>(0)
   const [turboStage, setTurboStage] = useState<0 | 1 | 2 | 3>(0)
+
+  const [deviceName, setDeviceNameState] = useState(() => getDeviceName())
+
+  useEffect(() => {
+    setDeviceName(deviceName)
+  }, [deviceName])
 
   const turboMultiplier = useMemo(() => {
     switch (turboStage) {
@@ -130,6 +139,9 @@ export default function App() {
     consumeFreeSpin,
     showScatterWinBanner,
     freezeUI,
+    sessionReady,
+    getSessionId,
+    requireSessionId,
   } = useEngine()
 
   const {
@@ -274,6 +286,18 @@ export default function App() {
 
     commitWin(activeCascade.win)
 
+    logLedgerEvent({
+      sessionId: requireSessionId(),
+      deviceId: getDeviceId(),
+      type: 'win',
+      amount: activeCascade.win,
+      source: 'game',
+      metadata: {
+        cascadeIndex,
+        multiplier: activeCascade.multiplier,
+      },
+    }).then(() => {})
+
     if (isFreeGame || pauseColumn !== null || pendingFreeSpins > 0 || freeSpinsLeft > 0) {
       setFreeSpinTotal(v => v + activeCascade.win)
     } else {
@@ -415,12 +439,24 @@ export default function App() {
     })
   }
 
-  const addBalance = () => {
-    setBalance(b => b + 5000)
+  const addBalance = (source = 'coin', amount = 5000) => {
+    setBalance(b => b + amount)
+
+    logLedgerEvent({
+      sessionId: requireSessionId(),
+      deviceId: getDeviceId(),
+      type: 'deposit',
+      amount,
+      source,
+    })
+      .then(() => {})
+      .catch(e => {
+        console.log('LEDGER EVENT', e)
+      })
   }
 
-  const minusBalance = () => {
-    setBalance(b => b - 5000)
+  const minusBalance = (amount = 5000) => {
+    setBalance(b => b - amount)
   }
 
   useEffect(() => {
@@ -460,10 +496,34 @@ export default function App() {
   }, [spinning])
 
   useEffect(() => {
-    window.__ARCADE_INPUT__ = (action: string) => {
+    window.__ARCADE_INPUT__ = (payload: any) => {
       const s = gameStateRef.current
 
       if (!s.isReady) return
+
+      if (payload.type === 'COIN') {
+        addBalance('coin', payload.credits)
+        return
+      }
+
+      if (payload.type === 'WITHDRAW_COMPLETE') {
+        minusBalance(payload.dispensed)
+
+        logLedgerEvent({
+          sessionId: requireSessionId(),
+          deviceId: getDeviceId(),
+          type: 'withdrawal',
+          amount: payload.dispensed,
+          source: 'hopper',
+        }).then(() => {})
+
+        console.log('Dispensed coins:', payload.dispensed)
+        return
+      }
+
+      if (payload.type !== 'ACTION') return
+
+      const action = payload.action
 
       switch (action) {
         case 'SPIN':
@@ -516,9 +576,6 @@ export default function App() {
             setAutoSpin(!s.autoSpin)
           }
           break
-        case 'COIN':
-          addBalance()
-          break
         case 'WITHDRAW':
           if (
             !s.spinning &&
@@ -530,7 +587,16 @@ export default function App() {
             s.balance >= 5000 &&
             !s.showBuySpinModal
           ) {
-            minusBalance()
+            const amountToWithdraw = 5
+
+            fetch('/input', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'WITHDRAW',
+                amount: amountToWithdraw,
+              }),
+            }).then(() => {})
           }
           break
         case 'TURBO':
@@ -555,6 +621,30 @@ export default function App() {
     }
   }, [])
 
+  useEffect(() => {
+    registerDevice(getDeviceName()).then(() => {})
+  }, [])
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (!deviceName.trim()) return
+
+      supabase
+        .from('devices')
+        .upsert(
+          {
+            device_id: getDeviceId(),
+            name: deviceName,
+          },
+          { onConflict: 'device_id' },
+        )
+        .then(() => {})
+    }, 500)
+
+    return () => clearTimeout(t)
+  }, [deviceName])
+
+  if (!sessionReady) return null
   return (
     <div className="viewport">
       <div className="game-root">
@@ -820,12 +910,22 @@ export default function App() {
 
                   <div className="balance-display">
                     Balance <span className="balance-amount">{formatPeso(balance ?? 0)}</span>
-                    <button className="add-btn" onClick={addBalance}>
+                    <button className="add-btn" onClick={() => addBalance('bypass')}>
                       +{formatPeso(5000, true, true, 2)}
                     </button>
                   </div>
 
                   <div className="bottom-info-right" />
+                </div>
+
+                <div className="device-info">
+                  <label className="device-label">Device</label>
+                  <input
+                    className="device-input"
+                    value={deviceName}
+                    onChange={e => setDeviceNameState(e.target.value)}
+                    placeholder="Enter device name"
+                  />
                 </div>
               </div>
             </div>

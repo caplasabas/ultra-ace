@@ -17,6 +17,7 @@ export function DebugHud({ info }: Props) {
     info?.cascadeWins && info.cascadeWins.length > 1
       ? info.cascadeWins
           .slice(1) // ⬅ start from cascade #2
+          .filter(w => w > 0)
           .map(w => formatPeso(w))
           .join(', ')
       : '—'

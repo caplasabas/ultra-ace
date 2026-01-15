@@ -156,9 +156,9 @@ function ReelComponent({
         const isBack = symbol.kind === 'BACK'
         const isWild = symbol.kind === 'WILD'
 
-        if (isCascadeRefill) {
-          console.log(symbol)
-        }
+        // if (isCascadeRefill) {
+        //   console.log(symbol)
+        // }
 
         const wildHighlight = isWild && isWin && phase === 'highlight'
 

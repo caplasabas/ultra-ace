@@ -1,6 +1,6 @@
 declare global {
   interface Window {
-    __ARCADE_INPUT__?: (action: string) => void
+    __ARCADE_INPUT__?: (payload: any) => void
   }
 }
 
@@ -15,9 +15,9 @@ import './App.css'
 if (import.meta.hot) {
   import.meta.hot.accept() // 🔴 REQUIRED
 
-  import.meta.hot.on('arcade-input', (action: string) => {
-    console.log('[ARCADE INPUT]', action)
-    window.__ARCADE_INPUT__?.(action)
+  import.meta.hot.on('arcade-input', (payload: any) => {
+    console.log('[ARCADE INPUT]', payload)
+    window.__ARCADE_INPUT__?.(payload)
   })
 }
 

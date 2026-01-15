@@ -1,13 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { spin, createRNG } from '@ultra-ace/engine'
 import type { CascadeStep, SpinOutcome } from '@ultra-ace/engine'
 import { DebugSpinInfo } from 'src/debug/DebugHud'
+import { logSpin, startSession } from '../lib/session'
+import { logLedgerEvent } from '../lib/accounting'
+import { getDeviceId } from '../lib/device'
+import { fetchDeviceBalance, fetchSessionBalance } from '../lib/balance'
+import { contributeToJackpot } from '../lib/jackpot'
 
 const BUY_FREE_SPIN_MULTIPLIER = 50
 
 const SCATTER_BANNER_DURATION = 5000
 
 export function useEngine() {
+  const sessionIdRef = useRef<string | null>(null)
+  const lastOutcomeRef = useRef<SpinOutcome | null>(null)
+
+  const [sessionReady, setSessionReady] = useState(false)
+
   /* -----------------------------
      Core spin state
   ----------------------------- */
@@ -21,7 +31,7 @@ export function useEngine() {
      Player economy
   ----------------------------- */
   const [bet, setBet] = useState(2)
-  const [balance, setBalance] = useState(5000)
+  const [balance, setBalance] = useState(0)
 
   const [totalWin, setTotalWin] = useState(0)
   const [freeSpinTotal, setFreeSpinTotal] = useState(0)
@@ -52,6 +62,41 @@ export function useEngine() {
   const seed = new Date().toISOString()
   const rng = createRNG(seed)
 
+  useEffect(() => {
+    let mounted = true
+
+    startSession(false)
+      .then(async id => {
+        if (!mounted) return
+        sessionIdRef.current = id
+
+        let balance = await fetchSessionBalance(id)
+
+        if (balance === null) {
+          balance = await fetchDeviceBalance()
+        }
+
+        setBalance(balance)
+      })
+      .finally(() => {
+        setSessionReady(true)
+      })
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  function getSessionId(): string | null {
+    return sessionIdRef.current
+  }
+
+  function requireSessionId(): string {
+    if (!sessionIdRef.current) {
+      throw new Error('Session not initialized')
+    }
+    return sessionIdRef.current
+  }
   /* -----------------------------
      Spin execution
   ----------------------------- */
@@ -78,11 +123,23 @@ export function useEngine() {
       setFreeSpinTotal(0)
     }
 
+    if (sessionIdRef?.current) {
+      logLedgerEvent({
+        sessionId: sessionIdRef?.current,
+        deviceId: getDeviceId(),
+        type: 'bet',
+        amount: bet,
+        source: 'game',
+      }).then(() => {})
+    }
+
     const outcome: SpinOutcome = spin(rng, {
       betPerSpin: bet,
       lines: 5,
       isFreeGame,
     })
+
+    lastOutcomeRef.current = outcome
 
     setScatterTriggerType(outcome.scatterTriggerType ?? null)
     setPendingCascades(outcome.cascades ?? [])
@@ -140,11 +197,37 @@ export function useEngine() {
   /* -----------------------------
      Commit spin visuals
   ----------------------------- */
-  function commitSpin() {
+  async function commitSpin() {
     if (!pendingCascades) return
     setCommittedCascades(pendingCascades)
     setPendingCascades(null)
     setSpinning(false)
+
+    const outcome = lastOutcomeRef.current
+    const sessionId = sessionIdRef.current
+
+    if (!outcome || !sessionId) return
+
+    await logSpin({
+      sessionId,
+      bet: outcome.bet,
+      win: outcome.win ?? 0,
+      baseWin: 0,
+      freeWin: 0,
+      cascades: outcome.cascades?.length ?? 0,
+      hit: (outcome.win ?? 0) > 0,
+      isFreeGame,
+    })
+
+    // Jackpot contribution
+    const loss = outcome.bet - (outcome.win ?? 0)
+
+    console.log('loss', loss)
+    if (loss > 0) {
+      const contribution = Math.floor(loss * 0.05)
+
+      await contributeToJackpot(sessionId, getDeviceId(), contribution)
+    }
   }
 
   /* -----------------------------
@@ -211,5 +294,8 @@ export function useEngine() {
     consumeFreeSpin,
 
     freezeUI,
+    sessionReady,
+    getSessionId,
+    requireSessionId,
   }
 }

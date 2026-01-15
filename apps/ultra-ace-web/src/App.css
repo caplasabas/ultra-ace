@@ -2869,3 +2869,23 @@ button:focus-visible {
     gap: 12px;
     justify-content: center;
 }
+
+.device-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+}
+
+.device-label {
+    opacity: 0.7;
+}
+
+.device-input {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    width: 140px;
+}
