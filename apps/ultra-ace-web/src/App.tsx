@@ -274,12 +274,12 @@ export default function App() {
 
     commitWin(activeCascade.win)
 
-    if (isFreeGame) {
+    if (isFreeGame || pauseColumn !== null || pendingFreeSpins > 0 || freeSpinsLeft > 0) {
       setFreeSpinTotal(v => v + activeCascade.win)
     } else {
       setBalance(v => v + activeCascade.win)
     }
-  }, [phase])
+  }, [phase, pauseColumn, pendingFreeSpins, freeSpinsLeft])
 
   const BASE_MULTIPLIERS = [1, 2, 3, 5]
   const FREE_MULTIPLIERS = [2, 4, 6, 10]
@@ -642,7 +642,6 @@ export default function App() {
                 onCancel={() => setShowBuySpinModal(false)}
                 onConfirm={() => {
                   setShowBuySpinModal(false)
-                  setBet(buySpinBet) // optional: sync main bet
                   buyFreeSpins(buySpinBet)
                 }}
               />
@@ -727,7 +726,14 @@ export default function App() {
                 <div className="win-display">
                   WIN:{' '}
                   <span className="win-amount">
-                    {formatPeso(isFreeGame || freeSpinsLeft > 0 ? freeSpinTotal : totalWin)}
+                    {formatPeso(
+                      isFreeGame ||
+                        pauseColumn !== null ||
+                        pendingFreeSpins > 0 ||
+                        freeSpinsLeft > 0
+                        ? freeSpinTotal
+                        : totalWin,
+                    )}
                   </span>
                 </div>
                 <div className="bottom-controls">

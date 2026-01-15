@@ -41,7 +41,7 @@ const styles: Record<string, CSSProperties> = {
     backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: 6,
     fontFamily: 'monospace',
-    zIndex: 1000,
+    zIndex: 30,
     width: 'fit-content',
     // margin: '0 auto',
   },

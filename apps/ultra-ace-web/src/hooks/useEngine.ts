@@ -62,7 +62,7 @@ export function useEngine() {
     if (!isFreeGame && pendingFreeSpins > 0) {
       setIsFreeGame(true)
       setFreeSpinsLeft(pendingFreeSpins)
-      setFreeSpinTotal(0)
+
       setPendingFreeSpins(0)
       setShowFreeSpinIntro(false)
       return
@@ -75,6 +75,7 @@ export function useEngine() {
     if (!isFreeGame) {
       setTotalWin(0)
       setBalance(b => b - bet)
+      setFreeSpinTotal(0)
     }
 
     const outcome: SpinOutcome = spin(rng, {
@@ -166,7 +167,7 @@ export function useEngine() {
       setShowScatterWinBanner(true)
 
       setTimeout(() => {
-        setBalance(b => b + freeSpinTotal)
+        setBalance(balance + freeSpinTotal)
         setFreeSpinTotal(0)
         setTotalWin(0)
 
