@@ -497,10 +497,7 @@ export default function App() {
 
   useEffect(() => {
     window.__ARCADE_INPUT__ = (payload: any) => {
-      console.log(payload)
-      const s = gameStateRef.current
-
-      if (!s.isReady) return
+      console.log('APP', payload)
 
       if (payload.type === 'COIN') {
         addBalance('coin', payload.credits)
@@ -522,6 +519,9 @@ export default function App() {
         return
       }
 
+      const s = gameStateRef.current
+
+      if (!s.isReady) return
       if (payload.type !== 'ACTION') return
 
       const action = payload.action

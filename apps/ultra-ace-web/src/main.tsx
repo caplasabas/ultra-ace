@@ -10,7 +10,6 @@ import App from './App'
 
 import './index.css'
 import './App.css'
-
 if (import.meta.hot) {
   import.meta.hot.accept()
 
@@ -19,27 +18,19 @@ if (import.meta.hot) {
 
     let payload: any
 
-    // 🔴 CRITICAL FIX: decode stringified payload
     try {
       payload = typeof raw === 'string' ? JSON.parse(raw) : raw
-    } catch (err) {
-      console.warn('[ARCADE INPUT] Failed to parse payload:', raw)
+    } catch {
+      console.warn('[ARCADE INPUT] Invalid JSON:', raw)
       return
     }
 
-    // Legacy support (old string-only actions)
-    if (typeof payload === 'string') {
-      window.__ARCADE_INPUT__?.({
+    // ✅ NORMALIZATION LAYER (CRITICAL)
+    if (payload?.type && payload.type !== 'ACTION' && payload.type !== 'COIN') {
+      payload = {
         type: 'ACTION',
-        action: payload,
-      })
-      return
-    }
-
-    // Defensive validation
-    if (!payload || typeof payload !== 'object') {
-      console.warn('[ARCADE INPUT] Invalid payload:', payload)
-      return
+        action: payload.type,
+      }
     }
 
     window.__ARCADE_INPUT__?.(payload)
