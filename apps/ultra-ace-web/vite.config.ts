@@ -10,28 +10,37 @@ function arcadeInputPlugin() {
       server.middlewares.use('/input', (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405
-          res.end()
+          res.end('Method Not Allowed')
           return
         }
 
         let body = ''
-        req.on('data', chunk => (body += chunk))
+
+        req.on('data', chunk => {
+          body += chunk
+        })
+
         req.on('end', () => {
           try {
-            const { action } = JSON.parse(body || '{}')
+            const payload = JSON.parse(body || '{}')
 
-            console.log('[ARCADE INPUT]', action)
+            console.log('[ARCADE INPUT]', payload)
 
-            // Send event to the browser via Vite HMR WS
+            /**
+             * IMPORTANT:
+             * Vite HMR reliably transports STRINGS only.
+             * Always stringify payloads.
+             */
             server.ws.send({
               type: 'custom',
               event: 'arcade-input',
-              data: action,
+              data: JSON.stringify(payload),
             })
 
             res.statusCode = 200
             res.end('OK')
-          } catch {
+          } catch (err) {
+            console.error('[ARCADE INPUT] Invalid JSON:', body)
             res.statusCode = 400
             res.end('Invalid JSON')
           }
@@ -51,7 +60,6 @@ export default defineConfig({
       'localhost',
       '.browserstack.com',
       '.ngrok-free.app',
-      ,
       'nontenurially-backbreaking-olga.ngrok-free.app',
     ],
   },
