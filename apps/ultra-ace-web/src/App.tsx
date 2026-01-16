@@ -497,6 +497,7 @@ export default function App() {
 
   useEffect(() => {
     window.__ARCADE_INPUT__ = (payload: any) => {
+      console.log(payload)
       const s = gameStateRef.current
 
       if (!s.isReady) return
