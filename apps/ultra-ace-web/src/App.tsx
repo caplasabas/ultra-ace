@@ -59,7 +59,7 @@ const EMPTY_SYMBOL: EngineSymbol = {
 export default function App() {
   const spinLockRef = useRef(false)
   const gameStateRef = useRef({
-    isReady: false,
+    isReady: true,
     spinning: false,
     autoSpin: false,
     isFreeGame: false,
@@ -521,6 +521,7 @@ export default function App() {
 
       const s = gameStateRef.current
 
+      console.log(s)
       if (!s.isReady) return
       if (payload.type !== 'ACTION') return
 
