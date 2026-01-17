@@ -2851,7 +2851,7 @@ button:focus-visible {
 }
 
 .modal-card {
-    background: rgba(17, 17, 17, 0.89);
+    background: rgba(255, 255, 255,1);
     padding: 24px;
     border-radius: 12px;
     width: 320px;

@@ -141,7 +141,6 @@ export function useEngine() {
 
     lastOutcomeRef.current = outcome
 
-    setScatterTriggerType(outcome.scatterTriggerType ?? null)
     setPendingCascades(outcome.cascades ?? [])
     setSpinId(v => v + 1)
 
@@ -255,6 +254,7 @@ export function useEngine() {
         setTotalWin(0)
 
         setShowScatterWinBanner(false)
+        setScatterTriggerType('natural')
         setFreezeUI(false)
       }, SCATTER_BANNER_DURATION)
     }, 600)

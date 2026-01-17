@@ -842,7 +842,19 @@ export default function App() {
                         className="bet-btn minus"
                       />
                       <span className="bet-amount">
-                        {formatPeso(bet ?? 0, true, true, 2, true)}
+                        {formatPeso(
+                          (isFreeGame ||
+                            pendingFreeSpins > 0 ||
+                            freeSpinsLeft > 0 ||
+                            pauseColumn !== null) &&
+                            scatterTriggerType === 'buy'
+                            ? (buySpinBet ?? 0)
+                            : (bet ?? 0),
+                          true,
+                          true,
+                          2,
+                          true,
+                        )}
                       </span>
                       <button
                         disabled={
@@ -890,7 +902,7 @@ export default function App() {
                       onClick={() => {
                         setTurboStage(prev => {
                           const next = ((prev + 1) % 4) as 0 | 1 | 2 | 3
-                          if (next === 0) setAutoSpin(false)
+
                           return next
                         })
                       }}
