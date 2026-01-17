@@ -1,16 +1,10 @@
 import { useEngine } from './hooks/useEngine'
-import { PAUSED_INITIAL_ROW_DROP_DELAY, Reel } from './ui/Reel'
+import { Reel } from './ui/Reel'
 import { DimOverlay } from './ui/DimOverlay'
 import { WinOverlay } from './ui/WinOverlay'
 import { adaptWindow } from './game/adaptWindow'
-import type { CascadeStep, Symbol as EngineSymbol } from '@ultra-ace/engine'
 import { getDeviceName, setDeviceName } from './lib/device'
-import {
-  detectScatterPauseColumn,
-  INITIAL_REFILL_PAUSE_MS,
-  TOTAL_REELS,
-  useCascadeTimeline,
-} from './hooks/useCascadeTimeline'
+import { detectScatterPauseColumn, useCascadeTimeline } from './hooks/useCascadeTimeline'
 import { DebugHud } from './debug/DebugHud'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { formatPeso } from '@ultra-ace/engine'
@@ -26,35 +20,35 @@ import { supabase } from './lib/supabase'
 const DEV = import.meta.env.DEV
 
 const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kind }))
-
-function logWindowKinds(label: string, window: EngineSymbol[][]) {
-  if (!window?.length) return
-
-  const reels = window.length
-  const rows = window[0].length
-
-  console.group(`[BOARD] ${label}`)
-
-  // Print top row first (visual match)
-  for (let row = rows - 1; row >= 0; row--) {
-    const line = []
-    for (let reel = 0; reel < reels; reel++) {
-      const k = window[reel][row]?.kind ?? '???'
-      line.push(k.padEnd(9, ' '))
-    }
-    console.log(line.join(' | '))
-  }
-
-  console.groupEnd()
-}
-
-const EMPTY_SYMBOL: EngineSymbol = {
-  kind: 'EMPTY',
-  isGold: false,
-  goldTTL: undefined,
-  isDecorativeGold: false,
-  wildColor: undefined,
-}
+//
+// function logWindowKinds(label: string, window: EngineSymbol[][]) {
+//   if (!window?.length) return
+//
+//   const reels = window.length
+//   const rows = window[0].length
+//
+//   console.group(`[BOARD] ${label}`)
+//
+//   // Print top row first (visual match)
+//   for (let row = rows - 1; row >= 0; row--) {
+//     const line = []
+//     for (let reel = 0; reel < reels; reel++) {
+//       const k = window[reel][row]?.kind ?? '???'
+//       line.push(k.padEnd(9, ' '))
+//     }
+//     console.log(line.join(' | '))
+//   }
+//
+//   console.groupEnd()
+// }
+//
+// const EMPTY_SYMBOL: EngineSymbol = {
+//   kind: 'EMPTY',
+//   isGold: false,
+//   goldTTL: undefined,
+//   isDecorativeGold: false,
+//   wildColor: undefined,
+// }
 
 export default function App() {
   const spinLockRef = useRef(false)
@@ -140,7 +134,6 @@ export default function App() {
     showScatterWinBanner,
     freezeUI,
     sessionReady,
-    getSessionId,
     requireSessionId,
   } = useEngine()
 
@@ -168,7 +161,7 @@ export default function App() {
     makePlaceholder('Q'),
     makePlaceholder('J'),
     makePlaceholder('SPADE'),
-  ] as any)
+  ] as never)
 
   const hasScatterWin =
     activeCascade &&
@@ -185,6 +178,7 @@ export default function App() {
 
   useEffect(() => {
     if (showBuySpinModal) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBuySpinBet(bet)
     }
   }, [showBuySpinModal, bet])
@@ -253,6 +247,7 @@ export default function App() {
     if (!autoSpin) return
     if (!isReady) return
     if (balance < bet || balance === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAutoSpin(false)
       setTurboStage(0)
       return
@@ -318,23 +313,26 @@ export default function App() {
   const activeMultiplierIndex = getMultiplierIndex(cascadeIndex)
   const [introShown, setIntroShown] = useState(false)
 
-  function computeScatterDelay(pauseColumn: number | null) {
-    if (pauseColumn == null) return 900
+  const onShowFreeSpinIntro = (delayMs: number) => {
+    return setTimeout(() => {
+      setAutoSpin(false)
+      setIntroShown(true)
+      setShowFreeSpinIntro(true)
 
-    const cardsPerColumn = activeCascade?.window?.[0]?.length ?? 4
+      const hide = setTimeout(() => {
+        setIsFreeSpinPreview(true)
+        setShowFreeSpinIntro(false)
+      }, 10_000)
 
-    const BUFFER_MS = 200
-
-    const pausedColumns = TOTAL_REELS - pauseColumn - 1
-    const columnDuration = cardsPerColumn * PAUSED_INITIAL_ROW_DROP_DELAY
-
-    return INITIAL_REFILL_PAUSE_MS + pausedColumns * columnDuration + BUFFER_MS
+      return () => clearTimeout(hide)
+    }, delayMs)
   }
 
   useEffect(() => {
     if (pauseColumn) {
       if (pendingFreeSpins <= 0 && freeSpinsLeft <= 0) {
         if (phase === 'initialRefill') {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setPrevTurboStage(turboStage)
           setTurboStage(0)
           setPrevAutoSpin(autoSpin)
@@ -368,23 +366,9 @@ export default function App() {
     phase,
   ])
 
-  const onShowFreeSpinIntro = (delayMs: number) => {
-    return setTimeout(() => {
-      setAutoSpin(false)
-      setIntroShown(true)
-      setShowFreeSpinIntro(true)
-
-      const hide = setTimeout(() => {
-        setIsFreeSpinPreview(true)
-        setShowFreeSpinIntro(false)
-      }, 10_000)
-
-      return () => clearTimeout(hide)
-    }, delayMs)
-  }
-
   useEffect(() => {
     if (phase === 'idle') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIntroShown(false)
       setIsFreeSpinPreview(false)
     }
@@ -496,7 +480,7 @@ export default function App() {
   }, [spinning])
 
   useEffect(() => {
-    window.__ARCADE_INPUT__ = (payload: any) => {
+    window.__ARCADE_INPUT__ = payload => {
       console.log('APP', payload)
 
       if (payload.type === 'COIN') {
