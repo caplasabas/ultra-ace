@@ -7,9 +7,9 @@ import { GAME_CONFIG } from './config/game.config.js'
 import { Symbol, SymbolKind } from './types/symbol.js'
 
 // const GOLD_CHANCE_INITIAL = 0.0000000095
-const GOLD_CHANCE_INITIAL = 0.0095
+const GOLD_CHANCE_INITIAL = 0.002
 // const FREE_GOLD_CHANCE_INITIAL = 0.00095
-const FREE_GOLD_CHANCE_INITIAL = 0.055
+const FREE_GOLD_CHANCE_INITIAL = 0.008
 
 const GOLD_TTL = 0
 const FORBIDDEN_GOLD_REELS = new Set([0])
