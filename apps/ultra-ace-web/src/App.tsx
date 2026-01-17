@@ -527,9 +527,10 @@ export default function App() {
 
       const action = payload.action
 
+      console.log('action', action)
       switch (action) {
         case 'SPIN':
-          if (spinLockRef.current || s.showBuySpinModal) return
+          console.log('spinLockRef', spinLockRef.current)
 
           if (
             !s.spinning &&
@@ -537,6 +538,7 @@ export default function App() {
             !s.isFreeGame &&
             !s.showFreeSpinIntro &&
             !s.showScatterWinBanner &&
+            !s.showBuySpinModal &&
             s.freeSpinsLeft <= 0 &&
             s.balance > 0 &&
             s.balance >= s.bet &&
