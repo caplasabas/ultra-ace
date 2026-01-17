@@ -514,7 +514,19 @@ export default function App() {
       console.log('action', action)
       switch (action) {
         case 'SPIN':
-          console.log('spinLockRef', spinLockRef.current)
+          console.log(
+            'SPIN',
+            !s.spinning &&
+              !s.autoSpin &&
+              !s.isFreeGame &&
+              !s.showFreeSpinIntro &&
+              !s.showScatterWinBanner &&
+              !s.showBuySpinModal &&
+              s.freeSpinsLeft <= 0 &&
+              s.balance > 0 &&
+              s.balance >= s.bet &&
+              pauseColumn === null,
+          )
 
           if (
             !s.spinning &&
