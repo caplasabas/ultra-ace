@@ -45,15 +45,21 @@ type Action =
 export function detectScatterPauseColumn(window?: EngineSymbol[][]): number | null {
   if (!window) return null
 
-  const cols: number[] = []
-  window.forEach((col, i) => {
-    if (col.some(s => s.kind === 'SCATTER')) cols.push(i)
-  })
+  let totalScatters = 0
 
-  if (cols.length < 2) return null
+  for (let i = 0; i < window.length; i++) {
+    const scattersInColumn = window[i].filter(s => s.kind === 'SCATTER').length
 
-  // Prefer reel 2 or 3 for buy-tease feel
-  return cols.includes(2) ? 2 : cols[1]
+    if (scattersInColumn > 0) {
+      totalScatters += scattersInColumn
+
+      if (totalScatters >= 2) {
+        return i
+      }
+    }
+  }
+
+  return null
 }
 
 /* ----------------------------------------
