@@ -51,7 +51,6 @@ const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kin
 // }
 
 export default function App() {
-  const spinLockRef = useRef(false)
   const gameStateRef = useRef({
     isReady: true,
     spinning: false,
@@ -472,14 +471,6 @@ export default function App() {
   ])
 
   useEffect(() => {
-    if (spinning) {
-      spinLockRef.current = true
-    } else {
-      spinLockRef.current = false
-    }
-  }, [spinning])
-
-  useEffect(() => {
     window.__ARCADE_INPUT__ = payload => {
       console.log('APP', payload)
 
@@ -540,8 +531,6 @@ export default function App() {
             s.balance >= s.bet &&
             pauseColumn === null
           ) {
-            spinLockRef.current = true
-
             spin()
           }
 
@@ -571,7 +560,6 @@ export default function App() {
           }
           break
         case 'AUTO':
-          if (spinLockRef.current || s.showBuySpinModal) return
           if (!s.isFreeGame && s.balance > 0 && s.balance >= s.bet && s.pauseColumn === null) {
             setAutoSpin(!s.autoSpin)
           }
