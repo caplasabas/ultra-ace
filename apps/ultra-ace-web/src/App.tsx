@@ -136,6 +136,81 @@ export default function App() {
     requireSessionId,
   } = useEngine()
 
+  function getBetIncrement(bet: number): number {
+    if (bet < 10) return 1
+    if (bet < 50) return 10
+    if (bet >= 50 && bet < 100) return 50
+    if (bet < 500 && bet >= 100) return 100
+    if (bet >= 500) return 500
+    return 500
+  }
+
+  function getBetDecrement(bet: number): number {
+    if (bet <= 10) return 1
+    if (bet <= 100) return 10
+    if (bet <= 50 && bet > 100) return 50
+    if (bet <= 500) return 100
+    return 500
+  }
+
+  const addBet = () => {
+    setBet(prev => {
+      const normalized = Number.isInteger(prev) ? prev : Math.floor(prev)
+
+      const dec = getBetDecrement(normalized)
+      const next = normalized - dec
+
+      return Math.max(1, next)
+    })
+  }
+
+  const minusBet = () => {
+    setBet(prev => {
+      const next = prev + getBetIncrement(prev)
+      return Math.min(next, balance)
+    })
+  }
+
+  const addBuySpinBet = () => {
+    setBuySpinBet(prev => {
+      const inc = getBetIncrement(prev)
+      return Math.min(prev + inc, balance)
+    })
+  }
+
+  const minusBuySpinBet = () => {
+    setBuySpinBet(prev => {
+      const dec = getBetDecrement(prev)
+      return Math.max(1, prev - dec)
+    })
+  }
+
+  const addBalance = (source = 'coin', amount = 5000) => {
+    setBalance(b => b + amount)
+
+    logLedgerEvent({
+      sessionId: requireSessionId(),
+      deviceId: getDeviceId(),
+      type: 'deposit',
+      amount,
+      source,
+    })
+      .then(() => {})
+      .catch(e => {
+        console.log('LEDGER EVENT', e)
+      })
+  }
+
+  const minusBalance = (amount = 5000) => {
+    setBalance(b => b - amount)
+  }
+
+  const spinRef = useRef(spin)
+  const setAutoSpinRef = useRef(setAutoSpin)
+  const addBetRef = useRef(addBet)
+  const minusBetRef = useRef(minusBet)
+  const setTurboStageRef = useRef(setTurboStage)
+
   const {
     phase,
     activeCascade,
@@ -177,7 +252,6 @@ export default function App() {
 
   useEffect(() => {
     if (showBuySpinModal) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBuySpinBet(bet)
     }
   }, [showBuySpinModal, bet])
@@ -373,75 +447,6 @@ export default function App() {
     }
   }, [phase])
 
-  function getBetIncrement(bet: number): number {
-    if (bet < 10) return 1
-    if (bet < 50) return 10
-    if (bet >= 50 && bet < 100) return 50
-    if (bet < 500 && bet >= 100) return 100
-    if (bet >= 500) return 500
-    return 500
-  }
-
-  function getBetDecrement(bet: number): number {
-    if (bet <= 10) return 1
-    if (bet <= 100) return 10
-    if (bet <= 50 && bet > 100) return 50
-    if (bet <= 500) return 100
-    return 500
-  }
-
-  const addBet = () => {
-    setBet(prev => {
-      const normalized = Number.isInteger(prev) ? prev : Math.floor(prev)
-
-      const dec = getBetDecrement(normalized)
-      const next = normalized - dec
-
-      return Math.max(1, next)
-    })
-  }
-
-  const minusBet = () => {
-    setBet(prev => {
-      const next = prev + getBetIncrement(prev)
-      return Math.min(next, balance)
-    })
-  }
-
-  const addBuySpinBet = () => {
-    setBuySpinBet(prev => {
-      const inc = getBetIncrement(prev)
-      return Math.min(prev + inc, balance)
-    })
-  }
-
-  const minusBuySpinBet = () => {
-    setBuySpinBet(prev => {
-      const dec = getBetDecrement(prev)
-      return Math.max(1, prev - dec)
-    })
-  }
-
-  const addBalance = (source = 'coin', amount = 5000) => {
-    setBalance(b => b + amount)
-
-    logLedgerEvent({
-      sessionId: requireSessionId(),
-      deviceId: getDeviceId(),
-      type: 'deposit',
-      amount,
-      source,
-    })
-      .then(() => {})
-      .catch(e => {
-        console.log('LEDGER EVENT', e)
-      })
-  }
-
-  const minusBalance = (amount = 5000) => {
-    setBalance(b => b - amount)
-  }
-
   useEffect(() => {
     gameStateRef.current = {
       isReady,
@@ -471,54 +476,46 @@ export default function App() {
   ])
 
   useEffect(() => {
-    window.__ARCADE_INPUT__ = payload => {
-      console.log('APP', payload)
+    spinRef.current = spin
+  }, [spin])
 
+  useEffect(() => {
+    setAutoSpinRef.current = setAutoSpin
+    addBetRef.current = addBet
+    minusBetRef.current = minusBet
+    setTurboStageRef.current = setTurboStage
+  })
+
+  useEffect(() => {
+    window.__ARCADE_INPUT__ = payload => {
+      console.log('[ARCADE]', payload)
+
+      // --- COIN ---
       if (payload.type === 'COIN') {
         addBalance('coin', payload.credits)
         return
       }
 
+      // --- WITHDRAW COMPLETE ---
       if (payload.type === 'WITHDRAW_COMPLETE') {
         minusBalance(payload.dispensed)
-
         logLedgerEvent({
           sessionId: requireSessionId(),
           deviceId: getDeviceId(),
           type: 'withdrawal',
           amount: payload.dispensed,
           source: 'hopper',
-        }).then(() => {})
-
-        console.log('Dispensed coins:', payload.dispensed)
+        })
         return
       }
 
-      const s = gameStateRef.current
-
-      console.log(s)
-      if (!s.isReady) return
       if (payload.type !== 'ACTION') return
 
-      const action = payload.action
+      const s = gameStateRef.current
+      if (!s.isReady) return
 
-      console.log('action', action)
-      switch (action) {
-        case 'SPIN':
-          console.log(
-            'SPIN',
-            !s.spinning &&
-              !s.autoSpin &&
-              !s.isFreeGame &&
-              !s.showFreeSpinIntro &&
-              !s.showScatterWinBanner &&
-              !s.showBuySpinModal &&
-              s.freeSpinsLeft <= 0 &&
-              s.balance > 0 &&
-              s.balance >= s.bet &&
-              pauseColumn === null,
-          )
-
+      switch (payload.action) {
+        case 'SPIN': {
           if (
             !s.spinning &&
             !s.autoSpin &&
@@ -527,80 +524,52 @@ export default function App() {
             !s.showScatterWinBanner &&
             !s.showBuySpinModal &&
             s.freeSpinsLeft <= 0 &&
-            s.balance > 0 &&
             s.balance >= s.bet &&
-            pauseColumn === null
+            s.pauseColumn === null
           ) {
-            spin()
+            spinRef.current()
           }
+          break
+        }
 
-          break
-        case 'BET_UP':
-          if (
-            !s.spinning &&
-            !s.autoSpin &&
-            !s.isFreeGame &&
-            !s.showFreeSpinIntro &&
-            !s.showScatterWinBanner &&
-            s.freeSpinsLeft <= 0
-          ) {
-            addBet()
+        case 'BET_UP': {
+          if (!s.spinning && !s.autoSpin && s.freeSpinsLeft <= 0) {
+            addBetRef.current()
           }
           break
-        case 'BET_DOWN':
-          if (
-            !s.spinning &&
-            !s.autoSpin &&
-            !s.isFreeGame &&
-            !s.showFreeSpinIntro &&
-            !s.showScatterWinBanner &&
-            s.freeSpinsLeft <= 0
-          ) {
-            minusBet()
-          }
-          break
-        case 'AUTO':
-          if (!s.isFreeGame && s.balance > 0 && s.balance >= s.bet && s.pauseColumn === null) {
-            setAutoSpin(!s.autoSpin)
-          }
-          break
-        case 'WITHDRAW':
-          if (
-            !s.spinning &&
-            !s.autoSpin &&
-            !s.isFreeGame &&
-            !s.showFreeSpinIntro &&
-            !s.showScatterWinBanner &&
-            s.freeSpinsLeft <= 0 &&
-            s.balance >= 5000 &&
-            !s.showBuySpinModal
-          ) {
-            const amountToWithdraw = 5
+        }
 
+        case 'BET_DOWN': {
+          if (!s.spinning && !s.autoSpin && s.freeSpinsLeft <= 0) {
+            minusBetRef.current()
+          }
+          break
+        }
+
+        case 'AUTO': {
+          if (!s.isFreeGame && s.balance >= s.bet && s.pauseColumn === null) {
+            setAutoSpinRef.current(v => !v)
+          }
+          break
+        }
+
+        case 'TURBO': {
+          if (s.balance >= s.bet && s.pauseColumn === null && !s.showBuySpinModal) {
+            setTurboStageRef.current(prev => ((prev + 1) % 4) as 0 | 1 | 2 | 3)
+          }
+          break
+        }
+
+        case 'WITHDRAW': {
+          if (!s.spinning && !s.autoSpin && s.balance >= 5000 && !s.showBuySpinModal) {
             fetch('/input', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                type: 'WITHDRAW',
-                amount: amountToWithdraw,
-              }),
-            }).then(() => {})
-          }
-          break
-        case 'TURBO':
-          if (
-            s.balance > 0 &&
-            s.balance >= s.bet &&
-            s.pauseColumn === null &&
-            !s.showBuySpinModal
-          ) {
-            setTurboStage(prev => {
-              const next = ((prev + 1) % 4) as 0 | 1 | 2 | 3
-              if (next === 0) setAutoSpin(false)
-              return next
+              body: JSON.stringify({ type: 'WITHDRAW', amount: 5 }),
             })
           }
           break
+        }
       }
     }
 
