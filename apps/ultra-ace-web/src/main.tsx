@@ -26,7 +26,12 @@ if (import.meta.hot) {
     }
 
     // ✅ NORMALIZATION LAYER (CRITICAL)
-    if (payload?.type && payload.type !== 'ACTION' && payload.type !== 'COIN') {
+    if (
+      payload?.type &&
+      payload.type !== 'ACTION' &&
+      payload.type !== 'COIN' &&
+      payload.type !== 'WITHDRAW_COMPLETE'
+    ) {
       payload = {
         type: 'ACTION',
         action: payload.type,
