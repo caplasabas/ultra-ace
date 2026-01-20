@@ -1,9 +1,16 @@
-// src/simulate.ts
 import { spin } from './spin.js'
 import { createRNG } from './rng.js'
-import { SIMULATION_CONFIG } from './config/simulate.config.js'
+import { startEngine } from './runtime/engineClient.js'
+import { SIMULATION_CONFIG, SIM_ENGINE_CONFIG } from './config/simulate.config.js'
 import { formatPeso } from './utils/currency.js'
 
+// ───────────── ENGINE STARTUP ─────────────
+startEngine({
+  config: SIM_ENGINE_CONFIG,
+  version: 'simulate-v1',
+})
+
+// ───────────── RNG ─────────────
 const { spins, betPerSpin, seed, lines } = SIMULATION_CONFIG
 const rng = createRNG(seed)
 

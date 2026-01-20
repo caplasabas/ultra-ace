@@ -4,50 +4,17 @@ import { evaluateColumnWindow, Position } from './evaluator.columns.js'
 import { GAME_CONFIG } from '../config/game.config.js'
 import { getCascadeMultiplier } from './multiplier.js'
 import {
-  RED_WILD_CHANCE,
-  FREE_RED_WILD_CHANCE,
-  BIG_JOKER_MIN,
-  BIG_JOKER_MAX,
   DEV_FORCE_RED_WILD,
   DEV_FORCE_BIG_JOKER,
   BLOCKED_JOKER_KINDS,
 } from '../config/wild.config.js'
-import { REFILL_WEIGHTS, SYMBOL_COLUMN_CAPS, SYMBOL_REEL_CAPS } from './reelWeights.js'
+import { EngineConfig } from '../runtime/engineConfig.js'
 
-/* ----------------------------------------
-   CONSTANTS
----------------------------------------- */
-const GOLD_CHANCE_REFILL = 0.025
-const FREE_GOLD_CHANCE_REFILL = 0.055
-
-const GOLD_TTL = 0
-const MAX_PAYOUT = 2_000_000
-const MAX_MULTIPLIER = 10_000
-const MAX_SAME_SYMBOL_PER_REEL = 20
-
-/* ----------------------------------------
-   HELPERS
----------------------------------------- */
-function makeInitialCascade(window: Symbol[][]): CascadeStep {
-  return {
-    index: 0,
-    multiplier: 1,
-    lineWins: [],
-    win: 0,
-    removedPositions: [],
-    isScatterTerminal: false,
-    window: cloneWindow(window),
-  }
-}
-
-/* ----------------------------------------
-   MAIN
----------------------------------------- */
 export function runCascades(
+  cfg: EngineConfig,
   initialWindow: Symbol[][],
   totalBet: number,
   isFreeGame: boolean,
-  isForceScatter: boolean,
   rng: () => number,
 ) {
   const window = cloneWindow(initialWindow)
@@ -56,15 +23,15 @@ export function runCascades(
 
   cascades.push(makeInitialCascade(window))
 
-  for (let i = 1; i <= GAME_CONFIG.maxCascades; i++) {
+  for (let i = 1; i <= cfg.cascades.maxCascades; i++) {
     const multiplier = getCascadeMultiplier(
       i,
       isFreeGame,
-      GAME_CONFIG.multiplierLadderBase,
-      GAME_CONFIG.multiplierLadderFree,
+      cfg.cascades.multiplierLadderBase,
+      cfg.cascades.multiplierLadderFree,
     )
 
-    if (multiplier >= MAX_MULTIPLIER) break
+    if (multiplier >= cfg.limits.maxMultiplier) break
 
     const { wins } = evaluateColumnWindow(window, totalBet)
 
@@ -99,7 +66,7 @@ export function runCascades(
 
         // Gold → Wild
         if (s.isGold) {
-          const redChance = isFreeGame ? FREE_RED_WILD_CHANCE : RED_WILD_CHANCE
+          const redChance = isFreeGame ? cfg.gold.freeRedWildChance : cfg.gold.redWildChance
           const isRed = DEV_FORCE_RED_WILD || DEV_FORCE_BIG_JOKER || rng() < redChance
 
           window[pos.reel][pos.row] = {
@@ -109,7 +76,7 @@ export function runCascades(
             fromGold: true,
           }
 
-          if (isRed) propagateBigJoker(window, rng)
+          if (isRed) propagateBigJoker(cfg, window, rng)
           continue
         }
 
@@ -120,21 +87,11 @@ export function runCascades(
 
     const win = baseWin * multiplier
     totalWin += win
-    if (totalWin >= MAX_PAYOUT) break
-
-    // /* ----------------------------------------
-    //    CHECK FOR SCATTER TERMINAL AFTER POP
-    // ---------------------------------------- */
-    // const scatterCountAfterPop = window.flat().filter(s => s.kind === 'SCATTER').length
-    //
-    // const isScatterTerminalNext = scatterCountAfterPop >= 3
-    //
-    // // Capture post-pop window BEFORE refill
-    // const postPopWindow = cloneWindow(window)
+    if (totalWin >= cfg.limits.maxPayout) break
 
     const winningSymbolMap = buildWinningSymbolMap(wins)
 
-    refillInPlace(window, rng, isFreeGame, winningSymbolMap)
+    refillInPlace(cfg, window, rng, isFreeGame, winningSymbolMap)
 
     cascades.push({
       index: i,
@@ -145,28 +102,30 @@ export function runCascades(
       isScatterTerminal: false,
       window: cloneWindow(window),
     })
-
-    // if (isScatterTerminalNext) {
-    //   cascades.push({
-    //     index: i + 1,
-    //     multiplier,
-    //     lineWins: [],
-    //     win: 0,
-    //     removedPositions: removed,
-    //     isScatterTerminal: true,
-    //     window: postPopWindow, // 🔒 BLANKS PRESERVED
-    //   })
-    //   break
-    // }
   }
 
   return { totalWin, cascades }
 }
 
 /* ----------------------------------------
+   HELPERS
+---------------------------------------- */
+function makeInitialCascade(window: Symbol[][]): CascadeStep {
+  return {
+    index: 0,
+    multiplier: 1,
+    lineWins: [],
+    win: 0,
+    removedPositions: [],
+    isScatterTerminal: false,
+    window: cloneWindow(window),
+  }
+}
+
+/* ----------------------------------------
    BIG JOKER (RED WILD PROPAGATION)
 ---------------------------------------- */
-function propagateBigJoker(window: Symbol[][], rng: () => number) {
+function propagateBigJoker(cfg: EngineConfig, window: Symbol[][], rng: () => number) {
   const candidates: { reel: number; row: number }[] = []
 
   for (let reel = 1; reel <= 3; reel++) {
@@ -180,7 +139,7 @@ function propagateBigJoker(window: Symbol[][], rng: () => number) {
 
   shuffle(candidates, rng)
 
-  const count = BIG_JOKER_MIN + Math.floor(rng() * (BIG_JOKER_MAX - BIG_JOKER_MIN + 1))
+  const count = cfg.joker.min + Math.floor(rng() * (cfg.joker.max - cfg.joker.min + 1))
 
   for (let i = 0; i < Math.min(count, candidates.length); i++) {
     const { reel, row } = candidates[i]
@@ -192,10 +151,8 @@ function propagateBigJoker(window: Symbol[][], rng: () => number) {
   }
 }
 
-/* ----------------------------------------
-   REFILL
----------------------------------------- */
 function refillInPlace(
+  cfg: EngineConfig,
   window: Symbol[][],
   rng: () => number,
   isFreeGame: boolean,
@@ -212,6 +169,7 @@ function refillInPlace(
         symbol =
           r === 0
             ? pickWeightedSymbol(
+                cfg,
                 GAME_CONFIG.cascadeFillPool.filter(
                   s => s.kind === 'A' || s.kind === 'K' || s.kind === 'Q',
                 ),
@@ -219,33 +177,33 @@ function refillInPlace(
                 rng,
               )
             : {
-                ...pickWeightedSymbol(GAME_CONFIG.cascadeFillPool, winningSymbolMap, rng),
+                ...pickWeightedSymbol(cfg, GAME_CONFIG.cascadeFillPool, winningSymbolMap, rng),
               }
 
         attempts++
 
         const sameColumnCount = window.filter(col => col[row]?.kind === symbol.kind).length
 
-        const columnCap = SYMBOL_COLUMN_CAPS[symbol.kind]
+        const columnCap = cfg.caps.column[symbol.kind]
         if (columnCap !== undefined && sameColumnCount >= columnCap) {
           continue
         }
 
         const sameKindCount = window[r].filter(s => s.kind === symbol.kind).length
 
-        const cap = SYMBOL_REEL_CAPS[symbol.kind]
+        const cap = cfg.caps.reel[symbol.kind]
         if (cap !== undefined && sameKindCount >= cap) {
           continue
         }
-        if (symbol.kind !== 'WILD' && sameKindCount < MAX_SAME_SYMBOL_PER_REEL) break
+        if (symbol.kind !== 'WILD' && sameKindCount < cfg.cascades.maxSameSymbolPerReel) break
       } while (attempts < 20)
 
       const goldAllowed = r !== 0 && r !== window.length - 1
-      const goldChance = isFreeGame ? FREE_GOLD_CHANCE_REFILL : GOLD_CHANCE_REFILL
+      const goldChance = isFreeGame ? cfg.gold.freeRefillChance : cfg.gold.refillChance
 
       if (goldAllowed && symbol.kind !== 'SCATTER' && rng() < goldChance) {
         symbol.isGold = true
-        symbol.goldTTL = GOLD_TTL
+        symbol.goldTTL = cfg.gold.ttl
       }
 
       window[r][row] = symbol
@@ -266,12 +224,13 @@ function weightedRandom<T>(items: { symbol: T; weight: number }[], rng: () => nu
 }
 
 function pickWeightedSymbol(
+  cfg: EngineConfig,
   pool: Symbol[],
   winningMap: Map<SymbolKind, number>,
   rng: () => number,
 ): Symbol {
   const weighted = pool.map(s => {
-    const baseWeight = REFILL_WEIGHTS[s.kind] ?? 0.1
+    const baseWeight = cfg.reels.refillWeights[s.kind] ?? 0.1
     const penalty = symbolReinforcementPenalty(winningMap.get(s.kind) ?? 0)
     return {
       symbol: s,

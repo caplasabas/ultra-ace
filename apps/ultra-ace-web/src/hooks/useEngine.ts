@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { spin, createRNG } from '@ultra-ace/engine'
+import { spin, createRNG, startEngine, DEFAULT_ENGINE_CONFIG } from '@ultra-ace/engine'
 import type { CascadeStep, SpinOutcome } from '@ultra-ace/engine'
 import { DebugSpinInfo } from 'src/debug/DebugHud'
 import { logSpin, startSession } from '../lib/session'
@@ -41,6 +41,8 @@ export function useEngine() {
      Player economy
   ----------------------------- */
   const [bet, setBet] = useState(2)
+  const [buySpinBet, setBuySpinBet] = useState(bet)
+
   const [balance, setBalance] = useState(0)
 
   const [totalWin, setTotalWin] = useState(0)
@@ -68,6 +70,11 @@ export function useEngine() {
 
   useEffect(() => {
     let mounted = true
+
+    startEngine({
+      config: DEFAULT_ENGINE_CONFIG,
+      version: 'ui-local-default',
+    })
 
     startSession(false)
       .then(async id => {
@@ -132,18 +139,20 @@ export function useEngine() {
       setFreeSpinTotal(0)
     }
 
+    const spinAmount = isFreeGame && scatterTriggerType === 'buy' ? buySpinBet : bet
+
     if (sessionIdRef?.current) {
       logLedgerEvent({
         sessionId: sessionIdRef?.current,
         deviceId: getDeviceId(),
         type: 'bet',
-        amount: bet,
+        amount: spinAmount,
         source: 'game',
       }).then(() => {})
     }
 
     const outcome: SpinOutcome = spin(rngRef.current, {
-      betPerSpin: bet,
+      betPerSpin: spinAmount,
       lines: 5,
       isFreeGame,
     })
@@ -186,6 +195,16 @@ export function useEngine() {
     setBalance(b => b - cost)
     setSpinning(true)
     setTotalWin(0)
+
+    if (sessionIdRef?.current) {
+      logLedgerEvent({
+        sessionId: sessionIdRef?.current,
+        deviceId: getDeviceId(),
+        type: 'bet',
+        amount: cost,
+        source: 'game',
+      }).then(() => {})
+    }
 
     const outcome: SpinOutcome = spin(rngRef.current, {
       betPerSpin: betAmount,
@@ -286,6 +305,9 @@ export function useEngine() {
     bet,
     setBet,
     totalWin,
+
+    buySpinBet,
+    setBuySpinBet,
 
     isFreeGame,
     freeSpinsLeft,

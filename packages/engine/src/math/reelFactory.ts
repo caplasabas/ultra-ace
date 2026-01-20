@@ -1,9 +1,8 @@
 import { Symbol } from '../types/symbol.js'
-import { REEL_WEIGHTS } from './reelWeights.js'
 
 const REEL_SIZE = 1000
 
-export function buildReel(weights: Record<string, number> = REEL_WEIGHTS): Symbol[] {
+export function buildReel(weights: Record<string, number>, rng: () => number): Symbol[] {
   const reel: Symbol[] = []
 
   const total = Object.values(weights).reduce((a, b) => a + b, 0)
@@ -15,9 +14,14 @@ export function buildReel(weights: Record<string, number> = REEL_WEIGHTS): Symbo
     }
   }
 
-  return shuffle(reel)
+  return shuffle(reel, rng)
 }
 
-function shuffle<T>(arr: T[]): T[] {
-  return [...arr].sort(() => Math.random() - 0.5)
+function shuffle<T>(arr: T[], rng = Math.random): T[] {
+  const out = [...arr]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
 }

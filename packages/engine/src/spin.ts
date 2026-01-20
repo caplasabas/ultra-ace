@@ -1,27 +1,24 @@
 import { PRNG } from './rng.js'
-import { REELS } from './math/reels.js'
-import { REELS_FREE } from './math/reels.free.js'
 import { runCascades } from './math/cascade.js'
 import { SpinInput, SpinOutcome } from './types/spin.js'
-import { GAME_CONFIG } from './config/game.config.js'
 import { Symbol } from './types/symbol.js'
+import { getEngineConfig, getEngineVersion, getReels } from './runtime/engineContext.js'
 
-// const GOLD_CHANCE_INITIAL = 0.0000000095
-const GOLD_CHANCE_INITIAL = 0.012
-// const FREE_GOLD_CHANCE_INITIAL = 0.00095
-const FREE_GOLD_CHANCE_INITIAL = 0.018
-
-const GOLD_TTL = 0
 const FORBIDDEN_GOLD_REELS = new Set([0])
+
 export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
+  const cfg = getEngineConfig()
+
   const isFreeGame = Boolean(input.isFreeGame)
   const totalBet = isFreeGame ? 0 : input.betPerSpin
 
-  const reels = isFreeGame ? REELS_FREE : REELS
+  const { base, free } = getReels(cfg, getEngineVersion() ?? 'V1', rng)
+  const reels = isFreeGame ? free : base
+
   const stops = reels.map(reel => Math.floor(rng() * reel.length))
 
   const window: Symbol[][] = reels.map((reel, reelIndex) =>
-    Array.from({ length: GAME_CONFIG.reelsVisibleRows }, (_, row) => {
+    Array.from({ length: cfg.reels.reelsVisibleRows }, (_, row) => {
       const idx = (stops[reelIndex] + row) % reel.length
       return { ...reel[idx] }
     }),
@@ -39,32 +36,23 @@ export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
   ---------------------------------------- */
   for (let reelIndex = 0; reelIndex < window.length; reelIndex++) {
     for (const symbol of window[reelIndex]) {
-      const goldChangeInitial = isFreeGame ? FREE_GOLD_CHANCE_INITIAL : GOLD_CHANCE_INITIAL
-      if (
-        !FORBIDDEN_GOLD_REELS.has(reelIndex) &&
-        symbol.kind !== 'SCATTER' &&
-        rng() < goldChangeInitial
-      ) {
+      const goldChance = input.isFreeGame ? cfg.gold.freeInitialChance : cfg.gold.initialChance
+
+      if (!FORBIDDEN_GOLD_REELS.has(reelIndex) && symbol.kind !== 'SCATTER' && rng() < goldChance) {
         symbol.isGold = true
-        symbol.goldTTL = GOLD_TTL
+        symbol.goldTTL = cfg.gold.ttl
       }
     }
   }
 
   const scatterCount = window.flat().filter(s => s.kind === 'SCATTER').length
 
-  const { totalWin, cascades } = runCascades(
-    window,
-    input.betPerSpin,
-    isFreeGame,
-    Boolean(input.forceScatter),
-    rng,
-  )
+  const { totalWin, cascades } = runCascades(cfg, window, input.betPerSpin, isFreeGame, rng)
 
-  let freeSpinsAwarded = !isFreeGame && scatterCount >= 3 ? GAME_CONFIG.freeSpinsAwarded : 0
+  let freeSpinsAwarded = !isFreeGame && scatterCount >= 3 ? cfg.scatter.baseAward : 0
 
   if (isFreeGame && scatterCount >= 3) {
-    freeSpinsAwarded += 5
+    freeSpinsAwarded += cfg.scatter.retriggerAward
   }
 
   return {

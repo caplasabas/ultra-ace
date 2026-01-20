@@ -134,6 +134,9 @@ export default function App() {
     freezeUI,
     sessionReady,
     requireSessionId,
+
+    buySpinBet,
+    setBuySpinBet,
   } = useEngine()
 
   function getBetIncrement(bet: number): number {
@@ -248,7 +251,6 @@ export default function App() {
     activeCascade.window.flat().filter(s => s.kind === 'SCATTER').length >= 3
 
   const [showBuySpinModal, setShowBuySpinModal] = useState(false)
-  const [buySpinBet, setBuySpinBet] = useState(bet)
 
   useEffect(() => {
     if (showBuySpinModal) {
