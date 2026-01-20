@@ -349,7 +349,7 @@ export function useCascadeTimeline(
           } else {
             dispatch({ type: 'NEXT', phase: 'settle' })
           }
-        }, scaled(1350))
+        }, scaled(1050))
         break
 
       case 'postGoldTransform':

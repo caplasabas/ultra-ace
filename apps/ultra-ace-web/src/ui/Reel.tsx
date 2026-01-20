@@ -9,8 +9,8 @@ import { CSSProperties, memo, useEffect, useRef } from 'react'
 const COLUMN_DEAL_DELAY = 55
 
 const INITIAL_ROW_DROP_DELAY = 65
-const CASCADE_ROW_DROP_DELAY = 40
-const CASCADE_COLUMN_EXTRA_DELAY = 30
+const CASCADE_ROW_DROP_DELAY = 60
+const CASCADE_COLUMN_EXTRA_DELAY = 45
 
 export const PAUSED_INITIAL_ROW_DROP_DELAY = 450
 

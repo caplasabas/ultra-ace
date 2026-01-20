@@ -179,3 +179,26 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
     maxMultiplier: 10_000,
   },
 }
+
+export const DEFAULT_ENGINE_HAPPY_HOUR: EngineConfig = {
+  ...DEFAULT_ENGINE_CONFIG,
+
+  mode: 'HAPPY_HOUR',
+
+  rtpProfile: {
+    baseTarget: 1.8,
+    freeTarget: 1.9,
+  },
+
+  gold: {
+    ...DEFAULT_ENGINE_CONFIG.gold,
+    initialChance: 0.02,
+    refillChance: 0.08,
+    freeInitialChance: 0.12,
+    freeRefillChance: 0.48,
+  },
+
+  cascades: {
+    ...DEFAULT_ENGINE_CONFIG.cascades,
+  },
+}

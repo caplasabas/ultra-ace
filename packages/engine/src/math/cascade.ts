@@ -185,21 +185,22 @@ function refillInPlace(
         const sameColumnCount = window.filter(col => col[row]?.kind === symbol.kind).length
 
         const columnCap = cfg.caps.column[symbol.kind]
-        if (columnCap !== undefined && sameColumnCount >= columnCap) {
+        if (columnCap !== undefined && sameColumnCount >= columnCap && cfg.mode === 'NORMAL') {
           continue
         }
 
         const sameKindCount = window[r].filter(s => s.kind === symbol.kind).length
 
-        const cap = cfg.caps.reel[symbol.kind]
-        if (cap !== undefined && sameKindCount >= cap) {
+        const rowCap = cfg.caps.reel[symbol.kind]
+        if (rowCap !== undefined && sameKindCount >= rowCap && cfg.mode === 'NORMAL') {
           continue
         }
         if (symbol.kind !== 'WILD' && sameKindCount < cfg.cascades.maxSameSymbolPerReel) break
       } while (attempts < 20)
 
       const goldAllowed = r !== 0 && r !== window.length - 1
-      const goldChance = isFreeGame ? cfg.gold.freeRefillChance : cfg.gold.refillChance
+      const goldChance =
+        isFreeGame || cfg.mode === 'HAPPY_HOUR' ? cfg.gold.freeRefillChance : cfg.gold.refillChance
 
       if (goldAllowed && symbol.kind !== 'SCATTER' && rng() < goldChance) {
         symbol.isGold = true
@@ -230,8 +231,12 @@ function pickWeightedSymbol(
   rng: () => number,
 ): Symbol {
   const weighted = pool.map(s => {
-    const baseWeight = cfg.reels.refillWeights[s.kind] ?? 0.1
-    const penalty = symbolReinforcementPenalty(winningMap.get(s.kind) ?? 0)
+    const baseWeight =
+      cfg.mode === 'HAPPY_HOUR'
+        ? (cfg.reels.refillWeightsFree[s.kind] ?? 0.1)
+        : (cfg.reels.refillWeights[s.kind] ?? 0.015)
+    const penalty =
+      cfg.mode === 'HAPPY_HOUR' ? 1 : symbolReinforcementPenalty(winningMap.get(s.kind) ?? 0)
     return {
       symbol: s,
       weight: baseWeight * penalty,

@@ -268,7 +268,7 @@
 }
 
 .card.deal {
-    animation: cascadeDealIn 73ms cubic-bezier(0.18, 0.88, 0.22, 1) forwards;
+    animation: cascadeDealIn 130ms cubic-bezier(0.18, 0.88, 0.22, 1) forwards;
     animation-fill-mode: both;
 }
 @keyframes cascadeDealIn {

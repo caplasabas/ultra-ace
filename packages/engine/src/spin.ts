@@ -87,11 +87,11 @@ function pickWeightedReel(
 }
 
 function forceThreeScatters(window: Symbol[][], rng: () => number) {
-  const reels = window.length
+  const reels = window.length - 1
 
   const reelsWithScatter = new Set<number>()
 
-  for (let r = 0; r < reels; r++) {
+  for (let r = 1; r < reels; r++) {
     if (window[r].some(s => s.kind === 'SCATTER')) {
       reelsWithScatter.add(r)
     }
@@ -106,14 +106,14 @@ function forceThreeScatters(window: Symbol[][], rng: () => number) {
   while (remainingToAdd > 0) {
     const candidateReels: number[] = []
 
-    for (let r = 0; r < reels; r++) {
+    for (let r = 1; r < reels; r++) {
       if (!reelsWithScatter.has(r)) {
         candidateReels.push(r)
       }
     }
 
     if (!candidateReels.length) {
-      for (let r = 0; r < reels; r++) candidateReels.push(r)
+      for (let r = 1; r < reels; r++) candidateReels.push(r)
     }
 
     const reel = pickWeightedReel(candidateReels, r => reelWeight(r, reels), rng)

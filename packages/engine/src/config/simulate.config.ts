@@ -36,20 +36,19 @@ export const SIM_ENGINE_CONFIG_HAPPY_HOUR: EngineConfig = {
   mode: 'HAPPY_HOUR',
 
   rtpProfile: {
-    baseTarget: 0.95,
-    freeTarget: 1.1,
+    baseTarget: 1.8,
+    freeTarget: 1.9,
   },
 
   gold: {
     ...DEFAULT_ENGINE_CONFIG.gold,
     initialChance: 0.02,
-    refillChance: 0.04,
-    freeInitialChance: 0.03,
-    freeRefillChance: 0.08,
+    refillChance: 0.08,
+    freeInitialChance: 0.12,
+    freeRefillChance: 0.48,
   },
 
   cascades: {
     ...DEFAULT_ENGINE_CONFIG.cascades,
-    multiplierLadderFree: [3, 6, 10, 20],
   },
 }
