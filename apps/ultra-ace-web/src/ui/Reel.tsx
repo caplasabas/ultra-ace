@@ -6,11 +6,11 @@ import { CSSProperties, memo, useEffect, useRef } from 'react'
 /* ----------------------------------------
    CONFIG
 ---------------------------------------- */
-const COLUMN_DEAL_DELAY = 110
+const COLUMN_DEAL_DELAY = 55
 
 const INITIAL_ROW_DROP_DELAY = 65
-const CASCADE_ROW_DROP_DELAY = 120
-const CASCADE_COLUMN_EXTRA_DELAY = 90
+const CASCADE_ROW_DROP_DELAY = 40
+const CASCADE_COLUMN_EXTRA_DELAY = 30
 
 export const PAUSED_INITIAL_ROW_DROP_DELAY = 450
 
@@ -215,7 +215,11 @@ function ReelComponent({
             className="card-shell"
             style={{
               top: `calc(${row} * (var(--scaled-card-height) + var(--card-gap)))`,
-              zIndex: isWin && phase === 'highlight' ? 20 : 1,
+              zIndex:
+                (isWin && phase === 'highlight') ||
+                (phase === 'initialRefill' && isActivePausedColumn)
+                  ? 20
+                  : 1,
             }}
           >
             {isWin && phase === 'pop' && (

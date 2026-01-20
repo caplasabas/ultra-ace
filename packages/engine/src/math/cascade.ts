@@ -1,6 +1,6 @@
-import { Symbol } from '../types/symbol.js'
+import { Symbol, SymbolKind } from '../types/symbol.js'
 import { CascadeStep } from '../types/cascade.js'
-import { evaluateColumnWindow } from './evaluator.columns.js'
+import { evaluateColumnWindow, Position } from './evaluator.columns.js'
 import { GAME_CONFIG } from '../config/game.config.js'
 import { getCascadeMultiplier } from './multiplier.js'
 import {
@@ -12,6 +12,7 @@ import {
   DEV_FORCE_BIG_JOKER,
   BLOCKED_JOKER_KINDS,
 } from '../config/wild.config.js'
+import { REFILL_WEIGHTS, SYMBOL_COLUMN_CAPS, SYMBOL_REEL_CAPS } from './reelWeights.js'
 
 /* ----------------------------------------
    CONSTANTS
@@ -66,27 +67,6 @@ export function runCascades(
     if (multiplier >= MAX_MULTIPLIER) break
 
     const { wins } = evaluateColumnWindow(window, totalBet)
-
-    /* ----------------------------------------
-       NO MORE LINE WINS → POSSIBLE SCATTER TERMINAL
-    ---------------------------------------- */
-    // if (wins.length === 0) {
-    // const scatterCount = window.flat().filter(s => s.kind === 'SCATTER').length
-
-    // if (scatterCount >= 3) {
-    //   cascades.push({
-    //     index: i,
-    //     multiplier,
-    //     lineWins: [],
-    //     win: 0,
-    //     removedPositions: [],
-    //     isScatterTerminal: true,
-    //     window: cloneWindow(cascades[cascades.length - 1].window), // 🔒 post-pop, pre-refill
-    //   })
-    // }
-
-    //   break
-    // }
 
     /* ----------------------------------------
        APPLY LINE WINS
@@ -152,7 +132,9 @@ export function runCascades(
     // // Capture post-pop window BEFORE refill
     // const postPopWindow = cloneWindow(window)
 
-    refillInPlace(window, rng, isFreeGame)
+    const winningSymbolMap = buildWinningSymbolMap(wins)
+
+    refillInPlace(window, rng, isFreeGame, winningSymbolMap)
 
     cascades.push({
       index: i,
@@ -213,7 +195,12 @@ function propagateBigJoker(window: Symbol[][], rng: () => number) {
 /* ----------------------------------------
    REFILL
 ---------------------------------------- */
-function refillInPlace(window: Symbol[][], rng: () => number, isFreeGame: boolean) {
+function refillInPlace(
+  window: Symbol[][],
+  rng: () => number,
+  isFreeGame: boolean,
+  winningSymbolMap: Map<SymbolKind, number>,
+) {
   for (let r = 0; r < window.length; r++) {
     for (let row = 0; row < window[r].length; row++) {
       if (window[r][row].kind !== 'EMPTY') continue
@@ -222,13 +209,34 @@ function refillInPlace(window: Symbol[][], rng: () => number, isFreeGame: boolea
       let attempts = 0
 
       do {
-        symbol = {
-          ...GAME_CONFIG.cascadeFillPool[Math.floor(rng() * GAME_CONFIG.cascadeFillPool.length)],
-        }
+        symbol =
+          r === 0
+            ? pickWeightedSymbol(
+                GAME_CONFIG.cascadeFillPool.filter(
+                  s => s.kind === 'A' || s.kind === 'K' || s.kind === 'Q',
+                ),
+                winningSymbolMap,
+                rng,
+              )
+            : {
+                ...pickWeightedSymbol(GAME_CONFIG.cascadeFillPool, winningSymbolMap, rng),
+              }
+
         attempts++
+
+        const sameColumnCount = window.filter(col => col[row]?.kind === symbol.kind).length
+
+        const columnCap = SYMBOL_COLUMN_CAPS[symbol.kind]
+        if (columnCap !== undefined && sameColumnCount >= columnCap) {
+          continue
+        }
 
         const sameKindCount = window[r].filter(s => s.kind === symbol.kind).length
 
+        const cap = SYMBOL_REEL_CAPS[symbol.kind]
+        if (cap !== undefined && sameKindCount >= cap) {
+          continue
+        }
         if (symbol.kind !== 'WILD' && sameKindCount < MAX_SAME_SYMBOL_PER_REEL) break
       } while (attempts < 20)
 
@@ -243,6 +251,60 @@ function refillInPlace(window: Symbol[][], rng: () => number, isFreeGame: boolea
       window[r][row] = symbol
     }
   }
+}
+
+function weightedRandom<T>(items: { symbol: T; weight: number }[], rng: () => number): T {
+  const total = items.reduce((s, i) => s + i.weight, 0)
+  let roll = rng() * total
+
+  for (const i of items) {
+    roll -= i.weight
+    if (roll <= 0) return i.symbol
+  }
+
+  return items[items.length - 1].symbol
+}
+
+function pickWeightedSymbol(
+  pool: Symbol[],
+  winningMap: Map<SymbolKind, number>,
+  rng: () => number,
+): Symbol {
+  const weighted = pool.map(s => {
+    const baseWeight = REFILL_WEIGHTS[s.kind] ?? 0.1
+    const penalty = symbolReinforcementPenalty(winningMap.get(s.kind) ?? 0)
+    return {
+      symbol: s,
+      weight: baseWeight * penalty,
+    }
+  })
+
+  return weightedRandom(weighted, rng)
+}
+
+function buildWinningSymbolMap(
+  wins: {
+    symbol: SymbolKind
+    reels: number
+    count: number
+    payout: number
+    positions: Position[]
+  }[],
+): Map<SymbolKind, number> {
+  const map = new Map<SymbolKind, number>()
+
+  for (const w of wins) {
+    map.set(w.symbol, (map.get(w.symbol) ?? 0) + w.positions.length)
+  }
+
+  return map
+}
+
+function symbolReinforcementPenalty(count: number): number {
+  if (count <= 3) return 1.0
+  if (count === 4) return 0.65
+  if (count === 5) return 0.35
+  return 0.2
 }
 
 /* ----------------------------------------

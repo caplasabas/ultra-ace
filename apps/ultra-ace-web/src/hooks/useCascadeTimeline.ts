@@ -45,16 +45,23 @@ type Action =
 export function detectScatterPauseColumn(window?: EngineSymbol[][]): number | null {
   if (!window) return null
 
-  let totalScatters = 0
+  const overallScatterCount = window.reduce(
+    (a, b) => a + b.filter(s => s.kind === 'SCATTER').length,
+    0,
+  )
 
-  for (let i = 0; i < window.length; i++) {
-    const scattersInColumn = window[i].filter(s => s.kind === 'SCATTER').length
+  if (overallScatterCount >= 2) {
+    let totalScatters = 0
 
-    if (scattersInColumn > 0) {
-      totalScatters += scattersInColumn
+    for (let i = 0; i < window.length; i++) {
+      const scattersInColumn = window[i].filter(s => s.kind === 'SCATTER').length
 
-      if (totalScatters >= 2) {
-        return i
+      if (scattersInColumn > 0) {
+        totalScatters += scattersInColumn
+
+        if (totalScatters >= 1) {
+          return i
+        }
       }
     }
   }
@@ -251,7 +258,6 @@ export function useCascadeTimeline(
       )
     }
     const hasScatterWin = cascades[0]?.window?.flat().filter(s => s.kind === 'SCATTER').length >= 3
-    const hasLineWin = Boolean(activeCascade?.lineWins.length)
 
     const totalDuration =
       INITIAL_REFILL_PAUSE_MS + (TOTAL_REELS - (pauseOrigin + 1)) * columnDuration
@@ -303,7 +309,6 @@ export function useCascadeTimeline(
 
     const hasNextLineWin = Boolean(nextCascade?.lineWins?.length)
     const hasRemovals = Boolean(activeCascade?.removedPositions?.length)
-    const hasLineWin = Boolean(activeCascade?.lineWins.length)
 
     const hasNextLineScatter =
       nextCascade && nextCascade.window?.flat().filter(s => s.kind === 'SCATTER').length
@@ -366,7 +371,7 @@ export function useCascadeTimeline(
               dispatch({ type: 'RESET' })
             }
           },
-          scaled(!hasNextLineWin && hasScatterWin ? 550 : 250),
+          scaled(!hasNextLineWin && hasScatterWin ? 220 : 80),
         )
         break
     }

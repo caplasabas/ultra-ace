@@ -4,12 +4,12 @@ import { REELS_FREE } from './math/reels.free.js'
 import { runCascades } from './math/cascade.js'
 import { SpinInput, SpinOutcome } from './types/spin.js'
 import { GAME_CONFIG } from './config/game.config.js'
-import { Symbol, SymbolKind } from './types/symbol.js'
+import { Symbol } from './types/symbol.js'
 
 // const GOLD_CHANCE_INITIAL = 0.0000000095
-const GOLD_CHANCE_INITIAL = 0.002
+const GOLD_CHANCE_INITIAL = 0.012
 // const FREE_GOLD_CHANCE_INITIAL = 0.00095
-const FREE_GOLD_CHANCE_INITIAL = 0.008
+const FREE_GOLD_CHANCE_INITIAL = 0.018
 
 const GOLD_TTL = 0
 const FORBIDDEN_GOLD_REELS = new Set([0])
@@ -76,40 +76,72 @@ export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
     freeSpinsAwarded,
   }
 }
+function reelWeight(reel: number, totalReels: number): number {
+  if (reel === 0) return 0.5
+  if (reel === totalReels - 1) return 1.25
+  return 1.0
+}
+
+function pickWeightedReel(
+  reels: number[],
+  weightFn: (r: number) => number,
+  rng: () => number,
+): number | null {
+  const total = reels.reduce((sum, r) => sum + weightFn(r), 0)
+  if (total <= 0) return null
+
+  let roll = rng() * total
+  for (const r of reels) {
+    roll -= weightFn(r)
+    if (roll <= 0) return r
+  }
+  return null
+}
 
 function forceThreeScatters(window: Symbol[][], rng: () => number) {
   const reels = window.length
-  const rows = window[0].length
 
-  // 1️⃣ Remove existing scatters by REPLACING them (not EMPTY)
+  const reelsWithScatter = new Set<number>()
+
   for (let r = 0; r < reels; r++) {
-    for (let row = 0; row < rows; row++) {
-      if (window[r][row].kind === 'SCATTER') {
-        window[r][row] = drawSafeFillSymbol(rng)
-      }
+    if (window[r].some(s => s.kind === 'SCATTER')) {
+      reelsWithScatter.add(r)
     }
   }
 
-  // 2️⃣ Choose exactly 3 distinct reels (no edges)
-  const chosenReels = shuffleArray([1, 2, 3], rng)
+  const currentScatterCount = window.flat().filter(s => s.kind === 'SCATTER').length
 
-  // 3️⃣ Place exactly one scatter per reel
-  for (const reel of chosenReels) {
-    const row = Math.floor(rng() * rows)
+  if (currentScatterCount >= 3) return
+
+  let remainingToAdd = 3 - currentScatterCount
+
+  while (remainingToAdd > 0) {
+    const candidateReels: number[] = []
+
+    for (let r = 0; r < reels; r++) {
+      if (!reelsWithScatter.has(r)) {
+        candidateReels.push(r)
+      }
+    }
+
+    if (!candidateReels.length) {
+      for (let r = 0; r < reels; r++) candidateReels.push(r)
+    }
+
+    const reel = pickWeightedReel(candidateReels, r => reelWeight(r, reels), rng)
+    if (reel == null) return
+
+    const openRows = window[reel].map((s, row) => ({ s, row })).filter(x => x.s.kind !== 'SCATTER')
+
+    if (!openRows.length) {
+      reelsWithScatter.add(reel)
+      continue
+    }
+
+    const { row } = openRows[Math.floor(rng() * openRows.length)]
     window[reel][row] = { kind: 'SCATTER' }
-  }
-}
 
-function drawSafeFillSymbol(rng: () => number): Symbol {
-  const pool = GAME_CONFIG.cascadeFillPool.filter(s => (s.kind as SymbolKind) !== 'SCATTER')
-  return { ...pool[Math.floor(rng() * pool.length)] }
-}
-
-function shuffleArray<T>(arr: T[], rng: () => number): T[] {
-  const copy = [...arr]
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1))
-    ;[copy[i], copy[j]] = [copy[j], copy[i]]
+    reelsWithScatter.add(reel)
+    remainingToAdd--
   }
-  return copy
 }

@@ -1,4 +1,6 @@
-export const REEL_WEIGHTS = {
+import { SymbolKind } from '../types/symbol.js'
+
+export const REEL_WEIGHTS: Partial<Record<SymbolKind, number>> = {
   DIAMOND: 0.65,
   CLUB: 0.65,
   SPADE: 0.5,
@@ -23,7 +25,7 @@ export const REEL_WEIGHTS = {
   // SCATTER: 1.2,
 }
 
-export const REEL_WEIGHTS_FREE = {
+export const REEL_WEIGHTS_FREE: Partial<Record<SymbolKind, number>> = {
   SPADE: 0.9,
   HEART: 0.9,
   DIAMOND: 0.8,
@@ -49,4 +51,41 @@ export const REEL_WEIGHTS_FREE = {
   // WILD: 0,
   // SCATTER: 0.025,
   // SCATTER: 0.9,
+}
+
+export const SYMBOL_REEL_CAPS: Partial<Record<SymbolKind, number>> = {
+  A: 2,
+  K: 3,
+  Q: 4,
+  J: 5,
+  HEART: 5,
+  SPADE: 5,
+  CLUB: 6,
+  DIAMOND: 6,
+}
+
+export const REFILL_WEIGHTS: Partial<Record<SymbolKind, number>> = {
+  DIAMOND: 0.22,
+  CLUB: 0.22,
+  SPADE: 0.2,
+  HEART: 0.2,
+
+  J: 0.08,
+  Q: 0.04,
+  K: 0.025,
+  A: 0.015,
+
+  WILD: 0,
+  SCATTER: 0,
+}
+
+export const SYMBOL_COLUMN_CAPS: Partial<Record<SymbolKind, number>> = {
+  A: 1,
+  K: 1,
+  Q: 2,
+  J: 2,
+  HEART: 2,
+  SPADE: 2,
+  CLUB: 2,
+  DIAMOND: 2,
 }

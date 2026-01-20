@@ -512,18 +512,19 @@ export default function App() {
       if (payload.type !== 'ACTION') return
 
       const s = gameStateRef.current
-      if (!s.isReady) return
 
       switch (payload.action) {
         case 'SPIN': {
           if (
+            !s.isReady &&
             !s.spinning &&
             !s.autoSpin &&
-            !s.isFreeGame &&
+            (!s.isFreeGame || s.freeSpinsLeft === 10) &&
             !s.showFreeSpinIntro &&
             !s.showScatterWinBanner &&
             !s.showBuySpinModal &&
             s.freeSpinsLeft <= 0 &&
+            s.showScatterWinBanner &&
             s.balance >= s.bet &&
             s.pauseColumn === null
           ) {
@@ -533,14 +534,14 @@ export default function App() {
         }
 
         case 'BET_UP': {
-          if (!s.spinning && !s.autoSpin && s.freeSpinsLeft <= 0) {
+          if (!s.isReady && !s.spinning && !s.autoSpin && s.freeSpinsLeft <= 0) {
             addBetRef.current()
           }
           break
         }
 
         case 'BET_DOWN': {
-          if (!s.spinning && !s.autoSpin && s.freeSpinsLeft <= 0) {
+          if (!s.isReady && !s.spinning && !s.autoSpin && s.freeSpinsLeft <= 0) {
             minusBetRef.current()
           }
           break
@@ -561,7 +562,13 @@ export default function App() {
         }
 
         case 'WITHDRAW': {
-          if (!s.spinning && !s.autoSpin && s.balance >= 5000 && !s.showBuySpinModal) {
+          if (
+            !s.isReady &&
+            !s.spinning &&
+            !s.autoSpin &&
+            s.balance >= 5000 &&
+            !s.showBuySpinModal
+          ) {
             fetch('/input', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -696,9 +703,8 @@ export default function App() {
             <div className="dim-zone">
               <DimOverlay
                 active={
-                  phase === 'highlight' &&
-                  Boolean(activeCascade?.lineWins?.length) &&
-                  !isScatterHighlight
+                  (phase === 'highlight' && Boolean(activeCascade?.lineWins?.length)) ||
+                  (phase === 'initialRefill' && !isFreeGame && activePausedColumn !== null)
                 }
               />
 

@@ -2,7 +2,7 @@ import { CSSProperties } from 'react'
 import { formatPeso } from '@ultra-ace/engine'
 
 export interface DebugSpinInfo {
-  seed: string
+  seed?: string
   bet: number
   win: number
   cascadeWins: number[]

@@ -12,9 +12,19 @@ const BUY_FREE_SPIN_MULTIPLIER = 50
 
 const SCATTER_BANNER_DURATION = 5000
 
+function generateSeed(): string {
+  const buf = new Uint32Array(4)
+  crypto.getRandomValues(buf)
+
+  return [Date.now(), buf[0], buf[1], buf[2], buf[3]].join('-')
+}
+
 export function useEngine() {
   const sessionIdRef = useRef<string | null>(null)
   const lastOutcomeRef = useRef<SpinOutcome | null>(null)
+
+  const rngRef = useRef<ReturnType<typeof createRNG> | null>(null)
+  const seedRef = useRef<string | null>(null)
 
   const [sessionReady, setSessionReady] = useState(false)
 
@@ -56,12 +66,6 @@ export function useEngine() {
   ----------------------------- */
   const [debugInfo, setDebugInfo] = useState<DebugSpinInfo | undefined>()
 
-  /* -----------------------------
-     RNG
-  ----------------------------- */
-  const seed = new Date().toISOString()
-  const rng = createRNG(seed)
-
   useEffect(() => {
     let mounted = true
 
@@ -69,6 +73,10 @@ export function useEngine() {
       .then(async id => {
         if (!mounted) return
         sessionIdRef.current = id
+
+        const seed = `${id}:${generateSeed()}`
+        seedRef.current = seed
+        rngRef.current = createRNG(seed)
 
         let balance = await fetchSessionBalance(id)
 
@@ -102,6 +110,7 @@ export function useEngine() {
   ----------------------------- */
   function spinNow() {
     if (spinning) return
+    if (!rngRef.current) return
 
     // Enter free spins
     if (!isFreeGame && pendingFreeSpins > 0) {
@@ -133,7 +142,7 @@ export function useEngine() {
       }).then(() => {})
     }
 
-    const outcome: SpinOutcome = spin(rng, {
+    const outcome: SpinOutcome = spin(rngRef.current, {
       betPerSpin: bet,
       lines: 5,
       isFreeGame,
@@ -145,7 +154,7 @@ export function useEngine() {
     setSpinId(v => v + 1)
 
     setDebugInfo({
-      seed,
+      seed: seedRef?.current ?? undefined,
       bet,
       win: outcome.win ?? 0,
       cascadeWins: (outcome.cascades ?? []).map(c => c.win ?? 0),
@@ -169,6 +178,7 @@ export function useEngine() {
 
   function buyFreeSpins(betAmount: number) {
     if (spinning || showFreeSpinIntro || freeSpinsLeft > 0 || pendingFreeSpins > 0) return
+    if (!rngRef.current) return
 
     const cost = betAmount * BUY_FREE_SPIN_MULTIPLIER
     if (balance < cost) return
@@ -177,7 +187,7 @@ export function useEngine() {
     setSpinning(true)
     setTotalWin(0)
 
-    const outcome: SpinOutcome = spin(rng, {
+    const outcome: SpinOutcome = spin(rngRef.current, {
       betPerSpin: betAmount,
       lines: 5,
       isFreeGame: false,

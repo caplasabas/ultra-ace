@@ -1,7 +1,7 @@
 import { Symbol, SymbolKind } from '../types/symbol.js'
 import { PAYTABLE } from './paytable.js'
 
-type Position = { reel: number; row: number }
+export type Position = { reel: number; row: number }
 
 const MIN_REELS = 3
 const MAX_REELS = 5
