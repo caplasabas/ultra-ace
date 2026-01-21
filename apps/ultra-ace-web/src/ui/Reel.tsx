@@ -138,14 +138,24 @@ function ReelComponent({
     <>
       {isActivePausedColumn &&
         createPortal(
-          <img
-            src={kamehamewave}
-            className="frame-paused-column-light-ray"
-            style={{
-              left: `calc(${reelIndex} * (var(--reel-width) + var(--reel-gap)) + var(--reel-width) /1.55)`,
-            }}
-            draggable={false}
-          />,
+          <>
+            <img
+              src={kamehamewave}
+              className="frame-paused-column-frame"
+              style={{
+                left: `calc(${reelIndex} * (var(--reel-width) + var(--reel-gap)) + var(--reel-width) /1.55)`,
+              }}
+              draggable={false}
+            />
+            <img
+              src={kamehamewave}
+              className="frame-paused-column-light-ray"
+              style={{
+                left: `calc(${reelIndex} * (var(--reel-width) + var(--reel-gap)) + var(--reel-width) /1.55)`,
+              }}
+              draggable={false}
+            />
+          </>,
           document.getElementById('frame-light-overlay')!,
         )}
 
