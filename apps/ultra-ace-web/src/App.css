@@ -220,6 +220,11 @@
 }
 
 
+.reel-paused-active {
+    position: relative;
+    z-index: 20; /* ABOVE frame-light-overlay (10), BELOW UI */
+}
+
 .reel.sweep-out-old {
     animation: oldReelDown 380ms cubic-bezier(0.22, 0.42, 0.78, 1) forwards;
     transform: translate3d(0,0,0);
@@ -2592,6 +2597,71 @@ button:focus-visible {
 
 }
 
+#frame-light-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10; /* ABOVE bg-frame, BELOW UI */
+    overflow: visible;
+}
+.frame-paused-column-light-ray {
+    position: absolute;
+    top: 16%;
+    left: 50%;
+
+    transform: translateX(-50%) translateY(-30%);
+    transform-origin: top center;
+
+    width: 22%;
+    height: auto;
+
+    opacity: 0;
+    mix-blend-mode: screen;
+
+    filter:
+            blur(0.2px)
+            drop-shadow(0 0 22px rgba(255, 220, 120, 0.65))
+            drop-shadow(0 0 48px rgba(255, 180, 60, 0.45));
+
+    /* ⬇️ KEY PART */
+    clip-path: inset(22% 0 0 0);
+
+    animation:
+            paused-ray-drop 240ms cubic-bezier(0.22, 1, 0.36, 1) forwards,
+            paused-ray-breathe 2.4s ease-in-out infinite;
+
+    z-index: 11;
+}
+
+@keyframes paused-ray-drop {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20%);
+        clip-path: inset(22% 0 0 0); /* hide top glow */
+    }
+    to {
+        opacity: 0.95;
+        transform: translateX(-50%) translateY(0%);
+        clip-path: inset(0 0 0 0);   /* fully revealed */
+    }
+}
+
+@keyframes paused-ray-breathe {
+    0%   { opacity: 0.65; }
+    50%  { opacity: 0.95; }
+    100% { opacity: 0.65; }
+}
+
+@keyframes paused-ray-enter {
+    from {
+        opacity: 0;
+        transform: translateX(0%) translateY(-18%);
+    }
+    to {
+        opacity: 0.85;
+        transform: translateX(-50%) translateY(0);
+    }
+}
 /* =========================
    PAUSED COLUMN – SIDE GLOW (BLOOM + FADE-OUT)
    ========================= */
@@ -2600,11 +2670,11 @@ button:focus-visible {
     position: absolute;
     top: -1rem;
     bottom: -2.2rem; /* allow glow to bleed into bottom container */
-    left: -8px;
-    right: -8px;
+    left: -4px;
+    right: -4px;
 
     pointer-events: none;
-    z-index: 4;
+    z-index: 3;
 
     animation:
             pausedColumnGlowPulse 1.6s ease-in-out infinite,
@@ -2641,11 +2711,11 @@ button:focus-visible {
                     to right,
                     rgb(253, 232, 165),
                     rgba(255, 230, 150, 0) 18%,
-                    rgba(255, 230, 150, 0) 82%,
-                    rgba(255, 230, 150, 1)
+                    rgba(255, 230, 150, 0) 42%,
+                    rgba(255, 230, 150, 0.7)
             );
 
-    opacity: 0.95;
+    opacity: 0.35;
 }
 
 /* BLOOM HALO */
@@ -2670,21 +2740,29 @@ button:focus-visible {
 /* LIGHT RAY DROP */
 .paused-column-border-glow .ray {
     position: absolute;
-    top: -50%;
-    left: 0;
-    right: 0;
-    height: 120%;
+    top: -8%;
+    left: 28%;
+    right: 28%;
+    height: 85%;
 
-    background:
-            linear-gradient(
-                    to bottom,
-                    rgba(255, 245, 210, 0),
-                    rgba(255, 245, 210, 0.85),
-                    rgba(255, 245, 210, 0)
-            );
+    background: linear-gradient(
+            to bottom,
+            rgba(255, 245, 210, 0) 10%,
+            rgba(255, 245, 210, 0.35) 55%,
+            rgba(255, 245, 210, 0) 100%
+    );
 
-    filter: blur(7px);
-    animation: pausedColumnRayDrop 320ms ease-out both;
+    filter: blur(14px);
+    opacity: 0.25;
+    mix-blend-mode: screen;
+
+    animation: rayHazeBreathe 2.8s ease-in-out infinite;
+}
+
+@keyframes rayHazeBreathe {
+    0%   { opacity: 0.35; }
+    50%  { opacity: 0.55; }
+    100% { opacity: 0.35; }
 }
 
 /* =========================
@@ -2708,17 +2786,6 @@ button:focus-visible {
     }
 }
 
-/* Top-down ray */
-@keyframes pausedColumnRayDrop {
-    from {
-        transform: translateY(-40%);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(120%);
-        opacity: 0;
-    }
-}
 
 /* =========================
    EDGE ENERGY PULSE (BOTTOM → TOP)
@@ -2726,8 +2793,8 @@ button:focus-visible {
 
 .paused-column-energy-pulse {
     position: absolute;
-    left: -10px;
-    right: -10px;
+    left: 0;
+    right: 0;
     bottom: -30%;
     height: 40%;
 
@@ -2769,7 +2836,7 @@ button:focus-visible {
 
 @keyframes pausedColumnEnergyRise {
     0% {
-        transform: translateY(0) scaleX(0.85);
+        transform: scaleY(0.85);
         opacity: 0;
     }
 
@@ -2779,7 +2846,7 @@ button:focus-visible {
 
     50% {
         opacity: 1;
-        transform: translateY(-120%) scaleX(1.15);
+        transform: scaleY(1.15);
     }
 
     80% {
@@ -2787,7 +2854,7 @@ button:focus-visible {
     }
 
     100% {
-        transform: translateY(-220%) scaleX(0.9);
+        transform: scaleY(0.9);
         opacity: 0;
     }
 }
@@ -2839,6 +2906,66 @@ button:focus-visible {
     }
 }
 
+
+.paused-column-border-glow {
+    position: absolute;
+    inset: -12px;
+    pointer-events: none;
+    z-index: 30;
+}
+
+/* ─────────────────────────────
+   Light Ray
+───────────────────────────── */
+.paused-column-light-ray {
+    position: absolute;
+    left: 60%;
+    top: -20%;
+    transform: translateX(-50%);
+    width: 80%;
+    height: auto;
+
+    opacity: 0.85;
+    mix-blend-mode: screen;
+
+    filter:
+            blur(0.5px)
+            drop-shadow(0 0 24px rgba(255, 220, 120, 0.65))
+            drop-shadow(0 0 48px rgba(255, 180, 60, 0.45));
+
+    animation:
+            paused-ray-enter 220ms ease-out,
+            paused-ray-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes paused-ray-enter {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) scaleY(0.85);
+    }
+    to {
+        opacity: 0.85;
+        transform: translateX(-50%) scaleY(1);
+    }
+}
+
+/* ─────────────────────────────
+   Subtle breathing animation
+───────────────────────────── */
+@keyframes paused-ray-pulse {
+    0% {
+        opacity: 0.55;
+        transform: translateX(-50%) scaleY(0.96);
+    }
+    50% {
+        opacity: 0.95;
+        transform: translateX(-50%) scaleY(1.02);
+    }
+    100% {
+        opacity: 0.55;
+        transform: translateX(-50%) scaleY(0.96);
+    }
+}
 
 .modal-backdrop {
     position: fixed;

@@ -2,7 +2,8 @@ import './reel.css'
 import type { CascadePhase } from '../hooks/useCascadeTimeline'
 import { SYMBOL_MAP } from './symbolMap'
 import { CSSProperties, memo, useEffect, useRef } from 'react'
-
+import { createPortal } from 'react-dom'
+import kamehamewave from '../assets/images/kamehamewave.png'
 /* ----------------------------------------
    CONFIG
 ---------------------------------------- */
@@ -134,179 +135,195 @@ function ReelComponent({
   const isActivePausedColumn = isInitialRefill && reelIndex === activePausedColumn
 
   return (
-    <div
-      className={['reel', layer === 'old' && phase === 'reelSweepOut' && 'sweep-out-old']
-        .filter(Boolean)
-        .join(' ')}
-      style={{
-        left: `calc(${reelIndex} * (var(--reel-width) + var(--reel-gap)))`,
-      }}
-    >
-      {isActivePausedColumn && (
-        <div className="paused-column-border-glow">
-          <div className="paused-column-inner-ember" />
-          <div className="paused-column-energy-pulse" />
-          <div className="ray" />
-        </div>
-      )}
-
-      {symbols.map((symbol, row) => {
-        const isWin = winningPositions.has(`${reelIndex}-${row}`)
-        const isScatter = symbol.kind === 'SCATTER'
-        const isBack = symbol.kind === 'BACK'
-        const isWild = symbol.kind === 'WILD'
-
-        // if (isCascadeRefill) {
-        //   console.log(symbol)
-        // }
-
-        const wildHighlight = isWild && isWin && phase === 'highlight'
-
-        const isCascadeDeal =
-          isCascadeRefill && symbol.isNew && !symbol.isPersisted && !symbol.isSettledWild
-
-        const isGoldLocked =
-          symbol.isGold === true || symbol.goldTTL !== undefined || symbol.wasGold
-
-        const isGoldWin = isGoldLocked && isWin && phase === 'pop' && symbol.kind !== 'SCATTER'
-
-        const isNormalPop = isWin && phase === 'pop' && !isGoldLocked && symbol.kind !== 'SCATTER'
-
-        const isScatterIdle =
-          isScatter &&
-          !symbol.isNew &&
-          !isCascadeDeal &&
-          (phase === 'highlight' || phase === 'idle' || phase === 'settle')
-
-        const shouldFlip = symbol.goldToWild === true
-
-        const isScatterHover =
-          symbol.kind === 'SCATTER' &&
-          isScatterHighlight &&
-          (phase === 'highlight' || phase === 'settle')
-
-        /* ----------------------------------------
-           DEAL TIMING
-        ---------------------------------------- */
-        const rowDelay =
-          (symbols.length - 1 - row) *
-          (isStaggeredInitialDrop
-            ? pausedInitialRowDelay
-            : isCascadeRefill
-              ? cascadeRowDelay
-              : initialRowDelay)
-
-        const baseColumnDelay = isImmediateInitialDrop
-          ? reelIndex * columnDealDelay
-          : isCascadeDeal
-            ? reelIndex * (columnDealDelay + cascadeColumnExtraDelay)
-            : 0
-
-        const totalDelay =
-          isImmediateInitialDrop || isCascadeDeal || isStaggeredInitialDrop
-            ? baseColumnDelay + rowDelay + staggerDelay
-            : 0
-
-        const imgSrc = resolveSymbolImage(symbol)
-
-        return (
-          <div
-            key={symbol.id}
-            className="card-shell"
+    <>
+      {isActivePausedColumn &&
+        createPortal(
+          <img
+            src={kamehamewave}
+            className="frame-paused-column-light-ray"
             style={{
-              top: `calc(${row} * (var(--scaled-card-height) + var(--card-gap)))`,
-              zIndex:
-                (isWin && phase === 'highlight') ||
-                (phase === 'initialRefill' && isActivePausedColumn)
-                  ? 20
-                  : 1,
+              left: `calc(${reelIndex} * (var(--reel-width) + var(--reel-gap)) + var(--reel-width) /1.55)`,
             }}
-          >
-            {isWin && phase === 'pop' && (
-              <div className="scorch-pop delayed">
-                <div className="scorch-atlas pop" />
-              </div>
-            )}
+            draggable={false}
+          />,
+          document.getElementById('frame-light-overlay')!,
+        )}
 
+      <div
+        className={['reel', layer === 'old' && phase === 'reelSweepOut' && 'sweep-out-old']
+          .filter(Boolean)
+          .join(' ')}
+        style={{
+          left: `calc(${reelIndex} * (var(--reel-width) + var(--reel-gap)))`,
+        }}
+      >
+        {isActivePausedColumn && (
+          <div className="paused-column-border-glow">
+            <div className="paused-column-inner-ember" />
+            <div className="paused-column-energy-pulse" />
+
+            <div className="ray" />
+          </div>
+        )}
+
+        {symbols.map((symbol, row) => {
+          const isWin = winningPositions.has(`${reelIndex}-${row}`)
+          const isScatter = symbol.kind === 'SCATTER'
+          const isBack = symbol.kind === 'BACK'
+          const isWild = symbol.kind === 'WILD'
+
+          // if (isCascadeRefill) {
+          //   console.log(symbol)
+          // }
+
+          const wildHighlight = isWild && isWin && phase === 'highlight'
+
+          const isCascadeDeal =
+            isCascadeRefill && symbol.isNew && !symbol.isPersisted && !symbol.isSettledWild
+
+          const isGoldLocked =
+            symbol.isGold === true || symbol.goldTTL !== undefined || symbol.wasGold
+
+          const isGoldWin = isGoldLocked && isWin && phase === 'pop' && symbol.kind !== 'SCATTER'
+
+          const isNormalPop = isWin && phase === 'pop' && !isGoldLocked && symbol.kind !== 'SCATTER'
+
+          const isScatterIdle =
+            isScatter &&
+            !symbol.isNew &&
+            !isCascadeDeal &&
+            (phase === 'highlight' || phase === 'idle' || phase === 'settle')
+
+          const shouldFlip = symbol.goldToWild === true
+
+          const isScatterHover =
+            symbol.kind === 'SCATTER' &&
+            isScatterHighlight &&
+            (phase === 'highlight' || phase === 'settle')
+
+          /* ----------------------------------------
+             DEAL TIMING
+          ---------------------------------------- */
+          const rowDelay =
+            (symbols.length - 1 - row) *
+            (isStaggeredInitialDrop
+              ? pausedInitialRowDelay
+              : isCascadeRefill
+                ? cascadeRowDelay
+                : initialRowDelay)
+
+          const baseColumnDelay = isImmediateInitialDrop
+            ? reelIndex * columnDealDelay
+            : isCascadeDeal
+              ? reelIndex * (columnDealDelay + cascadeColumnExtraDelay)
+              : 0
+
+          const totalDelay =
+            isImmediateInitialDrop || isCascadeDeal || isStaggeredInitialDrop
+              ? baseColumnDelay + rowDelay + staggerDelay
+              : 0
+
+          const imgSrc = resolveSymbolImage(symbol)
+
+          return (
             <div
-              className={[
-                'card',
-                isBack && 'back',
-                symbol.kind === 'WILD' && symbol.wasGold && 'wild',
-                symbol.kind === 'WILD' &&
-                  symbol.wasGold &&
-                  symbol.wildColor === 'red' &&
-                  'wild-red',
-                isGoldLocked && 'gold',
-                isScatter && 'scatter',
-                (isImmediateInitialDrop || isStaggeredInitialDrop) && 'deal-initial',
-                isCascadeDeal && 'deal',
-                isNormalPop && 'pop',
-                isGoldWin && 'gold-pop-lock',
-                isScatterHover && 'scatter-hover',
-                shouldFlip && 'flip-to-wild',
-                symbol.isSettledWild && 'settled',
-              ]
-                .filter(Boolean)
-                .join(' ')}
+              key={symbol.id}
+              className="card-shell"
               style={{
-                animationDelay: `${totalDelay}ms`,
+                top: `calc(${row} * (var(--scaled-card-height) + var(--card-gap)))`,
+                zIndex:
+                  (isWin && phase === 'highlight') ||
+                  (phase === 'initialRefill' && isActivePausedColumn)
+                    ? 30
+                    : 1,
               }}
             >
+              {isWin && phase === 'pop' && (
+                <div className="scorch-pop delayed">
+                  <div className="scorch-atlas pop" />
+                </div>
+              )}
+
               <div
                 className={[
-                  'card-inner',
-                  isBack && isCascadeRefill && 'highlight-back',
-                  isWin &&
-                    phase === 'highlight' &&
-                    !isWild &&
-                    !isBack &&
-                    !symbol.goldToWild &&
-                    'highlight',
+                  'card',
+                  isBack && 'back',
+                  symbol.kind === 'WILD' && symbol.wasGold && 'wild',
+                  symbol.kind === 'WILD' &&
+                    symbol.wasGold &&
+                    symbol.wildColor === 'red' &&
+                    'wild-red',
+                  isGoldLocked && 'gold',
+                  isScatter && 'scatter',
+                  (isImmediateInitialDrop || isStaggeredInitialDrop) && 'deal-initial',
+                  isCascadeDeal && 'deal',
+                  isNormalPop && 'pop',
+                  isGoldWin && 'gold-pop-lock',
+                  isScatterHover && 'scatter-hover',
+                  shouldFlip && 'flip-to-wild',
+                  symbol.isSettledWild && 'settled',
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                style={
-                  isWin && phase === 'highlight'
-                    ? ({
-                        '--hx': `${(reelIndex % 2 ? 1 : -1) * 6}px`,
-                        '--hy': `${(row % 2 ? 1 : -1) * 6}px`,
-                      } as CSSVars)
-                    : undefined
-                }
+                style={{
+                  animationDelay: `${totalDelay}ms`,
+                }}
               >
-                {imgSrc && (
-                  <img
-                    src={imgSrc}
-                    className={['symbol-img', wildHighlight && 'wild-highlight']
-                      .filter(Boolean)
-                      .join(' ')}
-                    style={{ backgroundImage: `url(${imgSrc})` }}
-                    draggable={false}
-                  />
-                )}
+                <div
+                  className={[
+                    'card-inner',
+                    isBack && isCascadeRefill && 'highlight-back',
+                    isWin &&
+                      phase === 'highlight' &&
+                      !isWild &&
+                      !isBack &&
+                      !symbol.goldToWild &&
+                      'highlight',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  style={
+                    isWin && phase === 'highlight'
+                      ? ({
+                          '--hx': `${(reelIndex % 2 ? 1 : -1) * 6}px`,
+                          '--hy': `${(row % 2 ? 1 : -1) * 6}px`,
+                        } as CSSVars)
+                      : undefined
+                  }
+                >
+                  {imgSrc && (
+                    <img
+                      src={imgSrc}
+                      className={['symbol-img', wildHighlight && 'wild-highlight']
+                        .filter(Boolean)
+                        .join(' ')}
+                      style={{ backgroundImage: `url(${imgSrc})` }}
+                      draggable={false}
+                    />
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div
-              className={['scorch-under', isWin && phase === 'highlight' && 'active delayed']
-                .filter(Boolean)
-                .join(' ')}
-            >
-              <div className="scorch-atlas core" />
-              <div className="scorch-atlas rays" />
-            </div>
-
-            {isScatterIdle && (
-              <div className="scorch-under scatter-idle">
+              <div
+                className={['scorch-under', isWin && phase === 'highlight' && 'active delayed']
+                  .filter(Boolean)
+                  .join(' ')}
+              >
                 <div className="scorch-atlas core" />
                 <div className="scorch-atlas rays" />
               </div>
-            )}
-          </div>
-        )
-      })}
-    </div>
+
+              {isScatterIdle && (
+                <div className="scorch-under scatter-idle">
+                  <div className="scorch-atlas core" />
+                  <div className="scorch-atlas rays" />
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </>
   )
 }
 

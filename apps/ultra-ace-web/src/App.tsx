@@ -907,6 +907,8 @@ export default function App() {
               </div>
             </div>
           </div>
+
+          <div id="frame-light-overlay" />
         </div>
       </div>
     </div>
