@@ -136,17 +136,9 @@ function ReelComponent({
 
   return (
     <>
-      {isActivePausedColumn &&
-        createPortal(
-          <>
-            <img
-              src={kamehamewave}
-              className="frame-paused-column-frame"
-              style={{
-                left: `calc(${reelIndex} * (var(--reel-width) + var(--reel-gap)) + var(--reel-width) /1.55)`,
-              }}
-              draggable={false}
-            />
+      {isActivePausedColumn && (
+        <>
+          <div id="reel-light-overlay">
             <img
               src={kamehamewave}
               className="frame-paused-column-light-ray"
@@ -155,9 +147,20 @@ function ReelComponent({
               }}
               draggable={false}
             />
-          </>,
-          document.getElementById('frame-light-overlay')!,
-        )}
+          </div>
+          {createPortal(
+            <img
+              src={kamehamewave}
+              className="frame-paused-column-frame"
+              style={{
+                left: `calc(${reelIndex} * (var(--reel-width) + var(--reel-gap)) + var(--reel-width) /1.55)`,
+              }}
+              draggable={false}
+            />,
+            document.getElementById('frame-light-overlay')!,
+          )}
+        </>
+      )}
 
       <div
         className={['reel', layer === 'old' && phase === 'reelSweepOut' && 'sweep-out-old']
@@ -243,7 +246,7 @@ function ReelComponent({
                 top: `calc(${row} * (var(--scaled-card-height) + var(--card-gap)))`,
                 zIndex:
                   (isWin && phase === 'highlight') ||
-                  (phase === 'initialRefill' && isActivePausedColumn)
+                  (phase === 'initialRefill' && (isActivePausedColumn || isScatter))
                     ? 30
                     : 1,
               }}

@@ -2605,6 +2605,7 @@ button:focus-visible {
     overflow: visible;
 }
 
+
 .frame-paused-column-frame{
     position: absolute;
     top: 16%;
@@ -2634,23 +2635,31 @@ button:focus-visible {
     z-index: 11;
 }
 
+#reel-light-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10; /* ABOVE bg-frame, BELOW UI */
+    overflow: visible;
+}
 
 .frame-paused-column-light-ray {
     position: absolute;
-    top: 16%;
-    left: 50%;
+    top: -14%;
+    /*top: -222%;*/
+    /*left: 20%;*/
 
-    transform: translateX(-50%) translateY(-12%);
+    transform: translateX(60%);
     transform-origin: top center;
 
-    width: 20%;
-    height: 56%;
+    width:21%;
+    height: 110%;
 
     opacity: 0;
     mix-blend-mode: overlay;
 
     filter:
-            blur(0.4px)
+            blur(0.2px)
             drop-shadow(0 0 22px rgba(255, 220, 120, 0.65))
             drop-shadow(0 0 48px rgba(255, 180, 60, 0.45));
 
@@ -2678,12 +2687,12 @@ button:focus-visible {
 @keyframes paused-ray-drop {
     from {
         opacity: 0;
-        transform: translateX(-50%) translateY(-12%);
+        transform: translateX(-60%) translateY(-22%);
         /*clip-path: inset(22% 0 0 0); !* hide top glow *!*/
     }
     to {
-        opacity: 0.85;
-        transform: translateX(-50%) translateY(0%);
+        opacity: 0.90;
+        transform: translateX(-60%) translateY(0%);
         /*clip-path: inset(0 0 0 0);   !* fully revealed *!*/
     }
 }
