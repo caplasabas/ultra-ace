@@ -518,7 +518,7 @@ export default function App() {
       switch (payload.action) {
         case 'SPIN': {
           if (
-            !s.isReady &&
+            s.isReady &&
             !s.spinning &&
             !s.autoSpin &&
             (!s.isFreeGame || s.freeSpinsLeft === 10) &&
@@ -526,7 +526,7 @@ export default function App() {
             !s.showScatterWinBanner &&
             !s.showBuySpinModal &&
             s.freeSpinsLeft <= 0 &&
-            s.showScatterWinBanner &&
+            !s.showScatterWinBanner &&
             s.balance >= s.bet &&
             s.pauseColumn === null
           ) {
@@ -536,14 +536,14 @@ export default function App() {
         }
 
         case 'BET_UP': {
-          if (!s.isReady && !s.spinning && !s.autoSpin && s.freeSpinsLeft <= 0) {
+          if (s.isReady && !s.spinning && !s.autoSpin && s.freeSpinsLeft <= 0) {
             addBetRef.current()
           }
           break
         }
 
         case 'BET_DOWN': {
-          if (!s.isReady && !s.spinning && !s.autoSpin && s.freeSpinsLeft <= 0) {
+          if (s.isReady && !s.spinning && !s.autoSpin && s.freeSpinsLeft <= 0) {
             minusBetRef.current()
           }
           break
@@ -564,13 +564,7 @@ export default function App() {
         }
 
         case 'WITHDRAW': {
-          if (
-            !s.isReady &&
-            !s.spinning &&
-            !s.autoSpin &&
-            s.balance >= 5000 &&
-            !s.showBuySpinModal
-          ) {
+          if (s.isReady && !s.spinning && !s.autoSpin && s.balance >= 5000 && !s.showBuySpinModal) {
             fetch('/input', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
