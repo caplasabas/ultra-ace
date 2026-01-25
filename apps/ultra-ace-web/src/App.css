@@ -50,7 +50,7 @@
 
 }
 
-@media (max-width: 100px) {
+@media (max-width: 1000px) {
     .game-frame {
         position: relative;
         width: min(430px, 100vw);
