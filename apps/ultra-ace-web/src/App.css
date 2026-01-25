@@ -93,13 +93,13 @@
 
         /*margin-top: 1vh;*/
 
-        height: 59vh;
+        height: 56vh;
 
     }
 
     .reels-row {
         position: absolute;
-        top: calc(var(--highlight-pad) * 2.2);
+        top: calc(var(--highlight-pad) * 1.8);
         left: calc(var(--highlight-pad));
 
 
@@ -129,7 +129,7 @@
     .bottom-container {
         width: 100%;
         height: 22vh;
-        margin-top: -5vh;
+        margin-top: -8vh;
         /*padding: 10px 0;*/
 
         display: flex;
