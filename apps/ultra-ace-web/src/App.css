@@ -91,15 +91,15 @@
         /*justify-content: center;*/
         overflow: hidden;
 
-        margin-top: 2vh;
+        /*margin-top: 1vh;*/
 
-        height: 61vh;
+        height: 59vh;
 
     }
 
     .reels-row {
         position: absolute;
-        top: calc(var(--highlight-pad));
+        top: calc(var(--highlight-pad) * 2.2);
         left: calc(var(--highlight-pad));
 
 
