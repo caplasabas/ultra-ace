@@ -59,7 +59,7 @@ export function detectScatterPauseColumn(window?: EngineSymbol[][]): number | nu
       if (scattersInColumn > 0) {
         totalScatters += scattersInColumn
 
-        if (totalScatters >= 1) {
+        if (totalScatters >= 2) {
           return i
         }
       }

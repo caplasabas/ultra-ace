@@ -706,22 +706,6 @@ export default function App() {
 
               <div className="reels-stage">
                 <div className="gpu-prewarm" />{' '}
-                {previousCascade &&
-                  ['reelSweepOut', 'initialRefill'].includes(phase) &&
-                  adaptWindow(previousCascade.window).map((col, i) => (
-                    <Reel
-                      key={`old-${cascadeIndex}-${i}`}
-                      symbols={col}
-                      reelIndex={i}
-                      winningPositions={winningPositions}
-                      phase="reelSweepOut"
-                      layer="old"
-                      initialRefillColumn={initialRefillColumn}
-                      activePausedColumn={activePausedColumn}
-                      turboMultiplier={turboMultiplier}
-                      isScatterHighlight={isScatterHighlight}
-                    />
-                  ))}
                 <div className="reels-clip">
                   <div className="reels-row">
                     {placeholderWindow.map((col, i) => (
@@ -738,6 +722,22 @@ export default function App() {
                         isScatterHighlight={isScatterHighlight}
                       />
                     ))}
+                    {previousCascade &&
+                      ['reelSweepOut', 'initialRefill'].includes(phase) &&
+                      adaptWindow(previousCascade.window).map((col, i) => (
+                        <Reel
+                          key={`old-${cascadeIndex}-${i}`}
+                          symbols={col}
+                          reelIndex={i}
+                          winningPositions={winningPositions}
+                          phase="reelSweepOut"
+                          layer="old"
+                          initialRefillColumn={initialRefillColumn}
+                          activePausedColumn={activePausedColumn}
+                          turboMultiplier={turboMultiplier}
+                          isScatterHighlight={isScatterHighlight}
+                        />
+                      ))}
 
                     {adaptedWindow &&
                       [
