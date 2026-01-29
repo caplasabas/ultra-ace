@@ -234,7 +234,7 @@ export default function App() {
     logLedgerEvent({
       sessionId: requireSessionId(),
       deviceId: getDeviceId(),
-      type: 'withdrawal',
+      type: 'bet',
       amount,
       source,
     })
