@@ -258,6 +258,9 @@ export default function App() {
   const setShowWithdrawModalRef = useRef(setShowWithdrawModal)
   const setIsWithdrawingRef = useRef(setIsWithdrawing)
 
+  const addBalanceRef = useRef(addBalance)
+  const minusBalanceRef = useRef(minusBalance)
+
   const {
     phase,
     activeCascade,
@@ -537,6 +540,8 @@ export default function App() {
     setIsWithdrawingRef.current = setIsWithdrawing
     addWithdrawAmountRef.current = addWithdrawAmount
     minusWithdrawAmountRef.current = minusWithdrawAmount
+    addBalanceRef.current = addBalance
+    minusBalanceRef.current = minusBalance
   })
 
   useEffect(() => {
@@ -545,13 +550,13 @@ export default function App() {
 
       // --- COIN ---
       if (payload.type === 'COIN') {
-        addBalance('coin', payload.credits)
+        addBalanceRef.current('coin', payload.credits)
         return
       }
 
       // --- WITHDRAW COMPLETE ---
       if (payload.type === 'WITHDRAW_DISPENSE') {
-        minusBalance('hopper', payload.dispensed)
+        minusBalanceRef.current('hopper', payload.dispensed)
         return
       }
 
