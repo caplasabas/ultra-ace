@@ -639,6 +639,7 @@ export default function App() {
                   amount: s.withdrawAmount,
                 }),
               })
+              setShowWithdrawModalRef.current(false)
 
               setIsWithdrawingRef.current(true)
             }
@@ -991,18 +992,13 @@ export default function App() {
 
                   <div className="balance-display">
                     Balance <span className="balance-amount">{formatPeso(balance ?? 0)}</span>
+                    <button className="add-btn" onClick={() => minusBalance('bypass', 5000)}>
+                      -{formatPeso(5000, true, true, 2)}
+                    </button>
                     <button className="add-btn" onClick={() => addBalance('bypass', 5000)}>
                       +{formatPeso(5000, true, true, 2)}
                     </button>
                   </div>
-
-                  <div className="balance-display">
-                    Balance <span className="balance-amount">{formatPeso(balance ?? 0)}</span>
-                    <button className="add-btn" onClick={() => minusBalance('bypass', 5000)}>
-                      -{formatPeso(5000, true, true, 2)}
-                    </button>
-                  </div>
-
                   <div className="bottom-info-right" />
                 </div>
 
