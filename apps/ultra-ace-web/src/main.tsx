@@ -30,6 +30,7 @@ if (import.meta.hot) {
       payload?.type &&
       payload.type !== 'ACTION' &&
       payload.type !== 'COIN' &&
+      payload.type !== 'WITHDRAW_DISPENSE' &&
       payload.type !== 'WITHDRAW_COMPLETE'
     ) {
       payload = {

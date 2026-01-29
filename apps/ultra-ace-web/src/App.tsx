@@ -213,11 +213,7 @@ export default function App() {
   }
 
   const addBalance = (source = 'coin', amount = 5) => {
-    try {
-      setBalanceRef.current(b => b + amount)
-    } catch (e) {
-      console.log('ADD ERROR', e)
-    }
+    setBalance(b => b + amount)
 
     logLedgerEvent({
       sessionId: requireSessionId(),
@@ -226,21 +222,14 @@ export default function App() {
       amount,
       source,
     })
-      .then(() => {
-        console.log('ADD BALANCE', source, amount)
-      })
+      .then(() => {})
       .catch(e => {
         console.log('LEDGER EVENT', e)
       })
   }
-  const setBalanceRef = useRef(setBalance)
 
   const minusBalance = (source = 'hopper', amount = 20) => {
-    try {
-      setBalanceRef.current(b => b - amount)
-    } catch (e) {
-      console.log('MINUS ERROR', e)
-    }
+    setBalance(b => b - amount)
 
     logLedgerEvent({
       sessionId: requireSessionId(),
@@ -249,16 +238,14 @@ export default function App() {
       amount,
       source,
     })
-      .then(() => {
-        console.log('MINUS BALANCE', source, amount)
-      })
+      .then(() => {})
       .catch(e => {
         console.log('LEDGER EVENT', e)
       })
   }
+
   const spinRef = useRef(spin)
   const setAutoSpinRef = useRef(setAutoSpin)
-
   const addBetRef = useRef(addBet)
   const minusBetRef = useRef(minusBet)
   const addWithdrawAmountRef = useRef(addWithdrawAmount)
@@ -266,9 +253,6 @@ export default function App() {
   const setTurboStageRef = useRef(setTurboStage)
   const setShowWithdrawModalRef = useRef(setShowWithdrawModal)
   const setIsWithdrawingRef = useRef(setIsWithdrawing)
-
-  const addBalanceRef = useRef(addBalance)
-  const minusBalanceRef = useRef(minusBalance)
 
   const {
     phase,
@@ -544,14 +528,11 @@ export default function App() {
     setAutoSpinRef.current = setAutoSpin
     addBetRef.current = addBet
     minusBetRef.current = minusBet
-    setBalanceRef.current = setBalance
     setTurboStageRef.current = setTurboStage
     setShowWithdrawModalRef.current = setShowWithdrawModal
     setIsWithdrawingRef.current = setIsWithdrawing
     addWithdrawAmountRef.current = addWithdrawAmount
     minusWithdrawAmountRef.current = minusWithdrawAmount
-    addBalanceRef.current = addBalance
-    minusBalanceRef.current = minusBalance
   })
 
   useEffect(() => {
@@ -559,14 +540,14 @@ export default function App() {
       console.log('[ARCADE]', payload)
 
       // --- COIN ---
-      if (payload.type === 'COIN' && payload.credits) {
-        addBalanceRef.current('coin', payload.credits)
+      if (payload.type === 'COIN') {
+        addBalance('coin', payload.credits)
         return
       }
 
       // --- WITHDRAW COMPLETE ---
-      if (payload.type === 'WITHDRAW_DISPENSE' && payload.dispensed) {
-        minusBalanceRef.current('hopper', payload.dispensed)
+      if (payload.type === 'WITHDRAW_DISPENSE') {
+        minusBalance('hopper', payload.dispensed)
         return
       }
 
@@ -658,7 +639,6 @@ export default function App() {
                   amount: s.withdrawAmount,
                 }),
               })
-              setShowWithdrawModalRef.current(false)
 
               setIsWithdrawingRef.current(true)
             }
@@ -1011,13 +991,11 @@ export default function App() {
 
                   <div className="balance-display">
                     Balance <span className="balance-amount">{formatPeso(balance ?? 0)}</span>
-                    <button className="add-btn" onClick={() => minusBalance('bypass', 5000)}>
-                      -{formatPeso(5000, true, true, 2)}
-                    </button>
-                    <button className="add-btn" onClick={() => addBalance('bypass', 5000)}>
+                    <button className="add-btn" onClick={() => addBalance('bypass')}>
                       +{formatPeso(5000, true, true, 2)}
                     </button>
                   </div>
+
                   <div className="bottom-info-right" />
                 </div>
 
