@@ -212,20 +212,6 @@ export default function App() {
     })
   }
 
-  const spinRef = useRef(spin)
-  const setAutoSpinRef = useRef(setAutoSpin)
-  const setBalanceRef = useRef(setBalance)
-  const addBetRef = useRef(addBet)
-  const minusBetRef = useRef(minusBet)
-  const addWithdrawAmountRef = useRef(addWithdrawAmount)
-  const minusWithdrawAmountRef = useRef(minusWithdrawAmount)
-  const setTurboStageRef = useRef(setTurboStage)
-  const setShowWithdrawModalRef = useRef(setShowWithdrawModal)
-  const setIsWithdrawingRef = useRef(setIsWithdrawing)
-
-  const addBalanceRef = useRef(addBalance)
-  const minusBalanceRef = useRef(minusBalance)
-
   const addBalance = (source = 'coin', amount = 5) => {
     try {
       setBalanceRef.current(b => b + amount)
@@ -247,6 +233,7 @@ export default function App() {
         console.log('LEDGER EVENT', e)
       })
   }
+  const setBalanceRef = useRef(setBalance)
 
   const minusBalance = (source = 'hopper', amount = 20) => {
     try {
@@ -269,6 +256,20 @@ export default function App() {
         console.log('LEDGER EVENT', e)
       })
   }
+  const spinRef = useRef(spin)
+  const setAutoSpinRef = useRef(setAutoSpin)
+
+  const addBetRef = useRef(addBet)
+  const minusBetRef = useRef(minusBet)
+  const addWithdrawAmountRef = useRef(addWithdrawAmount)
+  const minusWithdrawAmountRef = useRef(minusWithdrawAmount)
+  const setTurboStageRef = useRef(setTurboStage)
+  const setShowWithdrawModalRef = useRef(setShowWithdrawModal)
+  const setIsWithdrawingRef = useRef(setIsWithdrawing)
+
+  const addBalanceRef = useRef(addBalance)
+  const minusBalanceRef = useRef(minusBalance)
+
   const {
     phase,
     activeCascade,
