@@ -576,6 +576,10 @@ export default function App() {
             s.balance >= s.bet &&
             s.pauseColumn === null
           ) {
+            if (s.showWithdrawModal) {
+              setShowWithdrawModalRef.current(false)
+              return
+            }
             spinRef.current()
           }
           break
@@ -604,7 +608,12 @@ export default function App() {
         }
 
         case 'AUTO': {
-          if (!s.isFreeGame && s.balance >= s.bet && s.pauseColumn === null) {
+          if (
+            !s.isFreeGame &&
+            s.balance >= s.bet &&
+            s.pauseColumn === null &&
+            !s.showWithdrawModal
+          ) {
             setAutoSpinRef.current(v => !v)
           }
           break
