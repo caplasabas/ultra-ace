@@ -228,13 +228,13 @@ export default function App() {
       })
   }
 
-  const minusBalance = (source = 'coin', amount = 20) => {
+  const minusBalance = (source = 'hopper', amount = 20) => {
     setBalance(b => b - amount)
 
     logLedgerEvent({
       sessionId: requireSessionId(),
       deviceId: getDeviceId(),
-      type: 'bet',
+      type: 'withdrawal',
       amount,
       source,
     })
@@ -547,7 +547,7 @@ export default function App() {
 
       // --- WITHDRAW COMPLETE ---
       if (payload.type === 'WITHDRAW_DISPENSE') {
-        minusBalance('coin', payload.dispensed)
+        minusBalance('hopper', payload.dispensed)
         return
       }
 
