@@ -547,15 +547,7 @@ export default function App() {
 
       // --- WITHDRAW COMPLETE ---
       if (payload.type === 'WITHDRAW_DISPENSE') {
-        console.log('DISPENSE', payload.dispensed)
-        minusBalance(payload.dispensed)
-        logLedgerEvent({
-          sessionId: requireSessionId(),
-          deviceId: getDeviceId(),
-          type: 'withdrawal',
-          amount: payload.dispensed,
-          source: 'hopper',
-        })
+        minusBalance('coin', payload.dispensed)
         return
       }
 
