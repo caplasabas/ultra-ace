@@ -212,8 +212,26 @@ export default function App() {
     })
   }
 
+  const spinRef = useRef(spin)
+  const setAutoSpinRef = useRef(setAutoSpin)
+  const setBalanceRef = useRef(setBalance)
+  const addBetRef = useRef(addBet)
+  const minusBetRef = useRef(minusBet)
+  const addWithdrawAmountRef = useRef(addWithdrawAmount)
+  const minusWithdrawAmountRef = useRef(minusWithdrawAmount)
+  const setTurboStageRef = useRef(setTurboStage)
+  const setShowWithdrawModalRef = useRef(setShowWithdrawModal)
+  const setIsWithdrawingRef = useRef(setIsWithdrawing)
+
+  const addBalanceRef = useRef(addBalance)
+  const minusBalanceRef = useRef(minusBalance)
+
   const addBalance = (source = 'coin', amount = 5) => {
-    setBalance(b => b + amount)
+    try {
+      setBalanceRef.current(b => b + amount)
+    } catch (e) {
+      console.log('ADD ERROR', e)
+    }
 
     logLedgerEvent({
       sessionId: requireSessionId(),
@@ -231,7 +249,11 @@ export default function App() {
   }
 
   const minusBalance = (source = 'hopper', amount = 20) => {
-    setBalance(b => b - amount)
+    try {
+      setBalanceRef.current(b => b - amount)
+    } catch (e) {
+      console.log('MINUS ERROR', e)
+    }
 
     logLedgerEvent({
       sessionId: requireSessionId(),
@@ -247,20 +269,6 @@ export default function App() {
         console.log('LEDGER EVENT', e)
       })
   }
-
-  const spinRef = useRef(spin)
-  const setAutoSpinRef = useRef(setAutoSpin)
-  const addBetRef = useRef(addBet)
-  const minusBetRef = useRef(minusBet)
-  const addWithdrawAmountRef = useRef(addWithdrawAmount)
-  const minusWithdrawAmountRef = useRef(minusWithdrawAmount)
-  const setTurboStageRef = useRef(setTurboStage)
-  const setShowWithdrawModalRef = useRef(setShowWithdrawModal)
-  const setIsWithdrawingRef = useRef(setIsWithdrawing)
-
-  const addBalanceRef = useRef(addBalance)
-  const minusBalanceRef = useRef(minusBalance)
-
   const {
     phase,
     activeCascade,
@@ -535,6 +543,7 @@ export default function App() {
     setAutoSpinRef.current = setAutoSpin
     addBetRef.current = addBet
     minusBetRef.current = minusBet
+    setBalanceRef.current = setBalance
     setTurboStageRef.current = setTurboStage
     setShowWithdrawModalRef.current = setShowWithdrawModal
     setIsWithdrawingRef.current = setIsWithdrawing
@@ -549,13 +558,13 @@ export default function App() {
       console.log('[ARCADE]', payload)
 
       // --- COIN ---
-      if (payload.type === 'COIN') {
+      if (payload.type === 'COIN' && payload.credits) {
         addBalanceRef.current('coin', payload.credits)
         return
       }
 
       // --- WITHDRAW COMPLETE ---
-      if (payload.type === 'WITHDRAW_DISPENSE') {
+      if (payload.type === 'WITHDRAW_DISPENSE' && payload.dispensed) {
         minusBalanceRef.current('hopper', payload.dispensed)
         return
       }
