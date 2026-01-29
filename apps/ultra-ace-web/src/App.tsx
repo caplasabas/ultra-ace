@@ -17,6 +17,7 @@ import { BuySpinModal } from './ui/BuySpinModal'
 import { getDeviceId, registerDevice } from './lib/device'
 import { logLedgerEvent } from './lib/accounting'
 import { supabase } from './lib/supabase'
+import { WithdrawModal } from './ui/WithdrawModal'
 const DEV = import.meta.env.DEV
 
 const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kind }))
@@ -62,7 +63,10 @@ export default function App() {
     pauseColumn: null as number | null,
     balance: 0,
     bet: 0,
+    withdrawAmount: 0,
+    isWithdrawing: false,
     showBuySpinModal: false,
+    showWithdrawModal: false,
   })
 
   const [prevAutoSpin, setPrevAutoSpin] = useState(false)
@@ -137,6 +141,14 @@ export default function App() {
 
     buySpinBet,
     setBuySpinBet,
+    withdrawAmount,
+    setWithdrawAmount,
+
+    isWithdrawing,
+    setIsWithdrawing,
+
+    showWithdrawModal,
+    setShowWithdrawModal,
   } = useEngine()
 
   function getBetIncrement(bet: number): number {
@@ -188,6 +200,18 @@ export default function App() {
     })
   }
 
+  const addWithdrawAmount = () => {
+    setWithdrawAmount(prev => {
+      return Math.min(prev + 20, balance)
+    })
+  }
+
+  const minusWithdrawAmount = () => {
+    setBuySpinBet(prev => {
+      return Math.max(20, prev - 20)
+    })
+  }
+
   const addBalance = (source = 'coin', amount = 5000) => {
     setBalance(b => b + amount)
 
@@ -213,6 +237,8 @@ export default function App() {
   const addBetRef = useRef(addBet)
   const minusBetRef = useRef(minusBet)
   const setTurboStageRef = useRef(setTurboStage)
+  const setShowWithdrawModalRef = useRef(setShowWithdrawModal)
+  const setIsWithdrawingRef = useRef(setIsWithdrawing)
 
   const {
     phase,
@@ -322,7 +348,6 @@ export default function App() {
     if (!autoSpin) return
     if (!isReady) return
     if (balance < bet || balance === 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAutoSpin(false)
       setTurboStage(0)
       return
@@ -407,7 +432,6 @@ export default function App() {
     if (pauseColumn) {
       if (pendingFreeSpins <= 0 && freeSpinsLeft <= 0) {
         if (phase === 'initialRefill') {
-          // eslint-disable-next-line react-hooks/set-state-in-effect
           setPrevTurboStage(turboStage)
           setTurboStage(0)
           setPrevAutoSpin(autoSpin)
@@ -443,7 +467,6 @@ export default function App() {
 
   useEffect(() => {
     if (phase === 'idle') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIntroShown(false)
       setIsFreeSpinPreview(false)
     }
@@ -462,6 +485,9 @@ export default function App() {
       balance,
       bet,
       showBuySpinModal,
+      isWithdrawing,
+      withdrawAmount,
+      showWithdrawModal,
     }
   }, [
     isReady,
@@ -475,6 +501,9 @@ export default function App() {
     balance,
     bet,
     showBuySpinModal,
+    isWithdrawing,
+    withdrawAmount,
+    showWithdrawModal,
   ])
 
   useEffect(() => {
@@ -486,6 +515,8 @@ export default function App() {
     addBetRef.current = addBet
     minusBetRef.current = minusBet
     setTurboStageRef.current = setTurboStage
+    setShowWithdrawModalRef.current = setShowWithdrawModal
+    setIsWithdrawingRef.current = setIsWithdrawing
   })
 
   useEffect(() => {
@@ -499,7 +530,7 @@ export default function App() {
       }
 
       // --- WITHDRAW COMPLETE ---
-      if (payload.type === 'WITHDRAW_COMPLETE') {
+      if (payload.type === 'WITHDRAW_COIN') {
         minusBalance(payload.dispensed)
         logLedgerEvent({
           sessionId: requireSessionId(),
@@ -508,6 +539,12 @@ export default function App() {
           amount: payload.dispensed,
           source: 'hopper',
         })
+        return
+      }
+
+      if (payload.type === 'WITHDRAW_COMPLETE') {
+        setIsWithdrawingRef.current(false)
+        setShowWithdrawModalRef.current(false)
         return
       }
 
@@ -564,12 +601,21 @@ export default function App() {
         }
 
         case 'WITHDRAW': {
-          if (s.isReady && !s.spinning && !s.autoSpin && s.balance >= 5000 && !s.showBuySpinModal) {
-            fetch('/input', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ type: 'WITHDRAW', amount: 5 }),
-            })
+          if (s.isReady && !s.spinning && !s.autoSpin && !s.showBuySpinModal) {
+            if (!s.showWithdrawModal) {
+              setShowWithdrawModalRef.current(true)
+            } else if (!s.isWithdrawing && s.balance >= s.withdrawAmount) {
+              fetch('http://localhost:5174', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  type: 'WITHDRAW',
+                  amount: s.withdrawAmount,
+                }),
+              })
+
+              setIsWithdrawingRef.current(true)
+            }
           }
           break
         }
@@ -627,6 +673,19 @@ export default function App() {
 
             <div className="top-container">
               {DEV && <DebugHud info={debugInfo} />}
+
+              <button
+                className="withdrawal-btn"
+                disabled={
+                  !isReady ||
+                  pauseColumn !== null ||
+                  balance === 0 ||
+                  balance < 100 ||
+                  isFreeGame ||
+                  freeSpinsLeft > 0
+                }
+                onClick={() => setShowWithdrawModal(true)}
+              />
 
               <button
                 className="buy-spin-btn"
@@ -693,6 +752,31 @@ export default function App() {
                 onConfirm={() => {
                   setShowBuySpinModal(false)
                   buyFreeSpins(buySpinBet)
+                }}
+              />
+            )}
+
+            {showWithdrawModal && (
+              <WithdrawModal
+                withdrawAmount={withdrawAmount}
+                balance={balance}
+                isWithdrawing={isWithdrawing}
+                onAddAmount={addWithdrawAmount}
+                onMinusAmount={minusWithdrawAmount}
+                onCancel={() => setShowWithdrawModal(false)}
+                onConfirm={() => {
+                  // setShowWithdrawModal(false)
+
+                  fetch('http://localhost:5174', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      type: 'WITHDRAW',
+                      amount: withdrawAmount,
+                    }),
+                  })
+
+                  setIsWithdrawing(true)
                 }}
               />
             )}

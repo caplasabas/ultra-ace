@@ -63,6 +63,10 @@ export function useEngine() {
 
   const [freezeUI, setFreezeUI] = useState(false)
 
+  const [withdrawAmount, setWithdrawAmount] = useState(100)
+  const [isWithdrawing, setIsWithdrawing] = useState(false)
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false)
+
   /* -----------------------------
      Debug
   ----------------------------- */
@@ -329,5 +333,14 @@ export function useEngine() {
     sessionReady,
     getSessionId,
     requireSessionId,
+
+    withdrawAmount,
+    setWithdrawAmount,
+
+    isWithdrawing,
+    setIsWithdrawing,
+
+    showWithdrawModal,
+    setShowWithdrawModal,
   }
 }
