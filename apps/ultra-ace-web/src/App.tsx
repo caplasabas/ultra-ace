@@ -222,7 +222,9 @@ export default function App() {
       amount,
       source,
     })
-      .then(() => {})
+      .then(() => {
+        console.log('ADD BALANCE', source, amount)
+      })
       .catch(e => {
         console.log('LEDGER EVENT', e)
       })
@@ -238,7 +240,9 @@ export default function App() {
       amount,
       source,
     })
-      .then(() => {})
+      .then(() => {
+        console.log('MINUS BALANCE', source, amount)
+      })
       .catch(e => {
         console.log('LEDGER EVENT', e)
       })
