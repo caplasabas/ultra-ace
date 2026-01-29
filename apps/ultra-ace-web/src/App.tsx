@@ -530,7 +530,7 @@ export default function App() {
       }
 
       // --- WITHDRAW COMPLETE ---
-      if (payload.type === 'WITHDRAW_COIN') {
+      if (payload.type === 'WITHDRAW_DISPENSE') {
         minusBalance(payload.dispensed)
         logLedgerEvent({
           sessionId: requireSessionId(),
