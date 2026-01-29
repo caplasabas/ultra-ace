@@ -6,7 +6,7 @@ export function formatPeso(
   abbreviate = false,
 ): string {
   const num = Number(amount)
-  if (isNaN(num)) return withSymbol ? '₱0' : '0'
+  if (isNaN(num)) return withSymbol ? '$0' : '0'
 
   const sign = num < 0 ? '-' : ''
   const abs = Math.abs(num)
@@ -34,5 +34,5 @@ export function formatPeso(
     }
   }
 
-  return `${sign}${withSymbol ? '₱' : ''}${value}`
+  return `${sign}${withSymbol ? '$' : ''}${value}`
 }
