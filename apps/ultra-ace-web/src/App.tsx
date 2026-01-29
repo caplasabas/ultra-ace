@@ -207,12 +207,12 @@ export default function App() {
   }
 
   const minusWithdrawAmount = () => {
-    setBuySpinBet(prev => {
-      return Math.max(20, prev - 20)
+    setWithdrawAmount(prev => {
+      return Math.max(100, prev - 20)
     })
   }
 
-  const addBalance = (source = 'coin', amount = 5000) => {
+  const addBalance = (source = 'coin', amount = 5) => {
     setBalance(b => b + amount)
 
     logLedgerEvent({
@@ -228,14 +228,28 @@ export default function App() {
       })
   }
 
-  const minusBalance = (amount = 5000) => {
+  const minusBalance = (source = 'coin', amount = 20) => {
     setBalance(b => b - amount)
+
+    logLedgerEvent({
+      sessionId: requireSessionId(),
+      deviceId: getDeviceId(),
+      type: 'withdrawal',
+      amount,
+      source,
+    })
+      .then(() => {})
+      .catch(e => {
+        console.log('LEDGER EVENT', e)
+      })
   }
 
   const spinRef = useRef(spin)
   const setAutoSpinRef = useRef(setAutoSpin)
   const addBetRef = useRef(addBet)
   const minusBetRef = useRef(minusBet)
+  const addWithdrawAmountRef = useRef(addWithdrawAmount)
+  const minusWithdrawAmountRef = useRef(minusWithdrawAmount)
   const setTurboStageRef = useRef(setTurboStage)
   const setShowWithdrawModalRef = useRef(setShowWithdrawModal)
   const setIsWithdrawingRef = useRef(setIsWithdrawing)
@@ -517,6 +531,8 @@ export default function App() {
     setTurboStageRef.current = setTurboStage
     setShowWithdrawModalRef.current = setShowWithdrawModal
     setIsWithdrawingRef.current = setIsWithdrawing
+    addWithdrawAmountRef.current = addWithdrawAmount
+    minusWithdrawAmountRef.current = minusWithdrawAmount
   })
 
   useEffect(() => {
@@ -575,14 +591,22 @@ export default function App() {
 
         case 'BET_UP': {
           if (s.isReady && !s.spinning && !s.autoSpin && s.freeSpinsLeft <= 0) {
-            addBetRef.current()
+            if (s.showWithdrawModal) {
+              addWithdrawAmountRef.current()
+            } else {
+              addBetRef.current()
+            }
           }
           break
         }
 
         case 'BET_DOWN': {
           if (s.isReady && !s.spinning && !s.autoSpin && s.freeSpinsLeft <= 0) {
-            minusBetRef.current()
+            if (s.showWithdrawModal) {
+              minusWithdrawAmountRef.current()
+            } else {
+              minusBetRef.current()
+            }
           }
           break
         }
