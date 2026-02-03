@@ -16,27 +16,37 @@ export function BuySpinModal({ bet, balance, onAddBet, onMinusBet, onConfirm, on
   return (
     <div className="modal-backdrop">
       <div className="modal-card">
-        <h2>BUY FREE SPINS</h2>
+        <div className="modal-header">
+          <h2>Buy Free Spins</h2>
+        </div>
 
-        <div className="modal-row">
-          <span>Bet Amount</span>
-          <div className="bet-adjust">
-            <button onClick={onMinusBet}>−</button>
-            <span>{formatPeso(bet)}</span>
-            <button onClick={onAddBet}>+</button>
+        <div className="modal-body">
+          <div className="modal-row">
+            <span>Bet Amount</span>
+            <div className="bet-adjust">
+              <button onClick={onMinusBet} className="modal-toggle">
+                −
+              </button>
+              <strong>{formatPeso(bet)}</strong>
+              <button onClick={onAddBet} className="modal-toggle">
+                +
+              </button>
+            </div>
           </div>
-        </div>
 
-        <div className="modal-row">
-          <span>Cost</span>
-          <strong>{formatPeso(cost)}</strong>
-        </div>
+          <div className="modal-row">
+            <span>Cost</span>
+            <strong>{formatPeso(cost)}</strong>
+          </div>
 
-        {!canAfford && <div className="modal-warning">Insufficient balance</div>}
+          {!canAfford && <div className="modal-warning">Insufficient balance</div>}
+        </div>
 
         <div className="modal-actions">
-          <button onClick={onCancel}>Cancel</button>
-          <button disabled={!canAfford} onClick={onConfirm}>
+          <button onClick={onCancel} className="modal-cancel">
+            Cancel
+          </button>
+          <button disabled={!canAfford} onClick={onConfirm} className="modal-confirm">
             Confirm
           </button>
         </div>

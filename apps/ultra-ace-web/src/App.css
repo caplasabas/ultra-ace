@@ -205,6 +205,87 @@
     }
 
 
+
+    .modal-card {
+        display: flex;
+        flex-direction: column;
+        background: rgba(36, 36, 32, 0.95);
+
+        border-radius: 5px;
+        width: 90%;
+        min-height: 30%;
+        text-align: center;
+        border: 2px solid #a07d37;
+        color: #dadcd5;
+        overflow: hidden;
+    }
+
+    .modal-header {
+        background: #171614;
+        padding: 4px 0;
+    }
+
+    .modal-header h2 {
+        color: #E6C496;
+        margin: 0;
+    }
+
+
+    .modal-body {
+        display:flex;
+        flex-direction: column;
+      flex: 1;
+        padding: 0 24px 24px 24px;
+        /*justify-content: center;*/
+    }
+
+
+    .modal-row {
+        margin: 16px 0;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .modal-card span {
+        color: #dadcd5;
+    }
+
+    .modal-card strong {
+        color: white;
+    }
+
+    .modal-toggle {
+        width: 30px;
+        height: 30px;
+        background: #373327;
+        color: #E3D18F;
+        font-size: 18px;
+        font-weight: 900;
+    }
+
+    .modal-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        margin: 16px 0;
+    }
+
+    .modal-actions button {
+        width: 35%;
+        height: 45px;
+        border-radius: 3px;
+        font-size: 20px;
+    }
+
+    .modal-actions .modal-cancel {
+        background:#A03937;
+        color: #EDA29B;
+    }
+
+    .modal-actions .modal-confirm {
+        background: #348822;
+    }
+
 }
 
 @media (min-width: 1024px) {
@@ -447,6 +528,90 @@
         cursor: not-allowed;
         filter: grayscale(0.4);
         opacity: 0.65;
+    }
+
+
+
+    .modal-card {
+        display: flex;
+        flex-direction: column;
+        background: rgba(36, 36, 32, 0.95);
+
+        border-radius: 5px;
+        width: 50%;
+        min-height: 40%;
+        text-align: center;
+        border: 2px solid #a07d37;
+        color: #dadcd5;
+        overflow: hidden;
+    }
+
+    .modal-header {
+        background: #171614;
+        padding: 4px 0;
+    }
+
+    .modal-header h2 {
+        color: #E6C496;
+        margin: 0;
+    }
+
+
+    .modal-body {
+        display:flex;
+        flex-direction: column;
+        flex: 1;
+        padding: 0 24px 24px 24px;
+        font-size: 20px;
+        font-weight: 600;
+        /*justify-content: center;*/
+    }
+
+
+    .modal-row {
+        margin: 16px 0;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .modal-card span {
+        color: #dadcd5;
+    }
+
+    .modal-card strong {
+        color: white;
+    }
+
+    .modal-toggle {
+        width: 30px;
+        height: 30px;
+        background: #373327;
+        color: #E3D18F;
+        font-size: 18px;
+        font-weight: 900;
+    }
+
+    .modal-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        margin: 16px 0;
+    }
+
+    .modal-actions button {
+        width: 35%;
+        height: 45px;
+        border-radius: 3px;
+        font-size: 20px;
+    }
+
+    .modal-actions .modal-cancel {
+        background:#A03937;
+        color: #EDA29B;
+    }
+
+    .modal-actions .modal-confirm {
+        background: #348822;
     }
 
 }
@@ -1756,7 +1921,8 @@ button:focus-visible {
 .bet-adjust {
     display: flex;
     flex-direction: row;
-    gap: 5px;
+    gap: 10px;
+    align-items: center;
 }
 
 .bottom-info {
@@ -3291,26 +3457,7 @@ button:focus-visible {
     z-index: 1000;
 }
 
-.modal-card {
-    background: white;
-    padding: 0 24px 24px 24px;
-    border-radius: 12px;
-    width: 320px;
-    text-align: center;
-    color: #1a1a1a;
-}
 
-.modal-row {
-    margin: 16px 0;
-    display: flex;
-    justify-content: space-between;
-}
-
-.modal-actions {
-    display: flex;
-    gap: 12px;
-    justify-content: center;
-}
 
 .device-info {
     display: flex;

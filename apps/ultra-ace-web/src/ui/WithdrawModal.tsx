@@ -24,28 +24,35 @@ export function WithdrawModal({
   return (
     <div className="modal-backdrop">
       <div className="modal-card">
-        <h2>Withdraw Balance</h2>
-
-        <div className="modal-row">
-          <span>Withdraw Amount</span>
-          <div className="bet-adjust">
-            <button disabled={isWithdrawing} onClick={onMinusAmount}>
-              −
-            </button>
-            <span>{formatPeso(withdrawAmount)}</span>
-            <button disabled={isWithdrawing} onClick={onAddAmount}>
-              +
-            </button>
-          </div>
+        <div className="modal-header">
+          <h2>Withdraw Balance</h2>
         </div>
 
-        {!canAfford && <div className="modal-warning">Insufficient balance</div>}
+        <div className="modal-body">
+          <div className="modal-row">
+            <span>Withdraw Amount</span>
+            <div className="bet-adjust">
+              <button disabled={isWithdrawing} onClick={onMinusAmount} className="modal-toggle">
+                −
+              </button>
+              <span>{formatPeso(withdrawAmount)}</span>
+              <button disabled={isWithdrawing} onClick={onAddAmount} className="modal-toggle">
+                +
+              </button>
+            </div>
+          </div>
 
+          {!canAfford && <div className="modal-warning">Insufficient balance</div>}
+        </div>
         <div className="modal-actions">
-          <button disabled={isWithdrawing} onClick={onCancel}>
+          <button disabled={isWithdrawing} onClick={onCancel} className="modal-cancel">
             Cancel
           </button>
-          <button disabled={!canAfford || isWithdrawing} onClick={onConfirm}>
+          <button
+            disabled={!canAfford || isWithdrawing}
+            onClick={onConfirm}
+            className="modal-confirm"
+          >
             Confirm
           </button>
         </div>
