@@ -938,7 +938,7 @@ export default function App() {
 
                   <div className="controls-center">
                     <button
-                      className={`spin-btn spin ${isReady || (!autoSpin && !showFreeSpinIntro && !isFreeGame) ? 'spin-image active' : 'stop-image'}`}
+                      className={`spin-btn spin ${(isReady && !autoSpin) || (!autoSpin && !showFreeSpinIntro && !isFreeGame) ? 'spin-image active' : 'stop-image'}`}
                       disabled={
                         !isReady ||
                         balance === 0 ||

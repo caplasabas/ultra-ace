@@ -285,6 +285,271 @@
     .modal-actions .modal-confirm {
         background: #348822;
     }
+    .free-spin-banner {
+        /*transform: translateX(0%) translateY(-55%);*/
+        /*position: absolute;*/
+        /*top: 8px;*/
+        /*left: 50%;*/
+
+
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+
+
+        z-index: 25;
+        pointer-events: none;
+    }
+
+
+
+
+    .superace-base {
+        font-size: 30px;
+        font-weight: 800;
+        line-height: 34px;
+
+        color: #2a170f; /* same dark bronze as multiplier base */
+        position: relative;
+        z-index: 1;
+
+        /* ⬇️ THIS IS THE IMPORTANT PART */
+        text-shadow:
+                0 2px 1px rgba(90, 20, 5, 0.85);
+    }
+
+    .superace-face {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+
+        font-size: 30px;
+        font-weight: 800;
+        line-height: 34px;
+
+        background: linear-gradient(
+                180deg,
+                #f8f8e2 0%,
+                #FEFF99 35%,
+                #f5c389 55%,
+                #f1a457 100%
+        );
+
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        color: transparent;
+    }
+
+
+    /* Wrapper for layered text */
+    .free-spin-text {
+        position: relative;
+        height: 34px;
+    }
+    .free-spin-base,
+    .free-spin-face {
+        font-family: 'Orbitron', sans-serif;
+        letter-spacing: -0.045em;
+    }
+
+    /* BASE — dark engraved layer (same logic as multiplier-base) */
+    .free-spin-base {
+        font-size: 28px;
+        font-weight: 800;
+        line-height: 34px;
+
+        color: #731a06;
+        position: relative;
+        z-index: 1;
+    }
+
+    /* FACE — gold gradient (same feel as multiplier-face) */
+    .free-spin-face {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+
+        font-size: 28px;
+        font-weight: 800;
+        line-height: 34px;
+
+        background: linear-gradient(
+                180deg,
+                #f8f8e2 0%,
+                #FEFF99 35%,
+                #f5c389 55%,
+                #f1a457 100%
+        );
+
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        color: transparent;
+    }
+
+    /* Count — EXACT win overlay face style */
+    .free-spin-count {
+        font-size: 32px;
+        font-weight: 900;
+
+        background: linear-gradient(
+                180deg,
+                #fffbe0 0%,
+                #ffe97a 30%,
+                #ffbf2f 55%,
+                #ff8c00 75%,
+                #c64a00 100%
+        );
+
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+
+        /*text-shadow:*/
+        /*        0 0 6px rgba(255, 120, 0, 0.9),*/
+        /*        0 1px 0 rgba(60, 10, 0, 0.85);*/
+    }
+
+    .bottom-controls {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        padding: 0 12px;
+
+        justify-content: space-between;
+    }
+
+    .win-display {
+        /*height: 32px;*/
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        font-size: 20px;
+        font-weight: 700;
+        color: #ffd84d;
+        text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
+        z-index: 30;
+        margin-bottom: -2%;
+    }
+
+    .controls-left {
+        flex: 0 0 40%;
+        display: flex;
+        /*flex-direction: column;*/
+        /*padding-left: 10px;*/
+        justify-content: center;
+        align-items: center;
+        color: white;
+        gap: 5px
+    }
+
+
+    .controls-center {
+        flex: 0 0 20%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .controls-right {
+        flex: 0 0 40%;
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .spin-btn.spin-image {
+        width: 82px;
+        height: 82px;
+
+        margin-top: 15%;
+
+        background-image: url('./assets/images/spin.png');
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+
+        border: none;
+        background-color: transparent;
+
+        cursor: pointer;
+        padding: 0;
+
+        transition:
+                transform 120ms ease,
+                filter 120ms ease;
+        z-index: 31;
+
+    }
+
+
+    .spin-btn.stop-image {
+        width: 82px;
+        height: 82px;
+
+        margin-top: 15%;
+
+        background-image: url('assets/images/stop.png');
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+
+        border: none;
+        background-color: transparent;
+
+        padding: 0;
+
+        transition:
+                transform 120ms ease,
+                filter 120ms ease;
+        z-index: 31;
+        filter: grayscale(0.4);
+        cursor: not-allowed;
+        transform: none;
+
+    }
+
+
+    .spin-btn.audio {
+        /*position: absolute;*/
+        /*top: 3%;*/
+        /*right: 3%;*/
+        font-size: 18px;   /* ← increase this */
+        width: 35px;
+        height: 35px;
+
+        display: flex;
+        align-items: center;
+
+        justify-content: center;
+
+
+        border: 1px solid white;
+        background-color: #0c1d3d;
+        color: #ffd84d;
+
+
+        cursor: pointer;
+        /*margin-top: 1%;*/
+    }
+
+    .balance-display {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        font-size: 13px;
+
+        color: #ffd84d;
+        text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
+        /*margin-top: 1rem;*/
+
+    }
 
 }
 
@@ -375,15 +640,15 @@
 
         overflow: hidden;
 
-        margin-top: 0.5vh;
+        margin-top: -3.5vh;
 
-        height: 70vh;
+        height: 75vh;
 
     }
 
     .reels-row {
         position: absolute;
-        top: calc(var(--highlight-pad) *1.2);
+        top: calc(var(--highlight-pad) *4.8);
         left: calc(var(--highlight-pad) *33.5) ;
 
 
@@ -415,9 +680,10 @@
 
     .bottom-container {
         /*display: none;*/
-        width: 430px;
-        height: 10vh;
+        width: 100vw;
+        height: 17vh;
         margin-top: -7vh;
+
         /*padding: 10px 0;*/
 
         display: flex;
@@ -439,7 +705,7 @@
     */
     .multiplier-strip {
         position: relative;
-        margin-top: -0.9rem;
+        margin-top: -2.7rem;
 
         width: 27%;
         /*margin: 0 auto;*/
@@ -614,6 +880,276 @@
         background: #348822;
     }
 
+
+    .free-spin-banner {
+        transform: translateX(0%) translateY(-95%);
+        /*position: absolute;*/
+        /*top: 8px;*/
+        /*left: 50%;*/
+
+
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+
+
+        z-index: 25;
+        pointer-events: none;
+    }
+
+
+
+    .superace-base {
+        font-size: 30px;
+        font-weight: 800;
+        line-height: 34px;
+
+        color: #2a170f; /* same dark bronze as multiplier base */
+        position: relative;
+        z-index: 1;
+
+        /* ⬇️ THIS IS THE IMPORTANT PART */
+        text-shadow:
+                0 2px 1px rgba(90, 20, 5, 0.85);
+    }
+
+    .superace-face {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+
+        font-size: 30px;
+        font-weight: 800;
+        line-height: 34px;
+
+        background: linear-gradient(
+                180deg,
+                #f8f8e2 0%,
+                #FEFF99 35%,
+                #f5c389 55%,
+                #f1a457 100%
+        );
+
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        color: transparent;
+    }
+
+
+    /* Wrapper for layered text */
+    .free-spin-text {
+        position: relative;
+        height: 34px;
+    }
+    .free-spin-base,
+    .free-spin-face {
+        font-family: 'Orbitron', sans-serif;
+        letter-spacing: -0.045em;
+    }
+
+    /* BASE — dark engraved layer (same logic as multiplier-base) */
+    .free-spin-base {
+        font-size: 34px;
+        font-weight: 800;
+        /*line-height: 34px;*/
+
+        color: #731a06;
+        position: relative;
+        z-index: 1;
+    }
+
+    /* FACE — gold gradient (same feel as multiplier-face) */
+    .free-spin-face {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+
+        font-size: 34px;
+        font-weight: 800;
+        line-height: 34px;
+
+        background: linear-gradient(
+                180deg,
+                #f8f8e2 0%,
+                #FEFF99 35%,
+                #f5c389 55%,
+                #f1a457 100%
+        );
+
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        color: transparent;
+    }
+
+    /* Count — EXACT win overlay face style */
+    .free-spin-count {
+        font-size: 38px;
+        font-weight: 900;
+
+        background: linear-gradient(
+                180deg,
+                #fffbe0 0%,
+                #ffe97a 30%,
+                #ffbf2f 55%,
+                #ff8c00 75%,
+                #c64a00 100%
+        );
+
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+
+        /*text-shadow:*/
+        /*        0 0 6px rgba(255, 120, 0, 0.9),*/
+        /*        0 1px 0 rgba(60, 10, 0, 0.85);*/
+    }
+
+    .bottom-controls {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        padding: 0 12px;
+
+        /*justify-content: space-between;*/
+    }
+
+    .win-display {
+        /*height: 32px;*/
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        font-size: 34px;
+        font-weight: 700;
+        color: #ffd84d;
+        text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
+        z-index: 30;
+        margin-top: 2.8rem;
+        margin-bottom:-8.5rem;
+    }
+
+    .controls-left {
+        flex: 0 0 30%;
+        display: flex;
+        /*flex-direction: column;*/
+        /*padding-left: 10px;*/
+        justify-content: center;
+        align-items: center;
+        color: white;
+        gap: 5px
+    }
+
+
+    .controls-center {
+        flex: 0 0 56%;
+        display: flex;
+        justify-content: flex-end;
+        align-items: flex-end;
+    }
+
+    .controls-right {
+        flex: 0 0 0;
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 10px;
+        margin-top: 2%;
+    }
+
+    .spin-btn.spin-image {
+        width: 102px;
+        height: 102px;
+
+        margin-top: 9%;
+
+        background-image: url('./assets/images/spin.png');
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+
+        border: none;
+        background-color: transparent;
+
+        cursor: pointer;
+        padding: 0;
+
+        transition:
+                transform 120ms ease,
+                filter 120ms ease;
+        z-index: 31;
+
+    }
+
+
+    .spin-btn.stop-image {
+        width: 102px;
+        height: 102px;
+
+        margin-top: 9%;
+
+        background-image: url('assets/images/stop.png');
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+
+        border: none;
+        background-color: transparent;
+
+        padding: 0;
+
+        transition:
+                transform 120ms ease,
+                filter 120ms ease;
+        z-index: 31;
+        filter: grayscale(0.4);
+        cursor: not-allowed;
+        transform: none;
+
+    }
+
+
+
+    .spin-btn.audio {
+        position: absolute;
+        bottom: 9%;
+        left: 3%;
+        font-size: 18px;   /* ← increase this */
+        width: 35px;
+        height: 35px;
+
+        display: flex;
+        align-items: center;
+
+        justify-content: center;
+
+
+        border: 1px solid white;
+        background-color: #0c1d3d;
+        color: #ffd84d;
+
+
+        cursor: pointer;
+        /*margin-top: 1%;*/
+    }
+
+
+    .balance-display {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        font-size: 13px;
+
+        color: #ffd84d;
+        text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
+        margin-top: -1rem;
+        margin-bottom: 1rem;
+
+    }
 }
 
 .font-plasma {
@@ -1529,28 +2065,7 @@ button:focus-visible {
     transform: none;
 }
 
-.spin-btn.audio {
-    /*position: absolute;*/
-    /*top: 3%;*/
-    /*right: 3%;*/
-    font-size: 18px;   /* ← increase this */
-    width: 35px;
-    height: 35px;
 
-    display: flex;
-    align-items: center;
-
-    justify-content: center;
-
-
-    border: 1px solid white;
-    background-color: #0c1d3d;
-    color: #ffd84d;
-
-
-    cursor: pointer;
-    /*margin-top: 1%;*/
-}
 
 .spin-btn.audio:hover {
     border: 1px solid #ffd84d;
@@ -1633,30 +2148,6 @@ button:focus-visible {
 }
 
 
-.spin-btn.spin-image {
-    width: 82px;
-    height: 82px;
-
-    margin-top: 15%;
-
-    background-image: url('./assets/images/spin.png');
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-
-    border: none;
-    background-color: transparent;
-
-    cursor: pointer;
-    padding: 0;
-
-    transition:
-            transform 120ms ease,
-            filter 120ms ease;
-    z-index: 31;
-
-}
-
 
 .spin-btn.spin.spin-image:active:not(:disabled) {
     transform: scale(0.94);
@@ -1671,32 +2162,6 @@ button:focus-visible {
     transform: none;
 }
 
-.spin-btn.stop-image {
-    width: 82px;
-    height: 82px;
-
-    margin-top: 15%;
-
-    background-image: url('assets/images/stop.png');
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-
-    border: none;
-    background-color: transparent;
-
-    padding: 0;
-
-    transition:
-            transform 120ms ease,
-            filter 120ms ease;
-    z-index: 31;
-    filter: grayscale(0.4);
-    cursor: not-allowed;
-    transform: none;
-
-}
-
 
 
 
@@ -1709,23 +2174,6 @@ button:focus-visible {
    Win Display
    ========================= */
 
-.win-display {
-    /*height: 32px;*/
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    font-size: 20px;
-    font-weight: 700;
-    color: #ffd84d;
-    text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
-    z-index: 30;
-    margin-bottom: -2%;
-}
-
-
-
 
 
 .win-amount,
@@ -1734,6 +2182,7 @@ button:focus-visible {
 
     font-weight: 900;
     letter-spacing: 0.02em;
+
 }
 
 .win-face {
@@ -1742,6 +2191,7 @@ button:focus-visible {
     font-weight: 900;
     line-height: 0.85;
     letter-spacing: 0.02em;
+
 }
 
 .win-amount {
@@ -1783,18 +2233,7 @@ button:focus-visible {
    Balance Display
    ========================= */
 
-.balance-display {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 15px;
-    font-size: 13px;
 
-    color: #ffd84d;
-    text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
-    /*margin-top: 1rem;*/
-
-}
 
 .balance-amount {
     color: white;
@@ -1812,45 +2251,6 @@ button:focus-visible {
 
     font-weight: 900;
     letter-spacing: 0.02em;
-}
-
-
-.bottom-controls {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    padding: 0 12px;
-
-    justify-content: space-between;
-}
-
-
-
-.controls-left {
-    flex: 0 0 40%;
-    display: flex;
-    /*flex-direction: column;*/
-    /*padding-left: 10px;*/
-    justify-content: center;
-    align-items: center;
-    color: white;
-    gap: 5px
-}
-
-
-.controls-center {
-    flex: 0 0 20%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.controls-right {
-    flex: 0 0 40%;
-    display: flex;
-    justify-content: flex-start;
-    align-items: center;
-    gap: 10px;
 }
 
 
@@ -2562,61 +2962,9 @@ button:focus-visible {
    ========================= */
 
 
-.free-spin-banner {
-    /*transform: translateX(0%) translateY(-55%);*/
-    /*position: absolute;*/
-    /*top: 8px;*/
-    /*left: 50%;*/
-
-
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 8px;
-
-
-    z-index: 25;
-    pointer-events: none;
-}
 
 
 
-.superace-base {
-    font-size: 30px;
-    font-weight: 800;
-    line-height: 34px;
-
-    color: #2a170f; /* same dark bronze as multiplier base */
-    position: relative;
-    z-index: 1;
-
-    /* ⬇️ THIS IS THE IMPORTANT PART */
-    text-shadow:
-            0 2px 1px rgba(90, 20, 5, 0.85);
-}
-
-.superace-face {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-
-    font-size: 30px;
-    font-weight: 800;
-    line-height: 34px;
-
-    background: linear-gradient(
-            180deg,
-            #f8f8e2 0%,
-            #FEFF99 35%,
-            #f5c389 55%,
-            #f1a457 100%
-    );
-
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: transparent;
-}
 
 .free-spin-text.base .superace-base {
     color: #a61608;
@@ -2638,75 +2986,6 @@ button:focus-visible {
     font-weight: bold;
     letter-spacing: -0.045em;
     /*margin-top: -0.25rem;*/
-}
-
-/* Wrapper for layered text */
-.free-spin-text {
-    position: relative;
-    height: 34px;
-}
-.free-spin-base,
-.free-spin-face {
-    font-family: 'Orbitron', sans-serif;
-    letter-spacing: -0.045em;
-}
-
-/* BASE — dark engraved layer (same logic as multiplier-base) */
-.free-spin-base {
-    font-size: 28px;
-    font-weight: 800;
-    line-height: 34px;
-
-    color: #731a06;
-    position: relative;
-    z-index: 1;
-}
-
-/* FACE — gold gradient (same feel as multiplier-face) */
-.free-spin-face {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-
-    font-size: 28px;
-    font-weight: 800;
-    line-height: 34px;
-
-    background: linear-gradient(
-            180deg,
-            #f8f8e2 0%,
-            #FEFF99 35%,
-            #f5c389 55%,
-            #f1a457 100%
-    );
-
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: transparent;
-}
-
-/* Count — EXACT win overlay face style */
-.free-spin-count {
-    font-size: 32px;
-    font-weight: 900;
-
-    background: linear-gradient(
-            180deg,
-            #fffbe0 0%,
-            #ffe97a 30%,
-            #ffbf2f 55%,
-            #ff8c00 75%,
-            #c64a00 100%
-    );
-
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-
-    /*text-shadow:*/
-    /*        0 0 6px rgba(255, 120, 0, 0.9),*/
-    /*        0 1px 0 rgba(60, 10, 0, 0.85);*/
 }
 
 
