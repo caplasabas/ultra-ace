@@ -63,7 +63,7 @@ export function useEngine() {
 
   const [freezeUI, setFreezeUI] = useState(false)
 
-  const [withdrawAmount, setWithdrawAmount] = useState(100)
+  const [withdrawAmount, setWithdrawAmount] = useState(60)
   const [isWithdrawing, setIsWithdrawing] = useState(false)
   const [showWithdrawModal, setShowWithdrawModal] = useState(false)
 

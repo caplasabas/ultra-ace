@@ -551,6 +551,14 @@
 
     }
 
+    .balance-amount {
+        color: white;
+        font-weight: bold;
+        font-family: 'Bebas Neue', sans-serif;
+
+        font-size: 15px;
+        letter-spacing: 0.02em;
+    }
 
     .frame-paused-column-frame{
         position: absolute;
@@ -1098,7 +1106,7 @@
         align-items: center;
         justify-content: center;
         gap: 5px;
-        font-size: 34px;
+        font-size: 30px;
         font-weight: 700;
         color: #ffd84d;
         text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
@@ -1217,13 +1225,22 @@
         align-items: center;
         justify-content: center;
         gap: 15px;
-        font-size: 13px;
+        font-size: 19px;
 
         color: #ffd84d;
         text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
         margin-top: -1rem;
         margin-bottom: 1rem;
 
+    }
+
+    .balance-amount {
+        color: white;
+        font-weight: bold;
+        font-family: 'Bebas Neue', sans-serif;
+
+        font-size: 19px;
+        letter-spacing: 0.02em;
     }
 
 
@@ -2384,14 +2401,7 @@ button:focus-visible {
 
 
 
-.balance-amount {
-    color: white;
-    font-weight: bold;
-    font-family: 'Bebas Neue', sans-serif;
 
-    font-size: 15px;
-    letter-spacing: 0.02em;
-}
 
 .balance-placeholder {
     font-size: 18px;
