@@ -1,56 +1,58 @@
-:root {
-    /* reference width of your original design */
-    --design-width: 430px;
 
-    /* scale factor (never zero, never NaN) */
-    --board-scale: min(1.01, calc(100vw / var(--design-width)));
-
-    --card-scale: calc(1.12 * var(--board-scale));
-
-    --card-width: 64px;
-    --card-height: 86px;
-
-    --scaled-card-width: calc(var(--card-width) * var(--card-scale));
-    --scaled-card-height: calc(var(--card-height) * var(--card-scale));
-
-    --reel-count: 5;
-    --reel-width: calc(73px * var(--board-scale));
-    --reel-gap: calc(11px * var(--board-scale));
-    --highlight-pad: calc(8px * var(--board-scale));
-
-    --reel-height: calc(
-            (4 * var(--scaled-card-height)) +
-            (3 * var(--card-gap))
-    );
-
-    --dim-top: calc(-0.2vh * var(--board-scale));
-
-    --reel-width-num: 73;
-    --reel-gap-num: 10;
-
-    --card-gap: calc(3px * var(--card-scale));
-
-    /* horizontal centering helper */
-    --reels-total-width: calc(
-            var(--reel-count) * var(--reel-width) +
-            (var(--reel-count) - 1) * var(--reel-gap)
-    );
-
-    --gold-energy: linear-gradient(
-            180deg,
-            #fff2a6 0%,
-            #ffd34d 22%,
-            #ffad00 45%,
-            #ff7a00 65%,
-            #d84a00 82%,
-            #7a1a00 100%
-    );
-
-    --wild-base-scale: 1.14;
-
-}
 
 @media (max-width: 1000px) {
+    :root {
+        /* reference width of your original design */
+        --design-width: 430px;
+
+        /* scale factor (never zero, never NaN) */
+        --board-scale: min(1.01, calc(100vw / var(--design-width)));
+
+        --card-scale: calc(1.18 * var(--board-scale));
+
+        --card-width: 64px;
+        --card-height: 86px;
+
+        --scaled-card-width: calc(var(--card-width) * var(--card-scale));
+        --scaled-card-height: calc(var(--card-height) * var(--card-scale));
+
+        --reel-count: 5;
+        --reel-width: calc(73px * var(--board-scale));
+        --reel-gap: calc(12px * var(--board-scale));
+        --highlight-pad: calc(7px * var(--board-scale));
+
+        --reel-height: calc(
+                (4 * var(--scaled-card-height)) +
+                (3 * var(--card-gap))
+        );
+
+        --dim-top: calc(-0.6vh * var(--board-scale));
+
+        --reel-width-num: 73;
+        --reel-gap-num: 10;
+
+        --card-gap: calc(3px * var(--card-scale));
+
+        /* horizontal centering helper */
+        --reels-total-width: calc(
+                var(--reel-count) * var(--reel-width) +
+                (var(--reel-count) - 1) * var(--reel-gap)
+        );
+
+        --gold-energy: linear-gradient(
+                180deg,
+                #fff2a6 0%,
+                #ffd34d 22%,
+                #ffad00 45%,
+                #ff7a00 65%,
+                #d84a00 82%,
+                #7a1a00 100%
+        );
+
+        --wild-base-scale: 1.14;
+
+    }
+
     .game-frame {
         position: relative;
         width: min(430px, 100vw);
@@ -91,15 +93,15 @@
         /*justify-content: center;*/
         overflow: hidden;
 
-        /*margin-top: 1vh;*/
+        margin-top: -1vh;
 
-        height: 56vh;
+        height: 54vh;
 
     }
 
     .reels-row {
         position: absolute;
-        top: calc(var(--highlight-pad) * 1.8);
+        top: calc(var(--highlight-pad) * 3.8);
         left: calc(var(--highlight-pad));
 
 
@@ -129,7 +131,7 @@
     .bottom-container {
         width: 100%;
         height: 22vh;
-        margin-top: -8vh;
+        margin-top: -4vh;
         /*padding: 10px 0;*/
 
         display: flex;
@@ -198,6 +200,10 @@
         z-index: -1;
     }
 
+    .withdrawal-btn {
+        display: none;
+    }
+
 
 }
 
@@ -205,12 +211,12 @@
 
     :root {
         /* reference width of your original design */
-        --design-width: 1024px;
+        --design-width: 768px;
 
         /* scale factor (never zero, never NaN) */
         --board-scale: min(1.02, calc(100vw / var(--design-width)));
 
-        --card-scale: calc(1.18 * var(--board-scale));
+        --card-scale: calc(1.35 * var(--board-scale));
 
         --card-width: 64px;
         --card-height: 86px;
@@ -220,7 +226,7 @@
 
         --reel-count: 5;
         --reel-width: calc(73px * var(--board-scale));
-        --reel-gap: calc(13px * var(--board-scale));
+        --reel-gap: calc(24px * var(--board-scale));
         --highlight-pad: calc(8px * var(--board-scale));
 
         --reel-height: calc(
@@ -233,7 +239,7 @@
         --reel-width-num: 73;
         --reel-gap-num: 10;
 
-        --card-gap: calc(3px * var(--card-scale));
+        --card-gap: calc(4px * var(--card-scale));
 
         /* horizontal centering helper */
         --reels-total-width: calc(
@@ -275,7 +281,6 @@
         background-image: url('./assets/images/bg-frame-desktop.png');
         background-size: 100% 100%;
         background-repeat: no-repeat;
-
         pointer-events: none;
     }
 
@@ -289,7 +294,7 @@
 
         overflow: hidden;
 
-        /*margin-top: 2vh;*/
+        margin-top: 0.5vh;
 
         height: 70vh;
 
@@ -298,7 +303,7 @@
     .reels-row {
         position: absolute;
         top: calc(var(--highlight-pad) *1.2);
-        left: calc(var(--highlight-pad) *38.5) ;
+        left: calc(var(--highlight-pad) *33.5) ;
 
 
         width:  var(--reel-width);
@@ -328,9 +333,10 @@
 
 
     .bottom-container {
+        /*display: none;*/
         width: 430px;
-        height: 25vh;
-        margin-top: -10vh;
+        height: 10vh;
+        margin-top: -7vh;
         /*padding: 10px 0;*/
 
         display: flex;
@@ -398,6 +404,49 @@
                 0 6px 18px rgba(60, 0, 0, 0.75);
 
         z-index: -1;
+    }
+
+
+    .withdrawal-btn {
+        position: absolute;
+        top: 3%;
+        right: 10%;
+
+
+        display: flex;
+        align-items: center;
+
+        justify-content: center;
+
+
+        width: 40px;
+        height: 40px;
+        border-radius: 100%;
+        font-size: 10px;
+        margin-left: 5px;
+        background-image: url('./assets/symbols/SCATTER.png');
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        background-color: transparent;
+        cursor: pointer;
+        border: 1px solid rgba(255, 234, 170, 0.5);
+        opacity: 1;
+        /*margin-top: 1%;*/
+        z-index: 30;
+    }
+
+    .withdrawal-btn:hover {
+        border: 0.015vh solid #ffd84d;
+        filter:
+                drop-shadow(0 0 1px rgba(255, 210, 120, 1))
+                drop-shadow(0 0 6px rgba(255, 160, 60, 0.7));
+    }
+
+    .withdrawal-btn:disabled {
+        cursor: not-allowed;
+        filter: grayscale(0.4);
+        opacity: 0.65;
     }
 
 }
@@ -1140,7 +1189,7 @@
 .top-container {
     width: 100%;
 
-    height: 19vh;
+    height: 18vh;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -1210,47 +1259,6 @@ button:focus-visible {
 
 
 
-.withdrawal-btn {
-    position: absolute;
-    top: 3%;
-    right: 15%;
-
-
-    display: flex;
-    align-items: center;
-
-    justify-content: center;
-
-
-    width: 40px;
-    height: 40px;
-    border-radius: 100%;
-    font-size: 10px;
-    margin-left: 5px;
-    background-image: url('./assets/symbols/SCATTER.png');
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    background-color: transparent;
-    cursor: pointer;
-    border: 1px solid rgba(255, 234, 170, 0.5);
-    opacity: 1;
-    /*margin-top: 1%;*/
-    z-index: 30;
-}
-
-.withdrawal-btn:hover {
-    border: 0.015vh solid #ffd84d;
-    filter:
-            drop-shadow(0 0 1px rgba(255, 210, 120, 1))
-            drop-shadow(0 0 6px rgba(255, 160, 60, 0.7));
-}
-
-.withdrawal-btn:disabled {
-    cursor: not-allowed;
-    filter: grayscale(0.4);
-    opacity: 0.65;
-}
 
 .buy-spin-btn.active {
     transform: scale(1.15);
@@ -2398,12 +2406,13 @@ button:focus-visible {
     display: flex;
     justify-content: center;
     align-items: center;
-    /*gap: 81x;*/
+    gap: 8px;
 
 
     z-index: 25;
     pointer-events: none;
 }
+
 
 
 .superace-base {
@@ -2855,7 +2864,7 @@ button:focus-visible {
     transform: translateX(-50%);
     transform-origin: top center;
 
-    width: 20%;
+    width: 22%;
     height: 56%;
 
     opacity: 0;
@@ -2886,14 +2895,14 @@ button:focus-visible {
 
 .frame-paused-column-light-ray {
     position: absolute;
-    top: -14%;
+    top: -12.5%;
     /*top: -222%;*/
     /*left: 20%;*/
 
-    transform: translateX(60%);
+    transform: translateX(57.5%);
     transform-origin: top center;
 
-    width:21%;
+    width:23%;
     height: 110%;
 
     opacity: 0;
@@ -2928,12 +2937,12 @@ button:focus-visible {
 @keyframes paused-ray-drop {
     from {
         opacity: 0;
-        transform: translateX(-60%) translateY(-22%);
+        transform: translateX(-57.5%) translateY(-22%);
         /*clip-path: inset(22% 0 0 0); !* hide top glow *!*/
     }
     to {
-        opacity: 0.90;
-        transform: translateX(-60%) translateY(0%);
+        opacity: 1;
+        transform: translateX(-57.5%) translateY(0%);
         /*clip-path: inset(0 0 0 0);   !* fully revealed *!*/
     }
 }

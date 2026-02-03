@@ -420,8 +420,8 @@ export default function App() {
   const ladder = isFreeGame || isFreeSpinPreview ? FREE_MULTIPLIERS : BASE_MULTIPLIERS
 
   function getMultiplierIndex(cascadeIndex: number) {
-    if (cascadeIndex < 2) return 0
-    return Math.min(cascadeIndex - 1, ladder.length - 1)
+    const popCount = cascadeIndex
+    return Math.min(popCount, ladder.length - 1)
   }
 
   const activeMultiplierIndex = getMultiplierIndex(cascadeIndex)
@@ -429,13 +429,13 @@ export default function App() {
 
   const onShowFreeSpinIntro = (delayMs: number) => {
     return setTimeout(() => {
-      setAutoSpin(false)
       setIntroShown(true)
       setShowFreeSpinIntro(true)
 
       const hide = setTimeout(() => {
         setIsFreeSpinPreview(true)
         setShowFreeSpinIntro(false)
+        spin()
       }, 10_000)
 
       return () => clearTimeout(hide)
@@ -568,10 +568,6 @@ export default function App() {
             !s.spinning &&
             !s.autoSpin &&
             (!s.isFreeGame || s.freeSpinsLeft === 10) &&
-            !s.showFreeSpinIntro &&
-            !s.showScatterWinBanner &&
-            !s.showBuySpinModal &&
-            s.freeSpinsLeft <= 0 &&
             !s.showScatterWinBanner &&
             s.balance >= s.bet &&
             s.pauseColumn === null
