@@ -361,6 +361,8 @@ export default function App() {
   useEffect(() => {
     if (!autoSpin) return
     if (!isReady) return
+    if (showFreeSpinIntro || showScatterWinBanner) return
+
     if (balance < bet || balance === 0) {
       setAutoSpin(false)
       setTurboStage(0)
