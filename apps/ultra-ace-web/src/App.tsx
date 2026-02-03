@@ -63,6 +63,7 @@ export default function App() {
     pauseColumn: null as number | null,
     balance: 0,
     bet: 0,
+    buySpinBet: 0,
     withdrawAmount: 0,
     isWithdrawing: false,
     showBuySpinModal: false,
@@ -243,6 +244,7 @@ export default function App() {
         console.log('LEDGER EVENT', e)
       })
   }
+  const [showBuySpinModal, setShowBuySpinModal] = useState(false)
 
   const spinRef = useRef(spin)
   const setAutoSpinRef = useRef(setAutoSpin)
@@ -253,6 +255,11 @@ export default function App() {
   const setTurboStageRef = useRef(setTurboStage)
   const setShowWithdrawModalRef = useRef(setShowWithdrawModal)
   const setIsWithdrawingRef = useRef(setIsWithdrawing)
+
+  const setShowBuySpinModalRef = useRef(setShowBuySpinModal)
+  const addBuySpinBetRef = useRef(addBuySpinBet)
+  const minusBuySpinBetRef = useRef(minusBuySpinBet)
+  const buyFreeSpinsRef = useRef(buyFreeSpins)
 
   const {
     phase,
@@ -289,8 +296,6 @@ export default function App() {
     Boolean(activeCascade) &&
     activeCascade.lineWins.length === 0 &&
     activeCascade.window.flat().filter(s => s.kind === 'SCATTER').length >= 3
-
-  const [showBuySpinModal, setShowBuySpinModal] = useState(false)
 
   useEffect(() => {
     if (showBuySpinModal) {
@@ -500,6 +505,7 @@ export default function App() {
       pauseColumn,
       balance,
       bet,
+      buySpinBet,
       showBuySpinModal,
       isWithdrawing,
       withdrawAmount,
@@ -516,6 +522,7 @@ export default function App() {
     pauseColumn,
     balance,
     bet,
+    buySpinBet,
     showBuySpinModal,
     isWithdrawing,
     withdrawAmount,
@@ -535,6 +542,10 @@ export default function App() {
     setIsWithdrawingRef.current = setIsWithdrawing
     addWithdrawAmountRef.current = addWithdrawAmount
     minusWithdrawAmountRef.current = minusWithdrawAmount
+    setShowBuySpinModalRef.current = setShowBuySpinModal
+    addBuySpinBetRef.current = addBuySpinBet
+    minusBuySpinBetRef.current = minusBuySpinBet
+    buyFreeSpinsRef.current = buyFreeSpins
   })
 
   useEffect(() => {
@@ -578,6 +589,11 @@ export default function App() {
               setShowWithdrawModalRef.current(false)
               return
             }
+
+            if (s.showBuySpinModal) {
+              setShowBuySpinModalRef.current(false)
+              return
+            }
             spinRef.current()
           }
           break
@@ -587,6 +603,8 @@ export default function App() {
           if (s.isReady && !s.spinning && !s.autoSpin && s.freeSpinsLeft <= 0) {
             if (s.showWithdrawModal) {
               addWithdrawAmountRef.current()
+            } else if (s.showBuySpinModal) {
+              addBuySpinBetRef.current()
             } else {
               addBetRef.current()
             }
@@ -598,6 +616,8 @@ export default function App() {
           if (s.isReady && !s.spinning && !s.autoSpin && s.freeSpinsLeft <= 0) {
             if (s.showWithdrawModal) {
               minusWithdrawAmountRef.current()
+            } else if (s.showBuySpinModal) {
+              minusBuySpinBetRef.current()
             } else {
               minusBetRef.current()
             }
@@ -620,6 +640,23 @@ export default function App() {
         case 'TURBO': {
           if (s.balance >= s.bet && s.pauseColumn === null && !s.showBuySpinModal) {
             setTurboStageRef.current(prev => ((prev + 1) % 4) as 0 | 1 | 2 | 3)
+          }
+          break
+        }
+        case 'BUY': {
+          if (
+            s.isReady &&
+            !s.spinning &&
+            !s.autoSpin &&
+            s.balance >= s.bet &&
+            s.pauseColumn === null
+          ) {
+            if (s.showBuySpinModal) {
+              buyFreeSpinsRef.current(s.buySpinBet)
+              setShowBuySpinModalRef.current(false)
+              return
+            }
+            setShowBuySpinModalRef.current(true)
           }
           break
         }
