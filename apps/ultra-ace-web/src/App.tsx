@@ -70,9 +70,7 @@ export default function App() {
     showWithdrawModal: false,
   })
 
-  const [prevAutoSpin, setPrevAutoSpin] = useState(false)
   const [autoSpin, setAutoSpin] = useState(false)
-  const [prevTurboStage, setPrevTurboStage] = useState<0 | 1 | 2 | 3>(0)
   const [turboStage, setTurboStage] = useState<0 | 1 | 2 | 3>(0)
 
   const [deviceName, setDeviceNameState] = useState(() => getDeviceName())
@@ -253,6 +251,9 @@ export default function App() {
   const addWithdrawAmountRef = useRef(addWithdrawAmount)
   const minusWithdrawAmountRef = useRef(minusWithdrawAmount)
   const setTurboStageRef = useRef(setTurboStage)
+
+  const setShowFreeSpinIntroRef = useRef(setShowFreeSpinIntro)
+
   const setShowWithdrawModalRef = useRef(setShowWithdrawModal)
   const setIsWithdrawingRef = useRef(setIsWithdrawing)
 
@@ -364,11 +365,12 @@ export default function App() {
   const isReady = (isIdle && !spinning) || (showFreeSpinIntro && !freezeUI)
 
   useEffect(() => {
-    if (!autoSpin) return
-    if (!isReady) return
-    if (showFreeSpinIntro || showScatterWinBanner || pauseColumn || showBuySpinModal) return
+    if (!isIdle && !isFreeGame) return
+    if (!autoSpin && !isFreeGame) return
+    if (showFreeSpinIntro || isFreeSpinPreview || showScatterWinBanner || showBuySpinModal) return
+    if (pauseColumn && !isFreeGame && pendingFreeSpins > 0) return
 
-    if (balance < bet || balance === 0) {
+    if (!isFreeGame && balance < bet) {
       setAutoSpin(false)
       setTurboStage(0)
       return
@@ -380,14 +382,16 @@ export default function App() {
 
     return () => clearTimeout(t)
   }, [
+    isIdle,
     autoSpin,
-    isReady,
+    isFreeGame,
+    pendingFreeSpins,
     balance,
     bet,
-    spin,
-    showFreeSpinIntro,
-    showScatterWinBanner,
     pauseColumn,
+    showFreeSpinIntro,
+    isFreeSpinPreview,
+    showScatterWinBanner,
     showBuySpinModal,
   ])
 
@@ -398,13 +402,13 @@ export default function App() {
 
     const t = setTimeout(() => {
       consumeFreeSpin()
-      if (freeSpinsLeft > 0) {
+      if (freeSpinsLeft > -1) {
         spin()
       }
     }, 300)
 
     return () => clearTimeout(t)
-  }, [isFreeGame, isIdle, freeSpinsLeft, spin])
+  }, [isFreeGame, isIdle, freeSpinsLeft])
 
   useEffect(() => {
     if (phase !== 'highlight') return
@@ -451,12 +455,15 @@ export default function App() {
 
       const hide = setTimeout(() => {
         setIsFreeSpinPreview(true)
-        setShowFreeSpinIntro(false)
+        // setShowFreeSpinIntro(false)
 
-        const hideSpin = setTimeout(() => {
+        // const hideSpin = setTimeout(() => {
+        if (gameStateRef.current.showFreeSpinIntro) {
           spin()
-        }, 1600)
-        return () => clearTimeout(hideSpin)
+          // consumeFreeSpin()
+        }
+        // }, 300)
+        // return () => clearTimeout(hideSpin)
       }, 10_000)
 
       return () => clearTimeout(hide)
@@ -471,16 +478,7 @@ export default function App() {
       const show = onShowFreeSpinIntro(300)
       return () => clearTimeout(show)
     }
-  }, [
-    pendingFreeSpins,
-    scatterTriggerType,
-    introShown,
-    activeCascade,
-    isFreeGame,
-    freeSpinsLeft,
-    pauseColumn,
-    phase,
-  ])
+  }, [introShown, isFreeGame, pauseColumn, isScatterHighlight])
 
   useEffect(() => {
     if (phase === 'idle') {
@@ -534,6 +532,7 @@ export default function App() {
     addBetRef.current = addBet
     minusBetRef.current = minusBet
     setTurboStageRef.current = setTurboStage
+    setShowFreeSpinIntroRef.current = setShowFreeSpinIntro
     setShowWithdrawModalRef.current = setShowWithdrawModal
     setIsWithdrawingRef.current = setIsWithdrawing
     addWithdrawAmountRef.current = addWithdrawAmount
@@ -576,7 +575,7 @@ export default function App() {
             s.isReady &&
             !s.spinning &&
             !s.autoSpin &&
-            (!s.isFreeGame || s.freeSpinsLeft === 10) &&
+            (!s.isFreeGame || s.showFreeSpinIntro) &&
             !s.showScatterWinBanner &&
             s.balance >= s.bet
           ) {
@@ -587,6 +586,11 @@ export default function App() {
 
             if (s.showBuySpinModal) {
               setShowBuySpinModalRef.current(false)
+              return
+            }
+
+            if (s.showFreeSpinIntro) {
+              setShowFreeSpinIntroRef.current(false)
               return
             }
             spinRef.current()
@@ -811,8 +815,10 @@ export default function App() {
                 onMinusBet={minusBuySpinBet}
                 onCancel={() => setShowBuySpinModal(false)}
                 onConfirm={() => {
-                  setShowBuySpinModal(false)
-                  buyFreeSpins(buySpinBet)
+                  if (isReady) {
+                    setShowBuySpinModal(false)
+                    buyFreeSpins(buySpinBet)
+                  }
                 }}
               />
             )}
@@ -985,7 +991,10 @@ export default function App() {
                           !showFreeSpinIntro &&
                           !showScatterWinBanner)
                       }
-                      onClick={spin}
+                      onClick={() => {
+                        spin()
+                        consumeFreeSpin()
+                      }}
                       aria-label="Spin"
                     />
                   </div>

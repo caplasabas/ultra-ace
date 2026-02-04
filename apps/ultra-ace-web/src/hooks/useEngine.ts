@@ -68,9 +68,10 @@ export function useEngine() {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false)
 
   useEffect(() => {
-    console.log('scatterTriggerType', scatterTriggerType)
-    console.log('isFreeGame', isFreeGame)
-  }, [scatterTriggerType, isFreeGame])
+    console.log(
+      `spinning: ${spinning},scatterTriggerType: ${scatterTriggerType}, isFreeGame: ${isFreeGame}, pendingFreeSpins: ${pendingFreeSpins}, freeSpinsLeft: ${freeSpinsLeft}`,
+    )
+  }, [spinning, scatterTriggerType, isFreeGame, freeSpinsLeft, pendingFreeSpins])
 
   /* -----------------------------
      Debug
@@ -133,12 +134,14 @@ export function useEngine() {
       setIsFreeGame(true)
       setFreeSpinsLeft(pendingFreeSpins)
 
-      setPendingFreeSpins(0)
       setShowFreeSpinIntro(false)
+
+      setPendingFreeSpins(0)
+
       return
     }
 
-    if (balance < bet || balance === 0) return
+    if (balance < bet || (balance === 0 && !isFreeGame)) return
 
     setSpinning(true)
 
@@ -177,12 +180,13 @@ export function useEngine() {
       win: outcome.win ?? 0,
       cascadeWins: (outcome.cascades ?? []).map(c => c.win ?? 0),
     })
+    console.log('freeSpinsAwarded', outcome.freeSpinsAwarded)
 
     if (outcome.freeSpinsAwarded > 0) {
       if (!isFreeGame) {
         setPendingFreeSpins(outcome.freeSpinsAwarded)
       } else {
-        setFreeSpinsLeft(v => v + outcome.freeSpinsAwarded)
+        // setFreeSpinsLeft(v => v + outcome.freeSpinsAwarded)
       }
     }
   }
@@ -259,7 +263,6 @@ export function useEngine() {
     // Jackpot contribution
     const loss = outcome.bet - (outcome.win ?? 0)
 
-    console.log('loss', loss)
     if (loss > 0) {
       const contribution = Math.floor(loss * 0.05)
 
