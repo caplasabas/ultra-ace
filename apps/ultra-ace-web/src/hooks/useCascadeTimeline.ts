@@ -159,7 +159,8 @@ export function useCascadeTimeline(
   const previousCascade = state.previous
   const isIdle = state.phase === 'idle'
 
-  const pauseColumn = detectScatterPauseColumn(activeCascade?.window)
+  const pauseColumn = !isIdle ? detectScatterPauseColumn(activeCascade?.window) : null
+
   const pauseLockedRef = useRef(false)
   const pauseOriginRef = useRef<number | null>(null)
 
@@ -226,12 +227,12 @@ export function useCascadeTimeline(
     if (pauseOrigin === null) {
       const t = window.setTimeout(() => {
         const hasScatterWin =
-          cascades[0]?.window?.flat().filter(s => s.kind === 'SCATTER').length >= 3
-        const hasLineWin = Boolean(activeCascade?.lineWins.length)
+          activeCascade?.window?.flat().filter(s => s.kind === 'SCATTER').length >= 3
+        // const hasLineWin = Boolean(activeCascade?.lineWins.length)
 
         if (hasNextLineWin) {
           dispatch({ type: 'ADVANCE', cascades })
-        } else if (!hasLineWin && hasScatterWin) {
+        } else if (hasScatterWin) {
           dispatch({ type: 'ADVANCE_SCATTER', cascades })
         } else {
           dispatch({ type: 'NEXT', phase: 'settle' })
@@ -259,7 +260,8 @@ export function useCascadeTimeline(
         ),
       )
     }
-    const hasScatterWin = cascades[0]?.window?.flat().filter(s => s.kind === 'SCATTER').length >= 3
+    const hasScatterWin =
+      activeCascade?.window?.flat().filter(s => s.kind === 'SCATTER').length >= 3
 
     const totalDuration =
       INITIAL_REFILL_PAUSE_MS + (TOTAL_REELS - (pauseOrigin + 1)) * columnDuration
@@ -270,7 +272,7 @@ export function useCascadeTimeline(
 
         if (hasNextLineWin) {
           dispatch({ type: 'ADVANCE', cascades })
-        } else if (!hasNextLineWin && hasScatterWin) {
+        } else if (hasScatterWin) {
           dispatch({ type: 'ADVANCE_SCATTER', cascades })
         } else {
           dispatch({ type: 'NEXT', phase: 'settle' })

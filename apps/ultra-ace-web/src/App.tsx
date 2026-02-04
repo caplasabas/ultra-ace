@@ -330,7 +330,7 @@ export default function App() {
 
   const hasWin = Boolean(activeCascade?.lineWins?.length) || hasScatterWin
 
-  const pauseColumn = detectScatterPauseColumn(activeCascade?.window)
+  const pauseColumn = !isIdle ? detectScatterPauseColumn(activeCascade?.window) : null
 
   const windowForRender =
     hasWin && ['highlight', 'pop'].includes(phase)
