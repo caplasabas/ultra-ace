@@ -366,7 +366,7 @@ export default function App() {
   useEffect(() => {
     if (!autoSpin) return
     if (!isReady) return
-    if (showFreeSpinIntro || showScatterWinBanner) return
+    if (showFreeSpinIntro || showScatterWinBanner || pauseColumn || showBuySpinModal) return
 
     if (balance < bet || balance === 0) {
       setAutoSpin(false)
@@ -379,7 +379,17 @@ export default function App() {
     }, 300)
 
     return () => clearTimeout(t)
-  }, [autoSpin, isReady, balance, bet, spin])
+  }, [
+    autoSpin,
+    isReady,
+    balance,
+    bet,
+    spin,
+    showFreeSpinIntro,
+    showScatterWinBanner,
+    pauseColumn,
+    showBuySpinModal,
+  ])
 
   useEffect(() => {
     if (!isFreeGame) return
@@ -442,7 +452,11 @@ export default function App() {
       const hide = setTimeout(() => {
         setIsFreeSpinPreview(true)
         setShowFreeSpinIntro(false)
-        spin()
+
+        const hideSpin = setTimeout(() => {
+          spin()
+        }, 1600)
+        return () => clearTimeout(hideSpin)
       }, 10_000)
 
       return () => clearTimeout(hide)
@@ -451,24 +465,6 @@ export default function App() {
 
   useEffect(() => {
     if (pauseColumn) {
-      if (pendingFreeSpins <= 0 && freeSpinsLeft <= 0) {
-        if (phase === 'initialRefill') {
-          setPrevTurboStage(turboStage)
-          setTurboStage(0)
-          setPrevAutoSpin(autoSpin)
-          setAutoSpin(false)
-        }
-        if (phase === 'idle') {
-          console.log('prevTurboStage', prevTurboStage)
-          console.log('prevAutoSpin', prevAutoSpin)
-          setTurboStage(prevTurboStage)
-          setPrevTurboStage(0)
-          setAutoSpin(prevAutoSpin)
-          setPrevAutoSpin(false)
-        }
-
-        return
-      }
       if (introShown) return
       if (isFreeGame) return
       if (!isScatterHighlight) return
@@ -582,8 +578,7 @@ export default function App() {
             !s.autoSpin &&
             (!s.isFreeGame || s.freeSpinsLeft === 10) &&
             !s.showScatterWinBanner &&
-            s.balance >= s.bet &&
-            s.pauseColumn === null
+            s.balance >= s.bet
           ) {
             if (s.showWithdrawModal) {
               setShowWithdrawModalRef.current(false)
@@ -751,7 +746,6 @@ export default function App() {
               <button
                 className="buy-spin-btn"
                 disabled={
-                  !isReady ||
                   pauseColumn !== null ||
                   balance === 0 ||
                   balance < bet * 50 ||
@@ -761,7 +755,9 @@ export default function App() {
                 onClick={() => setShowBuySpinModal(true)}
               />
 
-              <div className="free-spin-banner">
+              <div
+                className={`free-spin-banner ${(isFreeGame || isFreeSpinPreview) && freeSpinsLeft >= 0 ? 'free' : ''}`}
+              >
                 <div
                   className={`free-spin-text font-plasma ${
                     !(isFreeGame || isFreeSpinPreview) || freeSpinsLeft < 0 ? 'base' : ''
@@ -793,7 +789,11 @@ export default function App() {
                 {ladder.map((m, i) => (
                   <div
                     key={m}
-                    className={['multiplier-chip', i === activeMultiplierIndex && 'current']
+                    className={[
+                      'multiplier-chip',
+                      i === activeMultiplierIndex && 'current',
+                      (isFreeGame || isFreeSpinPreview) && freeSpinsLeft >= 0 ? 'free' : '',
+                    ]
                       .filter(Boolean)
                       .join(' ')}
                   >
@@ -917,7 +917,7 @@ export default function App() {
               </div>
 
               <div className="bottom-container">
-                <div className="win-display">
+                <div className={`win-display ${showFreeSpinIntro && 'hidden'}`}>
                   WIN:{' '}
                   <span className="win-amount">
                     {formatPeso(
@@ -931,7 +931,7 @@ export default function App() {
                   </span>
                 </div>
                 <div className="bottom-controls">
-                  <div className="controls-left">
+                  <div className={`controls-left ${showFreeSpinIntro && 'hidden'}`}>
                     <div className="bet-control">
                       <button
                         disabled={
@@ -973,9 +973,9 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="controls-center">
+                  <div className={`controls-center ${showFreeSpinIntro && 'center'}`}>
                     <button
-                      className={`spin-btn spin ${(isReady && !autoSpin) || (!autoSpin && !showFreeSpinIntro && !isFreeGame) ? 'spin-image active' : 'stop-image'}`}
+                      className={`spin-btn spin ${(isReady && !autoSpin) || (!autoSpin && !isFreeGame) || showFreeSpinIntro ? 'spin-image active' : 'stop-image'}`}
                       disabled={
                         !isReady ||
                         balance === 0 ||
@@ -990,7 +990,7 @@ export default function App() {
                     />
                   </div>
 
-                  <div className="controls-right">
+                  <div className={`controls-right ${showFreeSpinIntro && 'hidden'}`}>
                     <button
                       className={`spin-btn auto spin-auto-image ${autoSpin ? 'active' : ''}`}
                       disabled={
@@ -1014,7 +1014,7 @@ export default function App() {
                     <button className={`spin-btn settings`} />
                   </div>
                 </div>
-                <div className="bottom-info">
+                <div className={`bottom-info ${showFreeSpinIntro && 'hidden'}`}>
                   <div className="bottom-info-left">
                     <button
                       className={`spin-btn audio ${audioOn ? 'active' : ''}`}
@@ -1034,7 +1034,7 @@ export default function App() {
                   <div className="bottom-info-right" />
                 </div>
 
-                <div className="device-info">
+                <div className={`device-info ${showFreeSpinIntro && 'hidden'}`}>
                   <label className="device-label">Device</label>
                   <input
                     className="device-input"

@@ -634,6 +634,59 @@
             /*clip-path: inset(0 0 0 0);   !* fully revealed *!*/
         }
     }
+
+    .scatter-win-bg {
+        position: absolute;
+        inset: 0;
+
+        background-image: url('./assets/images/scatter_bg.jpg');
+        background-size: cover;
+        background-position: center;
+    }
+
+    .scatter-bg {
+        position: absolute;
+        inset: 0;
+
+        background-image: url('./assets/images/scatter_bg.jpg');
+        background-size: cover;
+        background-position: center;
+    }
+
+
+    .scatter-win-content {
+        position: relative;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        margin-top: 17vh;
+        /*justify-content: center;*/
+        align-items: center;
+        gap: 18px;
+        text-align: center;
+    }
+
+    .scatter-content {
+        position: relative;
+        z-index: 1;
+
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        margin-top: -10vh;
+        align-items: center;
+
+        gap: 10vh;
+    }
+
+
+    .multiplier-chip {
+        position: relative;
+        min-width: 46px;
+        height: 34px;
+        text-align: center;
+    }
 }
 
 @media (min-width: 1024px) {
@@ -788,7 +841,7 @@
     */
     .multiplier-strip {
         position: relative;
-        margin-top: -2.7rem;
+        margin-top: -1.8rem;
 
         width: 27%;
         /*margin: 0 auto;*/
@@ -816,8 +869,10 @@
     .multiplier-strip.free::before {
         content: '';
         position: absolute;
-        width: 100%;
-        inset: -5px 3px;
+        width: 114.5%;
+        height: 70%;
+        inset: -5.5px -18px;
+
 
         background: linear-gradient(
                 180deg,
@@ -965,7 +1020,7 @@
 
 
     .free-spin-banner {
-        transform: translateX(0%) translateY(-95%);
+        transform: translateX(0%) translateY(-75%);
         /*position: absolute;*/
         /*top: 8px;*/
         /*left: 50%;*/
@@ -979,6 +1034,11 @@
 
         z-index: 25;
         pointer-events: none;
+    }
+
+    .free-spin-banner.free {
+        transform: translateX(0%) translateY(-15%);
+
     }
 
 
@@ -1316,6 +1376,76 @@
             /*clip-path: inset(0 0 0 0);   !* fully revealed *!*/
         }
     }
+
+    .scatter-win-bg {
+        position: absolute;
+        inset: 0;
+
+        background-image: url('./assets/images/scatter_bg_desktop.jpg');
+        background-size: cover;
+        background-position: center;
+    }
+
+    .scatter-bg {
+        position: absolute;
+        inset: 0;
+
+        background-image: url('./assets/images/scatter_bg_desktop.jpg');
+        background-size: cover;
+        background-position: center;
+    }
+
+
+    .scatter-win-content {
+        position: relative;
+        height: 90%;
+        display: flex;
+        flex-direction: column;
+        /*margin-top: 17vh;*/
+        justify-content: center;
+        align-items: center;
+        gap: 18px;
+        text-align: center;
+    }
+
+    .scatter-content {
+        position: relative;
+        z-index: 1;
+
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        margin-top: -6vh;
+        align-items: center;
+
+        gap: 10vh;
+    }
+
+
+    .controls-center.center {
+        margin-top: -3.5rem;
+        margin-left: -1rem;
+    }
+
+
+    .multiplier-chip {
+        position: relative;
+        min-width: 46px;
+        height: 45px;
+        text-align: center;
+    }
+
+    .multiplier-chip.free {
+       height: 70px;
+    }
+
+
+
+    .hidden {
+        display: none !important;
+    }
+
 }
 
 .font-plasma {
@@ -2516,12 +2646,6 @@ button:focus-visible {
 }
 
 
-.multiplier-chip {
-    position: relative;
-    min-width: 46px;
-    height: 34px;
-    text-align: center;
-}
 
 .multiplier-base {
     font-size: 32px;
@@ -2958,14 +3082,7 @@ button:focus-visible {
     z-index: 40;
 }
 
-.scatter-win-bg {
-    position: absolute;
-    inset: 0;
 
-    background-image: url('./assets/images/scatter_bg.jpg');
-    background-size: cover;
-    background-position: center;
-}
 
 .scatter-win-glow {
     position: absolute;
@@ -2985,17 +3102,6 @@ button:focus-visible {
     100% { opacity: 0.55; }
 }
 
-.scatter-win-content {
-    position: relative;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    margin-top: 17vh;
-    /*justify-content: center;*/
-    align-items: center;
-    gap: 18px;
-    text-align: center;
-}
 
 .scatter-win-title-container {
     gap: 5px;
@@ -3317,14 +3423,7 @@ button:focus-visible {
     pointer-events: all;
 }
 
-.scatter-bg {
-    position: absolute;
-    inset: 0;
 
-    background-image: url('./assets/images/scatter_bg.jpg');
-    background-size: cover;
-    background-position: center;
-}
 
 .scatter-bg-glow {
     position: absolute;
@@ -3347,19 +3446,7 @@ button:focus-visible {
     );
 
 }
-.scatter-content {
-    position: relative;
-    z-index: 1;
 
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    margin-top: -10vh;
-    align-items: center;
-
-    gap: 10vh;
-}
 
 .scatter-title-container {
     width: 100%;
@@ -3847,3 +3934,4 @@ button:focus-visible {
     border-radius: 4px;
     width: 140px;
 }
+

@@ -175,10 +175,12 @@ export function useCascadeTimeline(
   }, [spinCompleted, spinId])
 
   function scaled(ms: number) {
-    const v = ms / (pauseColumn ? 1 : turboMultiplier)
-    return scatterTriggerType === 'buy'
-      ? Math.max(v, 250) // ⛔ do not fully skip tease
-      : v
+    return (
+      ms /
+      (pauseColumn
+        ? (turboMultiplier > 1 ? turboMultiplier / 2 : turboMultiplier) * 1.7
+        : turboMultiplier)
+    )
   }
 
   /* -----------------------------
@@ -371,7 +373,7 @@ export function useCascadeTimeline(
               dispatch({ type: 'RESET' })
             }
           },
-          scaled(!hasNextLineWin && hasScatterWin ? 220 : 80),
+          scaled(!hasNextLineWin && hasScatterWin ? 300 * turboMultiplier : 80),
         )
         break
     }

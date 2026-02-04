@@ -67,6 +67,11 @@ export function useEngine() {
   const [isWithdrawing, setIsWithdrawing] = useState(false)
   const [showWithdrawModal, setShowWithdrawModal] = useState(false)
 
+  useEffect(() => {
+    console.log('scatterTriggerType', scatterTriggerType)
+    console.log('isFreeGame', isFreeGame)
+  }, [scatterTriggerType, isFreeGame])
+
   /* -----------------------------
      Debug
   ----------------------------- */
