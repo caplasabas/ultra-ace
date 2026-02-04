@@ -6,6 +6,10 @@ import { getEngineConfig, getEngineVersion, getReels } from './runtime/engineCon
 
 const FORBIDDEN_GOLD_REELS = new Set([0])
 
+function cloneSymbol(s: Symbol): Symbol {
+  return { ...s }
+}
+
 export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
   const cfg = getEngineConfig()
 
@@ -20,7 +24,7 @@ export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
   const window: Symbol[][] = reels.map((reel, reelIndex) =>
     Array.from({ length: cfg.reels.reelsVisibleRows }, (_, row) => {
       const idx = (stops[reelIndex] + row) % reel.length
-      return { ...reel[idx] }
+      return cloneSymbol(reel[idx])
     }),
   )
 
@@ -32,7 +36,7 @@ export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
   }
 
   /* ----------------------------------------
-     GOLD ASSIGNMENT (unchanged)
+     GOLD ASSIGNMENT
   ---------------------------------------- */
   for (let reelIndex = 0; reelIndex < window.length; reelIndex++) {
     for (const symbol of window[reelIndex]) {
@@ -64,6 +68,7 @@ export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
     freeSpinsAwarded,
   }
 }
+
 function reelWeight(reel: number, totalReels: number): number {
   if (reel === 0) return 0.5
   if (reel === totalReels - 1) return 1.25
@@ -88,7 +93,6 @@ function pickWeightedReel(
 
 function forceThreeScatters(window: Symbol[][], rng: () => number) {
   const reels = window.length - 1
-
   const reelsWithScatter = new Set<number>()
 
   for (let r = 1; r < reels; r++) {
@@ -98,7 +102,6 @@ function forceThreeScatters(window: Symbol[][], rng: () => number) {
   }
 
   const currentScatterCount = window.flat().filter(s => s.kind === 'SCATTER').length
-
   if (currentScatterCount >= 3) return
 
   let remainingToAdd = 3 - currentScatterCount

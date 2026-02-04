@@ -243,7 +243,7 @@ function pickWeightedSymbol(
     }
   })
 
-  return weightedRandom(weighted, rng)
+  return { ...weightedRandom(weighted, rng) }
 }
 
 function buildWinningSymbolMap(

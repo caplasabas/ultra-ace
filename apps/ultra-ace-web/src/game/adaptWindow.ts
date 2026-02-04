@@ -60,7 +60,10 @@ export function adaptWindow(
         prev &&
         (prev.kind !== symbol.kind ||
           prev.isGold !== symbol.isGold ||
-          prev.wildColor !== symbol.wildColor)
+          prev.goldTTL !== symbol.goldTTL ||
+          prev.isWild !== symbol.isWild ||
+          prev.wildColor !== symbol.wildColor ||
+          prev.fromGold !== symbol.fromGold)
 
       const isPersisted =
         prev !== undefined &&
