@@ -137,31 +137,28 @@ function ReelComponent({
 
   return (
     <>
-      {isActivePausedColumn && (
-        <>
-          <div id="reel-light-overlay">
-            <img
-              src={kamehamewave}
-              className="frame-paused-column-light-ray"
-              style={{
-                left: `calc(${reelIndex} * (var(--reel-width) + var(--reel-gap)) + var(--reel-width) /1.55)`,
-              }}
-              draggable={false}
-            />
-          </div>
-          {createPortal(
-            <img
-              src={kamehamewave}
-              className="frame-paused-column-frame"
-              style={{
-                left: `calc(${reelIndex} * (var(--reel-width) + var(--reel-gap)) + var(--reel-width) /1.55)`,
-              }}
-              draggable={false}
-            />,
-            document.getElementById('frame-light-overlay')!,
-          )}
-        </>
-      )}
+      <div id="reel-light-overlay" style={{ display: isActivePausedColumn ? 'block' : 'none' }}>
+        <img
+          src={kamehamewave}
+          className="frame-paused-column-light-ray"
+          style={{
+            left: `calc(${reelIndex} * (var(--reel-width) + var(--reel-gap)) + var(--reel-width) /1.55)`,
+          }}
+          draggable={false}
+        />
+      </div>
+      {isActivePausedColumn &&
+        createPortal(
+          <img
+            src={kamehamewave}
+            className="frame-paused-column-frame"
+            style={{
+              left: `calc(${reelIndex} * (var(--reel-width) + var(--reel-gap)) + var(--reel-width) /1.55)`,
+            }}
+            draggable={false}
+          />,
+          document.getElementById('frame-light-overlay')!,
+        )}
 
       <div
         className={['reel', layer === 'old' && phase === 'reelSweepOut' && 'sweep-out-old']
