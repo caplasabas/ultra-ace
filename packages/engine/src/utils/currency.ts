@@ -1,6 +1,6 @@
 export function formatPeso(
   amount: number | string,
-  withSymbol = true,
+  withSymbol = false,
   withDecimal = true,
   decimalCount = 2,
   abbreviate = false,

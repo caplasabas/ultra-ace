@@ -3,10 +3,11 @@ import { Reel } from './ui/Reel'
 import { DimOverlay } from './ui/DimOverlay'
 import { WinOverlay } from './ui/WinOverlay'
 import { adaptWindow } from './game/adaptWindow'
-import { getDeviceName, setDeviceName } from './lib/device'
+import { getDeviceId, getDeviceName, registerDevice, setDeviceName } from './lib/device'
 import { detectScatterPauseColumn, useCascadeTimeline } from './hooks/useCascadeTimeline'
 import { DebugHud } from './debug/DebugHud'
 import { useEffect, useMemo, useRef, useState } from 'react'
+
 import { formatPeso } from '@ultra-ace/engine'
 import { useBackgroundAudio } from './audio/useBackgroundAudio'
 import BGM from './assets/audio/bgm.mp3'
@@ -14,10 +15,10 @@ import BGM from './assets/audio/bgm.mp3'
 import { FreeSpinIntro } from './ui/FreeSpinIntro'
 import { ScatterWinBanner } from './ui/ScatterWinBanner'
 import { BuySpinModal } from './ui/BuySpinModal'
-import { getDeviceId, registerDevice } from './lib/device'
 import { logLedgerEvent } from './lib/accounting'
 import { supabase } from './lib/supabase'
 import { WithdrawModal } from './ui/WithdrawModal'
+
 const DEV = import.meta.env.DEV
 
 const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kind }))
@@ -992,8 +993,14 @@ export default function App() {
                           !showScatterWinBanner)
                       }
                       onClick={() => {
-                        spin()
-                        consumeFreeSpin()
+                        if (showFreeSpinIntro) {
+                          setIsFreeSpinPreview(true)
+                        }
+
+                        const t = setTimeout(() => {
+                          spin()
+                        }, 300)
+                        return () => clearTimeout(t)
                       }}
                       aria-label="Spin"
                     />

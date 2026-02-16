@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { spin, createRNG, startEngine, DEFAULT_ENGINE_CONFIG } from '@ultra-ace/engine'
-import type { CascadeStep, SpinOutcome } from '@ultra-ace/engine'
+import { CascadeStep, createRNG, DEFAULT_ENGINE_CONFIG, spin, SpinOutcome, startEngine, } from '@ultra-ace/engine'
 import { DebugSpinInfo } from 'src/debug/DebugHud'
 import { logSpin, startSession } from '../lib/session'
 import { logLedgerEvent } from '../lib/accounting'

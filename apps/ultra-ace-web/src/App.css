@@ -1,5 +1,3 @@
-
-
 @media (max-width: 1000px) {
     :root {
         /* reference width of your original design */
@@ -118,7 +116,6 @@
     }
 
 
-
     .dim-zone {
         position: relative;
         width: 100%;
@@ -177,7 +174,6 @@
     /* =========================
        Multiplier Strip – Free Spin Tint
        ========================= */
-
     .multiplier-strip.free::before {
         content: '';
         position: absolute;
@@ -192,10 +188,9 @@
 
         border-radius: 22px;
 
-        box-shadow:
-                inset 0 1px 0 rgba(255, 120, 120, 0.18),
-                inset 0 -2px 0 rgba(40, 0, 0, 0.55),
-                0 6px 18px rgba(60, 0, 0, 0.75);
+        box-shadow: inset 0 1px 0 rgba(255, 120, 120, 0.18),
+        inset 0 -2px 0 rgba(40, 0, 0, 0.55),
+        0 6px 18px rgba(60, 0, 0, 0.75);
 
         z-index: -1;
     }
@@ -203,7 +198,6 @@
     .withdrawal-btn {
         display: none;
     }
-
 
 
     .modal-card {
@@ -232,9 +226,9 @@
 
 
     .modal-body {
-        display:flex;
+        display: flex;
         flex-direction: column;
-      flex: 1;
+        flex: 1;
         padding: 0 24px 24px 24px;
         /*justify-content: center;*/
     }
@@ -278,13 +272,14 @@
     }
 
     .modal-actions .modal-cancel {
-        background:#A03937;
+        background: #A03937;
         color: #EDA29B;
     }
 
     .modal-actions .modal-confirm {
         background: #348822;
     }
+
     .free-spin-banner {
         /*transform: translateX(0%) translateY(-55%);*/
         /*position: absolute;*/
@@ -303,8 +298,6 @@
     }
 
 
-
-
     .superace-base {
         font-size: 30px;
         font-weight: 800;
@@ -315,8 +308,7 @@
         z-index: 1;
 
         /* ⬇️ THIS IS THE IMPORTANT PART */
-        text-shadow:
-                0 2px 1px rgba(90, 20, 5, 0.85);
+        text-shadow: 0 2px 1px rgba(90, 20, 5, 0.85);
     }
 
     .superace-face {
@@ -343,11 +335,21 @@
     }
 
 
+    .free-spin-text.base {
+        /*margin-top: 4px;*/
+
+        transform: scale(1.35);
+        font-weight: bold;
+        letter-spacing: -0.045em;
+        /*margin-top: -0.25rem;*/
+    }
+
     /* Wrapper for layered text */
     .free-spin-text {
         position: relative;
         height: 34px;
     }
+
     .free-spin-base,
     .free-spin-face {
         font-family: 'Orbitron', sans-serif;
@@ -480,9 +482,8 @@
         cursor: pointer;
         padding: 0;
 
-        transition:
-                transform 120ms ease,
-                filter 120ms ease;
+        transition: transform 120ms ease,
+        filter 120ms ease;
         z-index: 31;
 
     }
@@ -504,9 +505,8 @@
 
         padding: 0;
 
-        transition:
-                transform 120ms ease,
-                filter 120ms ease;
+        transition: transform 120ms ease,
+        filter 120ms ease;
         z-index: 31;
         filter: grayscale(0.4);
         cursor: not-allowed;
@@ -519,7 +519,7 @@
         /*position: absolute;*/
         /*top: 3%;*/
         /*right: 3%;*/
-        font-size: 18px;   /* ← increase this */
+        font-size: 18px; /* ← increase this */
         width: 35px;
         height: 35px;
 
@@ -560,7 +560,7 @@
         letter-spacing: 0.02em;
     }
 
-    .frame-paused-column-frame{
+    .frame-paused-column-frame {
         position: absolute;
         top: 16%;
         left: 50%;
@@ -574,22 +574,16 @@
         opacity: 0;
         /*mix-blend-mode: overlay;*/
 
-        filter:
-                blur(0.2px)
-                drop-shadow(0 0 22px rgba(255, 220, 120, 0.65))
-                drop-shadow(0 0 48px rgba(255, 180, 60, 0.45));
+        filter: blur(0.2px) drop-shadow(0 0 22px rgba(255, 220, 120, 0.65)) drop-shadow(0 0 48px rgba(255, 180, 60, 0.45));
 
         /* ⬇️ KEY PART */
         clip-path: inset(0 0 92% 0);
 
-        animation:
-                paused-ray-show 120ms cubic-bezier(0.22, 1, 0.36, 1) forwards,
-                paused-ray-breathe 2.4s ease-in-out infinite;
+        animation: paused-ray-show 120ms cubic-bezier(0.22, 1, 0.36, 1) forwards,
+        paused-ray-breathe 2.4s ease-in-out infinite;
 
         z-index: 11;
     }
-
-
 
 
     .frame-paused-column-light-ray {
@@ -601,23 +595,19 @@
         transform: translateX(57.5%);
         transform-origin: top center;
 
-        width:23%;
+        width: 23%;
         height: 110%;
 
         opacity: 0;
         mix-blend-mode: overlay;
 
-        filter:
-                blur(0.2px)
-                drop-shadow(0 0 22px rgba(255, 220, 120, 0.65))
-                drop-shadow(0 0 48px rgba(255, 180, 60, 0.45));
+        filter: blur(0.2px) drop-shadow(0 0 22px rgba(255, 220, 120, 0.65)) drop-shadow(0 0 48px rgba(255, 180, 60, 0.45));
 
         /* ⬇️ KEY PART */
         clip-path: inset(7.5% 0 0 0);
 
-        animation:
-                paused-ray-drop 120ms cubic-bezier(0.22, 1, 0.36, 1) forwards,
-                paused-ray-breathe 2.4s ease-in-out infinite;
+        animation: paused-ray-drop 120ms cubic-bezier(0.22, 1, 0.36, 1) forwards,
+        paused-ray-breathe 2.4s ease-in-out infinite;
 
         z-index: 11;
     }
@@ -696,9 +686,9 @@
         --design-width: 768px;
 
         /* scale factor (never zero, never NaN) */
-        --board-scale: min(1.02, calc(100vw / var(--design-width)));
+        --board-scale: min(1, calc(100vw / var(--design-width)));
 
-        --card-scale: calc(1.35 * var(--board-scale));
+        --card-scale: calc(1.7 * var(--board-scale));
 
         --card-width: 64px;
         --card-height: 86px;
@@ -708,7 +698,7 @@
 
         --reel-count: 5;
         --reel-width: calc(73px * var(--board-scale));
-        --reel-gap: calc(24px * var(--board-scale));
+        --reel-gap: calc(52px * var(--board-scale));
         --highlight-pad: calc(8px * var(--board-scale));
 
         --reel-height: calc(
@@ -716,7 +706,7 @@
                 (3 * var(--card-gap))
         );
 
-        --dim-top: calc(-0.2vh * var(--board-scale));
+        --dim-top: calc(-2.4vh * var(--board-scale));
 
         --reel-width-num: 73;
         --reel-gap-num: 10;
@@ -726,8 +716,7 @@
         /* horizontal centering helper */
         --reels-total-width: calc(
                 (var(--reel-count) * var(--reel-width) +
-                (var(--reel-count) - 1) * var(--reel-gap)
-                ) * 2);
+                (var(--reel-count) - 1) * var(--reel-gap)) * 2);
 
     }
 
@@ -784,11 +773,11 @@
 
     .reels-row {
         position: absolute;
-        top: calc(var(--highlight-pad) *4.8);
-        left: calc(var(--highlight-pad) *33.5) ;
+        top: calc(var(--highlight-pad) * 3);
+        left: calc(var(--highlight-pad) * 52.5);
 
 
-        width:  var(--reel-width);
+        width: var(--reel-width);
         height: calc(var(--reel-height));
     }
 
@@ -799,7 +788,6 @@
         top: 0;
         left: 0;
     }
-
 
 
     .dim-zone {
@@ -865,7 +853,6 @@
     /* =========================
        Multiplier Strip – Free Spin Tint
        ========================= */
-
     .multiplier-strip.free::before {
         content: '';
         position: absolute;
@@ -883,10 +870,9 @@
 
         border-radius: 22px;
 
-        box-shadow:
-                inset 0 1px 0 rgba(255, 120, 120, 0.18),
-                inset 0 -2px 0 rgba(40, 0, 0, 0.55),
-                0 6px 18px rgba(60, 0, 0, 0.75);
+        box-shadow: inset 0 1px 0 rgba(255, 120, 120, 0.18),
+        inset 0 -2px 0 rgba(40, 0, 0, 0.55),
+        0 6px 18px rgba(60, 0, 0, 0.75);
 
         z-index: -1;
     }
@@ -923,9 +909,7 @@
 
     .withdrawal-btn:hover {
         border: 0.015vh solid #ffd84d;
-        filter:
-                drop-shadow(0 0 1px rgba(255, 210, 120, 1))
-                drop-shadow(0 0 6px rgba(255, 160, 60, 0.7));
+        filter: drop-shadow(0 0 1px rgba(255, 210, 120, 1)) drop-shadow(0 0 6px rgba(255, 160, 60, 0.7));
     }
 
     .withdrawal-btn:disabled {
@@ -933,7 +917,6 @@
         filter: grayscale(0.4);
         opacity: 0.65;
     }
-
 
 
     .modal-card {
@@ -962,7 +945,7 @@
 
 
     .modal-body {
-        display:flex;
+        display: flex;
         flex-direction: column;
         flex: 1;
         padding: 0 24px 24px 24px;
@@ -1010,7 +993,7 @@
     }
 
     .modal-actions .modal-cancel {
-        background:#A03937;
+        background: #A03937;
         color: #EDA29B;
     }
 
@@ -1021,9 +1004,9 @@
 
     .free-spin-banner {
         transform: translateX(0%) translateY(-75%);
-        /*position: absolute;*/
-        /*top: 8px;*/
-        /*left: 50%;*/
+        position: absolute;
+        top: 6.5%;
+        left: 7%;
 
 
         display: flex;
@@ -1042,7 +1025,6 @@
     }
 
 
-
     .superace-base {
         font-size: 30px;
         font-weight: 800;
@@ -1053,8 +1035,7 @@
         z-index: 1;
 
         /* ⬇️ THIS IS THE IMPORTANT PART */
-        text-shadow:
-                0 2px 1px rgba(90, 20, 5, 0.85);
+        text-shadow: 0 2px 1px rgba(90, 20, 5, 0.85);
     }
 
     .superace-face {
@@ -1081,11 +1062,21 @@
     }
 
 
+    .free-spin-text.base {
+        /*margin-top: 4px;*/
+
+        transform: scale(1.75);
+        font-weight: bold;
+        letter-spacing: -0.045em;
+        /*margin-top: -0.25rem;*/
+    }
+
     /* Wrapper for layered text */
     .free-spin-text {
         position: relative;
         height: 34px;
     }
+
     .free-spin-base,
     .free-spin-face {
         font-family: 'Orbitron', sans-serif;
@@ -1171,8 +1162,8 @@
         color: #ffd84d;
         text-shadow: 0 0 8px rgba(255, 216, 77, 0.6);
         z-index: 30;
-        margin-top: 2.8rem;
-        margin-bottom:-8.5rem;
+        margin-top: 3.8rem;
+        margin-bottom: -9.5rem;
     }
 
     .controls-left {
@@ -1220,9 +1211,8 @@
         cursor: pointer;
         padding: 0;
 
-        transition:
-                transform 120ms ease,
-                filter 120ms ease;
+        transition: transform 120ms ease,
+        filter 120ms ease;
         z-index: 31;
 
     }
@@ -1244,9 +1234,8 @@
 
         padding: 0;
 
-        transition:
-                transform 120ms ease,
-                filter 120ms ease;
+        transition: transform 120ms ease,
+        filter 120ms ease;
         z-index: 31;
         filter: grayscale(0.4);
         cursor: not-allowed;
@@ -1255,12 +1244,11 @@
     }
 
 
-
     .spin-btn.audio {
         position: absolute;
         bottom: 9%;
         left: 3%;
-        font-size: 18px;   /* ← increase this */
+        font-size: 18px; /* ← increase this */
         width: 35px;
         height: 35px;
 
@@ -1304,7 +1292,7 @@
     }
 
 
-    .frame-paused-column-frame{
+    .frame-paused-column-frame {
         position: absolute;
         top: 12.5%;
         left: 50%;
@@ -1318,17 +1306,13 @@
         opacity: 0;
         /*mix-blend-mode: overlay;*/
 
-        filter:
-                blur(0.2px)
-                drop-shadow(0 0 22px rgba(255, 220, 120, 0.65))
-                drop-shadow(0 0 48px rgba(255, 180, 60, 0.45));
+        filter: blur(0.2px) drop-shadow(0 0 22px rgba(255, 220, 120, 0.65)) drop-shadow(0 0 48px rgba(255, 180, 60, 0.45));
 
         /* ⬇️ KEY PART */
         clip-path: inset(0 0 92% 0);
 
-        animation:
-                paused-ray-show 120ms cubic-bezier(0.22, 1, 0.36, 1) forwards,
-                paused-ray-breathe 2.4s ease-in-out infinite;
+        animation: paused-ray-show 120ms cubic-bezier(0.22, 1, 0.36, 1) forwards,
+        paused-ray-breathe 2.4s ease-in-out infinite;
 
         z-index: 11;
     }
@@ -1343,23 +1327,19 @@
         transform: translateX(-54%);
         transform-origin: top center;
 
-        width:137%;
+        width: 137%;
         height: 110%;
 
         opacity: 0;
         mix-blend-mode: overlay;
 
-        filter:
-                blur(0.2px)
-                drop-shadow(0 0 22px rgba(255, 220, 120, 0.65))
-                drop-shadow(0 0 48px rgba(255, 180, 60, 0.45));
+        filter: blur(0.2px) drop-shadow(0 0 22px rgba(255, 220, 120, 0.65)) drop-shadow(0 0 48px rgba(255, 180, 60, 0.45));
 
         /* ⬇️ KEY PART */
         clip-path: inset(0 0 0 0);
 
-        animation:
-                paused-ray-drop 120ms cubic-bezier(0.22, 1, 0.36, 1) forwards,
-                paused-ray-breathe 2.4s ease-in-out infinite;
+        animation: paused-ray-drop 120ms cubic-bezier(0.22, 1, 0.36, 1) forwards,
+        paused-ray-breathe 2.4s ease-in-out infinite;
 
         z-index: 11;
     }
@@ -1368,18 +1348,12 @@
         from {
             opacity: 0;
             transform: translateX(-54%) translateY(-22%);
-            filter:
-                    blur(6px)
-                    drop-shadow(0 0 12px rgba(255, 220, 120, 0.35))
-                    drop-shadow(0 0 24px rgba(255, 180, 60, 0.25));
+            filter: blur(6px) drop-shadow(0 0 12px rgba(255, 220, 120, 0.35)) drop-shadow(0 0 24px rgba(255, 180, 60, 0.25));
         }
         to {
             opacity: 1;
             transform: translateX(-54%) translateY(0%);
-            filter:
-                    blur(0.2px)
-                    drop-shadow(0 0 22px rgba(255, 220, 120, 0.65))
-                    drop-shadow(0 0 48px rgba(255, 180, 60, 0.45));
+            filter: blur(0.2px) drop-shadow(0 0 22px rgba(255, 220, 120, 0.65)) drop-shadow(0 0 48px rgba(255, 180, 60, 0.45));
         }
     }
 
@@ -1443,9 +1417,8 @@
     }
 
     .multiplier-chip.free {
-       height: 70px;
+        height: 70px;
     }
-
 
 
     .hidden {
@@ -1481,7 +1454,6 @@
 }
 
 
-
 .frame-inner-shadow {
     position: absolute;
 
@@ -1489,47 +1461,40 @@
     inset: -30px;
     pointer-events: none;
 
-    background:
-        /* TOP DEPTH */
-            linear-gradient(
-                    to bottom,
-                    rgba(0, 0, 0, 0.75) 0%,
-                    rgba(0, 0, 0, 0.45) 10%,
-                    rgba(0, 0, 0, 0.0) 28%
-            ),
-
-
-            linear-gradient(
-                    to top,
-                    rgba(0, 0, 0, 0.85) 0%,
-                    rgba(0, 0, 0, 0.55) 14%,
-                    rgba(0, 0, 0, 0.0) 36%
-            );
+    background: /* TOP DEPTH */ linear-gradient(
+            to bottom,
+            rgba(0, 0, 0, 0.75) 0%,
+            rgba(0, 0, 0, 0.45) 10%,
+            rgba(0, 0, 0, 0.0) 28%
+    ),
+    linear-gradient(
+            to top,
+            rgba(0, 0, 0, 0.85) 0%,
+            rgba(0, 0, 0, 0.55) 14%,
+            rgba(0, 0, 0, 0.0) 36%
+    );
 
 }
 
 .bg-inner.free-spin .frame-inner-shadow {
-    background:
-            linear-gradient(
-                    to bottom,
-                    rgba(255, 210, 120, 0.75) 0%,
-                    rgba(255, 190, 90, 0.45) 10%,
-                    rgba(0, 0, 0, 0.00) 28%
-            ),
-            linear-gradient(
-                    to top,
-                    rgba(255, 230, 150, 0.85) 0%,
-                    rgba(255, 200, 110, 0.55) 14%,
-                    rgba(0, 0, 0, 0.00) 36%
-            );
+    background: linear-gradient(
+            to bottom,
+            rgba(255, 210, 120, 0.75) 0%,
+            rgba(255, 190, 90, 0.45) 10%,
+            rgba(0, 0, 0, 0.00) 28%
+    ),
+    linear-gradient(
+            to top,
+            rgba(255, 230, 150, 0.85) 0%,
+            rgba(255, 200, 110, 0.55) 14%,
+            rgba(0, 0, 0, 0.00) 36%
+    );
 }
 
 .game-content {
     position: relative;
     z-index: 1;
 }
-
-
 
 
 .reel-paused-active {
@@ -1562,6 +1527,7 @@
         opacity: 0;
     }
 }
+
 /* =========================
    Cards
    ========================= */
@@ -1589,6 +1555,7 @@
     animation: cascadeDealIn 130ms cubic-bezier(0.18, 0.88, 0.22, 1) forwards;
     animation-fill-mode: both;
 }
+
 @keyframes cascadeDealIn {
     0% {
         opacity: 0;
@@ -1756,16 +1723,14 @@
     position: relative;
     z-index: 12;
 
-    animation:
-            highlightPopIn 320ms cubic-bezier(0.16, 1, 0.3, 1),
-            highlightPulse 640ms ease-in-out 260ms forwards;
+    animation: highlightPopIn 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    highlightPulse 640ms ease-in-out 260ms forwards;
 
     transform-origin: center;
     /*box-shadow: 0 0 16px rgba(255, 216, 77, 0.9);*/
-    box-shadow:
-            0 0 14px rgba(250, 226, 161, 0.85),
-            0 0 28px rgba(255, 210, 29, 0.65),
-            0 0 46px rgba(252, 171, 50, 0.51);
+    box-shadow: 0 0 14px rgba(250, 226, 161, 0.85),
+    0 0 28px rgba(255, 210, 29, 0.65),
+    0 0 46px rgba(252, 171, 50, 0.51);
 
 }
 
@@ -1789,6 +1754,7 @@
         transform: scale(1.03);
     }
 }
+
 @keyframes highlightPopIn {
     0% {
         transform: scale(0.96);
@@ -1813,6 +1779,7 @@
     animation: none !important;
     transform: scale(1) !important;
 }
+
 /* =========================
    SCORCH ATLAS (1536x512)
    ========================= */
@@ -1838,14 +1805,12 @@
     opacity: 1; /* STABLE */
     animation-delay: 160ms;
 }
+
 /* CENTER slice — RAYS */
 .scorch-atlas.rays {
     background-position: 50% 50%;
     opacity: 1;
-    filter:
-            brightness(1.35)
-            saturate(1.5)
-            drop-shadow(0 0 18px rgba(255, 140, 30, 0.85));
+    filter: brightness(1.35) saturate(1.5) drop-shadow(0 0 18px rgba(255, 140, 30, 0.85));
 }
 
 /* RIGHT slice — POP */
@@ -1935,9 +1900,7 @@
     opacity: 1 !important;
     transition: none !important;
 
-    filter:
-            brightness(1.05)
-            saturate(1.2);
+    filter: brightness(1.05) saturate(1.2);
 
     animation: scatterRaysBreath 2.8s ease-in-out infinite;
 }
@@ -2038,7 +2001,6 @@
 }
 
 
-
 /* =========================
    BACK GLOW (CENTER ONLY)
    ========================= */
@@ -2075,7 +2037,6 @@
     background: inherit;
     filter: blur(2px);
 }
-
 
 
 /* =========================
@@ -2132,6 +2093,7 @@
 .win-burst.pop {
     animation: winDisappear 260ms ease-in forwards;
 }
+
 @keyframes winPopDoubleSmooth {
     /* Spawn */
     0% {
@@ -2182,7 +2144,6 @@
         transform: scale(0);
     }
 }
-
 
 
 /* =========================
@@ -2245,9 +2206,7 @@ button:focus-visible {
 
 .buy-spin-btn:hover {
     border: 0.015vh solid #ffd84d;
-    filter:
-            drop-shadow(0 0 1px rgba(255, 210, 120, 1))
-            drop-shadow(0 0 6px rgba(255, 160, 60, 0.7));
+    filter: drop-shadow(0 0 1px rgba(255, 210, 120, 1)) drop-shadow(0 0 6px rgba(255, 160, 60, 0.7));
 }
 
 .buy-spin-btn:disabled {
@@ -2259,8 +2218,6 @@ button:focus-visible {
 .buy-spin-btn.active {
     transform: scale(1.15);
 }
-
-
 
 
 .buy-spin-btn.active {
@@ -2304,12 +2261,10 @@ button:focus-visible {
 
 }
 
-.spin-btn.turbo.spin-turbo-image.active{
+.spin-btn.turbo.spin-turbo-image.active {
     position: relative;
     isolation: isolate;
-    filter:
-            drop-shadow(0 0 8px rgba(255, 210, 120, 1))
-            drop-shadow(0 0 14px rgba(255, 160, 60, 0.7));
+    filter: drop-shadow(0 0 8px rgba(255, 210, 120, 1)) drop-shadow(0 0 14px rgba(255, 160, 60, 0.7));
 }
 
 .spin-btn.turbo.spin-turbo-image.active::after {
@@ -2320,15 +2275,14 @@ button:focus-visible {
     pointer-events: none;
     z-index: -1;
 
-    background:
-            conic-gradient(
-                    from 0deg,
-                    rgba(255, 220, 140, 0.0),
-                    rgba(255, 200, 120, 0.95),
-                    rgba(255, 140, 40, 0.95),
-                    rgba(255, 200, 120, 0.95),
-                    rgba(255, 220, 140, 0.0)
-            );
+    background: conic-gradient(
+            from 0deg,
+            rgba(255, 220, 140, 0.0),
+            rgba(255, 200, 120, 0.95),
+            rgba(255, 140, 40, 0.95),
+            rgba(255, 200, 120, 0.95),
+            rgba(255, 220, 140, 0.0)
+    );
 
 
     mask: radial-gradient(circle, transparent 58%, black 60%);
@@ -2368,19 +2322,14 @@ button:focus-visible {
 }
 
 
-
 .spin-btn.audio:hover {
     border: 1px solid #ffd84d;
-    filter:
-            drop-shadow(0 0 1px rgba(255, 210, 120, 1))
-            drop-shadow(0 0 6px rgba(255, 160, 60, 0.7));
+    filter: drop-shadow(0 0 1px rgba(255, 210, 120, 1)) drop-shadow(0 0 6px rgba(255, 160, 60, 0.7));
 }
 
 .spin-btn.audio.active {
     border: 1px solid #ffd84d;
-    filter:
-            drop-shadow(0 0 1px rgba(255, 210, 120, 1))
-            drop-shadow(0 0 6px rgba(255, 160, 60, 0.7));
+    filter: drop-shadow(0 0 1px rgba(255, 210, 120, 1)) drop-shadow(0 0 6px rgba(255, 160, 60, 0.7));
 }
 
 .spin-btn.auto {
@@ -2404,12 +2353,10 @@ button:focus-visible {
 
 }
 
-.spin-btn.auto.spin-auto-image.active{
+.spin-btn.auto.spin-auto-image.active {
     position: relative;
     isolation: isolate;
-    filter:
-            drop-shadow(0 0 8px rgba(255, 210, 120, 1))
-            drop-shadow(0 0 14px rgba(255, 160, 60, 0.7));
+    filter: drop-shadow(0 0 8px rgba(255, 210, 120, 1)) drop-shadow(0 0 14px rgba(255, 160, 60, 0.7));
 }
 
 .spin-btn.auto.spin-auto-image.active::after {
@@ -2420,15 +2367,14 @@ button:focus-visible {
     pointer-events: none;
     z-index: -1;
 
-    background:
-            conic-gradient(
-                    from 0deg,
-                    rgba(255, 220, 140, 0.0),
-                    rgba(255, 200, 120, 0.95),
-                    rgba(255, 140, 40, 0.95),
-                    rgba(255, 200, 120, 0.95),
-                    rgba(255, 220, 140, 0.0)
-            );
+    background: conic-gradient(
+            from 0deg,
+            rgba(255, 220, 140, 0.0),
+            rgba(255, 200, 120, 0.95),
+            rgba(255, 140, 40, 0.95),
+            rgba(255, 200, 120, 0.95),
+            rgba(255, 220, 140, 0.0)
+    );
 
 
     mask: radial-gradient(circle, transparent 58%, black 60%);
@@ -2450,7 +2396,6 @@ button:focus-visible {
 }
 
 
-
 .spin-btn.spin.spin-image:active:not(:disabled) {
     transform: scale(0.94);
     filter: brightness(0.9);
@@ -2465,8 +2410,6 @@ button:focus-visible {
 }
 
 
-
-
 .spin-btn.spin-image.active {
     filter: drop-shadow(0 0 10px rgba(255, 60, 0, 0.8));
 }
@@ -2475,7 +2418,6 @@ button:focus-visible {
 /* =========================
    Win Display
    ========================= */
-
 
 
 .win-amount,
@@ -2520,9 +2462,7 @@ button:focus-visible {
 
 .add-btn:hover {
     border: 1px solid #ffd84d;
-    filter:
-            drop-shadow(0 0 1px rgba(255, 210, 120, 1))
-            drop-shadow(0 0 6px rgba(255, 160, 60, 0.7));
+    filter: drop-shadow(0 0 1px rgba(255, 210, 120, 1)) drop-shadow(0 0 6px rgba(255, 160, 60, 0.7));
 }
 
 .add-btn:active {
@@ -2530,13 +2470,9 @@ button:focus-visible {
 }
 
 
-
 /* =========================
    Balance Display
    ========================= */
-
-
-
 
 
 .balance-placeholder {
@@ -2574,7 +2510,7 @@ button:focus-visible {
     background-color: transparent;
 }
 
-.bet-btn.minus:disabled{
+.bet-btn.minus:disabled {
     cursor: not-allowed;
     filter: grayscale(0.4);
     opacity: 0.65;
@@ -2594,7 +2530,7 @@ button:focus-visible {
 }
 
 
-.bet-btn.plus:disabled{
+.bet-btn.plus:disabled {
     cursor: not-allowed;
     filter: grayscale(0.4);
     opacity: 0.65;
@@ -2652,7 +2588,6 @@ button:focus-visible {
 }
 
 
-
 .multiplier-base {
     font-size: 32px;
     font-weight: 800;
@@ -2704,8 +2639,7 @@ button:focus-visible {
     /* keep it, do NOT hide it */
     color: #a61608;
     /* single emboss shadow */
-    text-shadow:
-            0 2px 1px rgba(168, 22, 8, 0.9);
+    text-shadow: 0 2px 1px rgba(168, 22, 8, 0.9);
     z-index: 2;
 }
 
@@ -2716,9 +2650,15 @@ button:focus-visible {
 }
 
 @keyframes multiplierTick {
-    0%   { transform: scale(0.9); }
-    60%  { transform: scale(1.35); }
-    100% { transform: scale(1.25); }
+    0% {
+        transform: scale(0.9);
+    }
+    60% {
+        transform: scale(1.35);
+    }
+    100% {
+        transform: scale(1.25);
+    }
 }
 
 
@@ -2771,6 +2711,7 @@ button:focus-visible {
         filter: brightness(1.2);
     }
 }
+
 /* =========================
    Gold Shimmer Overlay
    ========================= */
@@ -2788,9 +2729,9 @@ button:focus-visible {
 
     background: linear-gradient(
             120deg,
-            rgba(255,255,255,0) 42%,
-            rgba(255,255,255,0.35) 50%,
-            rgba(255,255,255,0) 58%
+            rgba(255, 255, 255, 0) 42%,
+            rgba(255, 255, 255, 0.35) 50%,
+            rgba(255, 255, 255, 0) 58%
     );
 
     transform: translateX(-120%);
@@ -2800,9 +2741,15 @@ button:focus-visible {
 }
 
 @keyframes goldShimmer {
-    0%   { transform: translateX(-120%); }
-    60%  { transform: translateX(120%); }
-    100% { transform: translateX(120%); }
+    0% {
+        transform: translateX(-120%);
+    }
+    60% {
+        transform: translateX(120%);
+    }
+    100% {
+        transform: translateX(120%);
+    }
 }
 
 .card.gold.back {
@@ -2868,6 +2815,7 @@ button:focus-visible {
 .card.gold-pop-lock.back .card-inner.highlight {
     animation: none;
 }
+
 /* =========================
    Gold → Wild Flip
    ========================= */
@@ -2908,18 +2856,18 @@ button:focus-visible {
 }
 
 
-.card.wild  {
+.card.wild {
     transform: scale(var(--wild-base-scale)) translateZ(0);
     transform-origin: center;
 }
 
 .card.wild .card-inner.highlight {
-    animation:
-            wildHighlightPopIn 320ms cubic-bezier(0.16, 1, 0.3, 1),
-            wildHighlightPulse 640ms ease-in-out 260ms forwards;
+    animation: wildHighlightPopIn 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    wildHighlightPulse 640ms ease-in-out 260ms forwards;
     animation-fill-mode: forwards;
     transform: scale(var(--wild-base-scale));
 }
+
 @keyframes wildHighlightPopIn {
     0% {
         transform: scale(0.96);
@@ -2933,10 +2881,17 @@ button:focus-visible {
 }
 
 @keyframes wildHighlightPulse {
-    0%   { transform: scale(1); }
-    40%  { transform: scale(1.06); }
-    100% { transform: scale(1); }
+    0% {
+        transform: scale(1);
+    }
+    40% {
+        transform: scale(1.06);
+    }
+    100% {
+        transform: scale(1);
+    }
 }
+
 /* Spawn / propagation pop */
 .card.wild-red.deal .symbol-img {
     animation: redWildSpawn 320ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -2969,9 +2924,7 @@ button:focus-visible {
     transform-origin: center;
     position: relative;
     z-index: 30;
-    filter:
-            drop-shadow(0 0 7px rgba(255, 233, 122, 0.9))
-            drop-shadow(0 0 16px rgba(255, 140, 0, 0.6));
+    filter: drop-shadow(0 0 7px rgba(255, 233, 122, 0.9)) drop-shadow(0 0 16px rgba(255, 140, 0, 0.6));
 }
 
 /* =========================
@@ -3012,16 +2965,22 @@ button:focus-visible {
 .card.scatter.highlight .symbol-img {
     animation: scatterScale 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 
-    filter:
-            drop-shadow(0 0 14px rgba(255, 210, 120, 1))
-            drop-shadow(0 0 28px rgba(255, 160, 60, 0.7));
+    filter: drop-shadow(0 0 14px rgba(255, 210, 120, 1)) drop-shadow(0 0 28px rgba(255, 160, 60, 0.7));
 }
 
 @keyframes scatterScale {
-    0%   { transform: scale(1.25); }
-    35%  { transform: scale(1.38); }
-    55%  { transform: scale(1.2, 1.32); }
-    100% { transform: scale(1.25); }
+    0% {
+        transform: scale(1.25);
+    }
+    35% {
+        transform: scale(1.38);
+    }
+    55% {
+        transform: scale(1.2, 1.32);
+    }
+    100% {
+        transform: scale(1.25);
+    }
 }
 
 
@@ -3055,6 +3014,7 @@ button:focus-visible {
         transform: translateY(0);
     }
 }
+
 /* =========================
    SCATTER — IDLE BREATHING
    ========================= */
@@ -3064,9 +3024,15 @@ button:focus-visible {
 }
 
 @keyframes scatterIdle {
-    0% { transform: scale(1.25); }
-    50% { transform: scale(1.35); }
-    100% { transform: scale(1.25); }
+    0% {
+        transform: scale(1.25);
+    }
+    50% {
+        transform: scale(1.35);
+    }
+    100% {
+        transform: scale(1.25);
+    }
 }
 
 
@@ -3075,10 +3041,17 @@ button:focus-visible {
 }
 
 @keyframes scatter-float {
-    0%   { transform: translateY(0); }
-    50%  { transform: translateY(-6px); }
-    100% { transform: translateY(0); }
+    0% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-6px);
+    }
+    100% {
+        transform: translateY(0);
+    }
 }
+
 /* =========================
    SCATTER WIN BANNER (FINAL)
    ========================= */
@@ -3087,7 +3060,6 @@ button:focus-visible {
     pointer-events: all;
     z-index: 40;
 }
-
 
 
 .scatter-win-glow {
@@ -3103,9 +3075,15 @@ button:focus-visible {
 }
 
 @keyframes winGlowBreath {
-    0% { opacity: 0.55; }
-    50% { opacity: 0.85; }
-    100% { opacity: 0.55; }
+    0% {
+        opacity: 0.55;
+    }
+    50% {
+        opacity: 0.85;
+    }
+    100% {
+        opacity: 0.55;
+    }
 }
 
 
@@ -3127,8 +3105,7 @@ button:focus-visible {
     color: #9f3103;
     -webkit-text-stroke: 1px #ffea7e;
 
-    text-shadow:
-            -1px 3px 3px rgba(90, 20, 5, 0.72);
+    text-shadow: -1px 3px 3px rgba(90, 20, 5, 0.72);
 }
 
 .scatter-win-amount {
@@ -3155,9 +3132,8 @@ button:focus-visible {
 
     -webkit-text-stroke: 2px #6b1900;
 
-    text-shadow:
-            0 0 10px rgba(255, 220, 140, 0.9),
-            0 0 24px rgba(255, 160, 60, 0.7);
+    text-shadow: 0 0 10px rgba(255, 220, 140, 0.9),
+    0 0 24px rgba(255, 160, 60, 0.7);
 }
 
 .scatter-win-amount-wrap {
@@ -3197,9 +3173,8 @@ button:focus-visible {
     transform: scale(0.96) translateY(12px);
     pointer-events: none;
 
-    transition:
-            opacity 420ms cubic-bezier(0.22, 1, 0.36, 1),
-            transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition: opacity 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
     filter: blur(6px);
 
 }
@@ -3228,35 +3203,21 @@ button:focus-visible {
 .banner-layer.visible.win {
     z-index: 35;
 }
+
 /* =========================
    Free Spins Banner
    ========================= */
 
 
-
-
-
-
 .free-spin-text.base .superace-base {
     color: #a61608;
-    text-shadow:
-            0 2px 1px rgba(168, 22, 8, 0.9);
+    text-shadow: 0 2px 1px rgba(168, 22, 8, 0.9);
 }
-
 
 
 .superace-base,
 .superace-face {
     letter-spacing: -0.045em;
-}
-
-.free-spin-text.base {
-    /*margin-top: 4px;*/
-
-    transform: scale(1.35);
-    font-weight: bold;
-    letter-spacing: -0.045em;
-    /*margin-top: -0.25rem;*/
 }
 
 
@@ -3272,10 +3233,10 @@ button:focus-visible {
 }
 
 .card-inner.highlight-back {
-    box-shadow:
-            0 0 14px rgba(250, 226, 161, 0.65),
-            0 0 24px rgba(255, 210, 29, 0.45);
+    box-shadow: 0 0 14px rgba(250, 226, 161, 0.65),
+    0 0 24px rgba(255, 210, 29, 0.45);
 }
+
 @keyframes backAppear {
     0% {
         opacity: 0;
@@ -3294,10 +3255,9 @@ button:focus-visible {
     border-radius: 10px;
     pointer-events: none;
 
-    box-shadow:
-            0 0 14px rgba(250, 226, 161, 0.85),
-            0 0 28px rgba(255, 210, 29, 0.65),
-            0 0 46px rgba(252, 171, 50, 0.51);
+    box-shadow: 0 0 14px rgba(250, 226, 161, 0.85),
+    0 0 28px rgba(255, 210, 29, 0.65),
+    0 0 46px rgba(252, 171, 50, 0.51);
 
     opacity: 1;
     transition: opacity 160ms ease;
@@ -3333,9 +3293,15 @@ button:focus-visible {
 }
 
 @keyframes backGlowIn {
-    0%   { opacity: 0; }
-    45%  { opacity: 1; }
-    100% { opacity: 0; }
+    0% {
+        opacity: 0;
+    }
+    45% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
 }
 
 /* =========================
@@ -3406,11 +3372,15 @@ button:focus-visible {
 }
 
 
-
 @keyframes scorchDelay {
-    from { visibility: hidden; }
-    to   { visibility: visible; }
+    from {
+        visibility: hidden;
+    }
+    to {
+        visibility: visible;
+    }
 }
+
 /* =========================
    SCORCH VFX — POP BURST
    ========================= */
@@ -3428,7 +3398,6 @@ button:focus-visible {
     z-index: 31;
     pointer-events: all;
 }
-
 
 
 .scatter-bg-glow {
@@ -3459,7 +3428,7 @@ button:focus-visible {
     text-align: center;
 }
 
-.scatter-title{
+.scatter-title {
     font-family: 'Bebas Neue', sans-serif;
 
     line-height: 0.85;
@@ -3473,8 +3442,7 @@ button:focus-visible {
     color: #9f3103;
     -webkit-text-stroke: 1px #ffea7e;
 
-    text-shadow:
-            -1px 3px 3px rgba(90, 20, 5, 0.72);
+    text-shadow: -1px 3px 3px rgba(90, 20, 5, 0.72);
 }
 
 .scatter-count {
@@ -3491,8 +3459,7 @@ button:focus-visible {
     color: #9f3103;
     -webkit-text-stroke: 1px #ffea7e;
 
-    text-shadow:
-            -1px 3px 3px rgba(90, 20, 5, 0.72);
+    text-shadow: -1px 3px 3px rgba(90, 20, 5, 0.72);
 }
 
 .scatter-multiplier {
@@ -3519,10 +3486,8 @@ button:focus-visible {
     color: #9f3103;
     -webkit-text-stroke: 0.5px #f8eba6;
 
-    text-shadow:
-            0 2px 0 rgba(90, 20, 5, 0.32);
+    text-shadow: 0 2px 0 rgba(90, 20, 5, 0.32);
 }
-
 
 
 .scatter-multiplier-strip {
@@ -3536,10 +3501,9 @@ button:focus-visible {
     color: #9f3103;
 
     /*-webkit-text-stroke: 1px #fff86b;*/
-    text-shadow:
-            0 0 14px rgba(255, 255, 220, 1),
-            0 0 32px rgba(255, 200, 120, 0.85),
-            0 0 64px rgba(255, 160, 40, 0.65);
+    text-shadow: 0 0 14px rgba(255, 255, 220, 1),
+    0 0 32px rgba(255, 200, 120, 0.85),
+    0 0 64px rgba(255, 160, 40, 0.65);
 
 
 }
@@ -3574,11 +3538,16 @@ button:focus-visible {
 }
 
 
-
 @keyframes paused-ray-breathe {
-    0%   { opacity: 0.65; }
-    50%  { opacity: 0.95; }
-    100% { opacity: 0.65; }
+    0% {
+        opacity: 0.65;
+    }
+    50% {
+        opacity: 0.95;
+    }
+    100% {
+        opacity: 0.65;
+    }
 }
 
 @keyframes paused-ray-enter {
@@ -3591,6 +3560,7 @@ button:focus-visible {
         transform: translateX(-50%) translateY(0);
     }
 }
+
 /* =========================
    PAUSED COLUMN – SIDE GLOW (BLOOM + FADE-OUT)
    ========================= */
@@ -3654,14 +3624,13 @@ button:focus-visible {
     position: absolute;
     inset: -5px;
 
-    background:
-            linear-gradient(
-                    to right,
-                    rgba(255, 195, 95, 0.7),
-                    rgba(255, 195, 95, 0) 32%,
-                    rgba(255, 195, 95, 0) 68%,
-                    rgba(255, 195, 95, 0.7)
-            );
+    background: linear-gradient(
+            to right,
+            rgba(255, 195, 95, 0.7),
+            rgba(255, 195, 95, 0) 32%,
+            rgba(255, 195, 95, 0) 68%,
+            rgba(255, 195, 95, 0.7)
+    );
 
     filter: blur(7px);
     opacity: 0.25;
@@ -3690,9 +3659,15 @@ button:focus-visible {
 }
 
 @keyframes rayHazeBreathe {
-    0%   { opacity: 0.35; }
-    50%  { opacity: 0.55; }
-    100% { opacity: 0.35; }
+    0% {
+        opacity: 0.35;
+    }
+    50% {
+        opacity: 0.55;
+    }
+    100% {
+        opacity: 0.35;
+    }
 }
 
 /* =========================
@@ -3700,9 +3675,15 @@ button:focus-visible {
    ========================= */
 
 @keyframes pausedColumnGlowPulse {
-    0%   { opacity: 0.7; }
-    50%  { opacity: 1; }
-    100% { opacity: 0.7; }
+    0% {
+        opacity: 0.7;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0.7;
+    }
 }
 
 @keyframes pausedColumnReveal {
@@ -3821,6 +3802,7 @@ button:focus-visible {
 
     animation: innerEmberBreathe 2.6s ease-in-out infinite;
 }
+
 @keyframes innerEmberBreathe {
     0% {
         opacity: 0.5;
@@ -3920,7 +3902,6 @@ button:focus-visible {
 }
 
 
-
 .device-info {
     display: flex;
     align-items: center;
@@ -3933,8 +3914,8 @@ button:focus-visible {
 }
 
 .device-input {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     color: #fff;
     padding: 2px 6px;
     border-radius: 4px;

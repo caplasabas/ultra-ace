@@ -50,29 +50,36 @@ function arcadeInputPlugin() {
   }
 }
 
-export default defineConfig({
-  plugins: [react(), arcadeInputPlugin()],
+export default defineConfig(({ mode }) => {
+  const isProd = mode === 'production'
+  const isDev = !isProd
+  return {
+    base: './',
+    plugins: [react(), isDev && arcadeInputPlugin()].filter(Boolean),
 
-  server: {
-    host: '0.0.0.0',
+    server: {
+      host: '0.0.0.0',
 
-    allowedHosts: [
-      'localhost',
-      '.browserstack.com',
-      '.ngrok-free.app',
-      'nontenurially-backbreaking-olga.ngrok-free.app',
-    ],
-  },
-
-  resolve: {
-    alias: {
-      '@ultra-ace/engine': path.resolve(__dirname, '../../packages/engine/src'),
+      allowedHosts: [
+        'localhost',
+        '.browserstack.com',
+        '.ngrok-free.app',
+        'nontenurially-backbreaking-olga.ngrok-free.app',
+      ],
     },
-  },
 
-  build: {
-    outDir: 'dist',
-    emptyOutDir: true,
-    sourcemap: false,
-  },
+    resolve: {
+      alias: {
+        '@ultra-ace/engine': isProd
+          ? path.resolve(__dirname, '../../packages/engine/dist')
+          : path.resolve(__dirname, '../../packages/engine/src'),
+      },
+    },
+
+    build: {
+      outDir: 'dist',
+      emptyOutDir: true,
+      sourcemap: false,
+    },
+  }
 })
