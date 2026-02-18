@@ -706,7 +706,7 @@
                 (3 * var(--card-gap))
         );
 
-        --dim-top: calc(-2.4vh * var(--board-scale));
+        --dim-top: calc(-4.4vh * var(--board-scale));
 
         --reel-width-num: 73;
         --reel-gap-num: 10;
@@ -765,15 +765,15 @@
 
         overflow: hidden;
 
-        margin-top: -3.5vh;
-
-        height: 75vh;
+        margin-top: -7.5vh;
+        margin-bottom: -3vh;
+        height: 100vh;
 
     }
 
     .reels-row {
         position: absolute;
-        top: calc(var(--highlight-pad) * 3);
+        top: calc(var(--highlight-pad) * 8);
         left: calc(var(--highlight-pad) * 52.5);
 
 
@@ -1294,13 +1294,13 @@
 
     .frame-paused-column-frame {
         position: absolute;
-        top: 12.5%;
+        top: 10%;
         left: 50%;
 
-        transform: translateX(213%);
+        transform: translateX(276.5%);
         transform-origin: top center;
 
-        width: 10%;
+        width: 9.1%;
         height: 66%;
 
         opacity: 0;
@@ -1324,10 +1324,10 @@
         /*top: -222%;*/
         /*left: 20%;*/
 
-        transform: translateX(-54%);
+        transform: translateX(-44%);
         transform-origin: top center;
 
-        width: 137%;
+        width: 180%;
         height: 110%;
 
         opacity: 0;
@@ -1347,12 +1347,12 @@
     @keyframes paused-ray-drop {
         from {
             opacity: 0;
-            transform: translateX(-54%) translateY(-22%);
+            transform: translateX(-44%) translateY(-22%);
             filter: blur(6px) drop-shadow(0 0 12px rgba(255, 220, 120, 0.35)) drop-shadow(0 0 24px rgba(255, 180, 60, 0.25));
         }
         to {
             opacity: 1;
-            transform: translateX(-54%) translateY(0%);
+            transform: translateX(-44%) translateY(0%);
             filter: blur(0.2px) drop-shadow(0 0 22px rgba(255, 220, 120, 0.65)) drop-shadow(0 0 48px rgba(255, 180, 60, 0.45));
         }
     }

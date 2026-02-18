@@ -243,6 +243,7 @@ export default function App() {
         console.log('LEDGER EVENT', e)
       })
   }
+
   const [showBuySpinModal, setShowBuySpinModal] = useState(false)
 
   const spinRef = useRef(spin)
@@ -580,21 +581,25 @@ export default function App() {
             !s.showScatterWinBanner &&
             s.balance >= s.bet
           ) {
-            if (s.showWithdrawModal) {
-              setShowWithdrawModalRef.current(false)
-              return
-            }
-
-            if (s.showBuySpinModal) {
-              setShowBuySpinModalRef.current(false)
-              return
-            }
-
-            if (s.showFreeSpinIntro) {
-              setShowFreeSpinIntroRef.current(false)
-              return
-            }
             spinRef.current()
+          }
+          break
+        }
+
+        case 'MENU': {
+          if (s.showWithdrawModal) {
+            setShowWithdrawModalRef.current(false)
+            return
+          }
+
+          if (s.showBuySpinModal) {
+            setShowBuySpinModalRef.current(false)
+            return
+          }
+
+          if (s.showFreeSpinIntro) {
+            setShowFreeSpinIntroRef.current(false)
+            return
           }
           break
         }
