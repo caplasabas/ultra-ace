@@ -55,7 +55,7 @@ export default defineConfig(({ mode }) => {
   const isDev = !isProd
   return {
     base: './',
-    plugins: [react(), isDev && arcadeInputPlugin()].filter(Boolean),
+    plugins: [react()].filter(Boolean),
 
     server: {
       host: '0.0.0.0',

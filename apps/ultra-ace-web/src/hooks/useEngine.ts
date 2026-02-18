@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { CascadeStep, createRNG, DEFAULT_ENGINE_CONFIG, spin, SpinOutcome, startEngine, } from '@ultra-ace/engine'
+import {
+  CascadeStep,
+  createRNG,
+  DEFAULT_ENGINE_CONFIG,
+  spin,
+  SpinOutcome,
+  startEngine,
+} from '@ultra-ace/engine'
 import { DebugSpinInfo } from 'src/debug/DebugHud'
-import { logSpin, startSession } from '../lib/session'
 import { logLedgerEvent } from '../lib/accounting'
-import { getDeviceId } from '../lib/device'
-import { fetchDeviceBalance, fetchSessionBalance } from '../lib/balance'
-import { contributeToJackpot } from '../lib/jackpot'
+import { ensureDeviceRegistered } from '../lib/device'
+import { fetchDeviceBalance, subscribeToDeviceBalance } from '../lib/balance'
 
 const BUY_FREE_SPIN_MULTIPLIER = 50
 
@@ -24,6 +29,9 @@ export function useEngine() {
 
   const rngRef = useRef<ReturnType<typeof createRNG> | null>(null)
   const seedRef = useRef<string | null>(null)
+
+  const [deviceId, setDeviceId] = useState<string | null>(null)
+  const deviceIdRef = useRef<string | null>(null)
 
   const [sessionReady, setSessionReady] = useState(false)
 
@@ -66,12 +74,6 @@ export function useEngine() {
   const [isWithdrawing, setIsWithdrawing] = useState(false)
   const [showWithdrawModal, setShowWithdrawModal] = useState(false)
 
-  useEffect(() => {
-    console.log(
-      `spinning: ${spinning},scatterTriggerType: ${scatterTriggerType}, isFreeGame: ${isFreeGame}, pendingFreeSpins: ${pendingFreeSpins}, freeSpinsLeft: ${freeSpinsLeft}`,
-    )
-  }, [spinning, scatterTriggerType, isFreeGame, freeSpinsLeft, pendingFreeSpins])
-
   /* -----------------------------
      Debug
   ----------------------------- */
@@ -80,47 +82,51 @@ export function useEngine() {
   useEffect(() => {
     let mounted = true
 
+    let unsubscribe: (() => void) | null = null
+
     startEngine({
       config: DEFAULT_ENGINE_CONFIG,
       version: 'ui-local-default',
     })
 
-    startSession(false)
-      .then(async id => {
-        if (!mounted) return
-        sessionIdRef.current = id
+    async function init() {
+      if (!mounted) return
+      const id = await ensureDeviceRegistered('Arcade Cabinet')
+      setDeviceId(id)
 
-        const seed = `${id}:${generateSeed()}`
-        seedRef.current = seed
-        rngRef.current = createRNG(seed)
+      const seed = `${id}:${generateSeed()}`
+      seedRef.current = seed
+      rngRef.current = createRNG(seed)
 
-        let balance = await fetchSessionBalance(id)
+      const initialBalance = await fetchDeviceBalance(id)
+      setBalance(initialBalance)
 
-        if (balance === null) {
-          balance = await fetchDeviceBalance()
-        }
-
-        setBalance(balance)
+      unsubscribe = subscribeToDeviceBalance(id, newBalance => {
+        setBalance(dbBalance => {
+          if (dbBalance !== newBalance) {
+            return newBalance
+          }
+          return dbBalance
+        })
       })
-      .finally(() => {
-        setSessionReady(true)
-      })
+
+      setSessionReady(true)
+    }
+
+    init().catch(err => {
+      console.error('Boot failed', err)
+    })
 
     return () => {
       mounted = false
+      if (unsubscribe) unsubscribe()
     }
   }, [])
 
-  function getSessionId(): string | null {
-    return sessionIdRef.current
-  }
+  useEffect(() => {
+    deviceIdRef.current = deviceId
+  }, [deviceId])
 
-  function requireSessionId(): string {
-    if (!sessionIdRef.current) {
-      throw new Error('Session not initialized')
-    }
-    return sessionIdRef.current
-  }
   /* -----------------------------
      Spin execution
   ----------------------------- */
@@ -152,10 +158,9 @@ export function useEngine() {
 
     const spinAmount = isFreeGame && scatterTriggerType === 'buy' ? buySpinBet : bet
 
-    if (sessionIdRef?.current) {
+    if (deviceIdRef.current) {
       logLedgerEvent({
-        sessionId: sessionIdRef?.current,
-        deviceId: getDeviceId(),
+        deviceId: deviceIdRef.current,
         type: 'bet',
         amount: spinAmount,
         source: 'game',
@@ -199,7 +204,7 @@ export function useEngine() {
 
   function buyFreeSpins(betAmount: number) {
     if (spinning || showFreeSpinIntro || freeSpinsLeft > 0 || pendingFreeSpins > 0) return
-    if (!rngRef.current) return
+    if (!rngRef.current || !deviceIdRef.current) return
 
     const cost = betAmount * BUY_FREE_SPIN_MULTIPLIER
     if (balance < cost) return
@@ -210,8 +215,7 @@ export function useEngine() {
 
     if (sessionIdRef?.current) {
       logLedgerEvent({
-        sessionId: sessionIdRef?.current,
-        deviceId: getDeviceId(),
+        deviceId: deviceIdRef.current,
         type: 'bet',
         amount: cost,
         source: 'game',
@@ -238,34 +242,32 @@ export function useEngine() {
      Commit spin visuals
   ----------------------------- */
   async function commitSpin() {
-    if (!pendingCascades) return
+    if (!pendingCascades || !deviceIdRef.current) return
     setCommittedCascades(pendingCascades)
     setPendingCascades(null)
     setSpinning(false)
 
     const outcome = lastOutcomeRef.current
-    const sessionId = sessionIdRef.current
+    // const sessionId = sessionIdRef.current
 
-    if (!outcome || !sessionId) return
+    if (!outcome) return
 
-    await logSpin({
-      sessionId,
-      bet: outcome.bet,
-      win: outcome.win ?? 0,
-      baseWin: 0,
-      freeWin: 0,
-      cascades: outcome.cascades?.length ?? 0,
-      hit: (outcome.win ?? 0) > 0,
-      isFreeGame,
-    })
+    // await logSpin({
+    //   sessionId,
+    //   bet: outcome.bet,
+    //   win: outcome.win ?? 0,
+    //   baseWin: 0,
+    //   freeWin: 0,
+    //   cascades: outcome.cascades?.length ?? 0,
+    //   hit: (outcome.win ?? 0) > 0,
+    //   isFreeGame,
+    // })
 
     // Jackpot contribution
     const loss = outcome.bet - (outcome.win ?? 0)
 
     if (loss > 0) {
-      const contribution = Math.floor(loss * 0.05)
-
-      await contributeToJackpot(sessionId, getDeviceId(), contribution)
+      // const contribution = Math.floor(loss * 0.05)
     }
   }
 
@@ -311,6 +313,7 @@ export function useEngine() {
     commitSpin,
     commitWin,
 
+    deviceId: deviceIdRef.current,
     balance,
     setBalance,
     bet,
@@ -338,8 +341,6 @@ export function useEngine() {
 
     freezeUI,
     sessionReady,
-    getSessionId,
-    requireSessionId,
 
     withdrawAmount,
     setWithdrawAmount,

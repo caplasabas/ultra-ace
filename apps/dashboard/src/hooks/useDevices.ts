@@ -5,24 +5,36 @@ import { supabase } from '../lib/supabase'
 export function useDevices() {
   const [rows, setRows] = useState<any[]>([])
 
-  async function refresh() {
-    const { data } = await supabase
-      .from('devices_dashboard')
-      .select('device_id, name, balance, last_seen')
-
-    setRows(data ?? [])
+  async function fetchAll() {
+    const { data, error } = await supabase
+      .from('devices')
+      .select('device_id, name, balance, updated_at')
+      .order('name')
+    if (!error) setRows(data ?? [])
   }
 
   useEffect(() => {
-    refresh()
+    fetchAll()
 
     const channel = supabase
-      .channel('devices-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'devices' }, refresh)
+      .channel('dashboard-devices')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'devices',
+        },
+        payload => {
+          setRows(prev =>
+            prev.map(d => (d.device_id === payload.new.device_id ? { ...d, ...payload.new } : d)),
+          )
+        },
+      )
       .subscribe()
 
     return () => {
-      supabase.removeChannel(channel)
+      void supabase.removeChannel(channel)
     }
   }, [])
 

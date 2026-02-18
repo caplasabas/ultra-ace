@@ -3,7 +3,6 @@ import { Reel } from './ui/Reel'
 import { DimOverlay } from './ui/DimOverlay'
 import { WinOverlay } from './ui/WinOverlay'
 import { adaptWindow } from './game/adaptWindow'
-import { getDeviceId, getDeviceName, registerDevice, setDeviceName } from './lib/device'
 import { detectScatterPauseColumn, useCascadeTimeline } from './hooks/useCascadeTimeline'
 import { DebugHud } from './debug/DebugHud'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -16,7 +15,6 @@ import { FreeSpinIntro } from './ui/FreeSpinIntro'
 import { ScatterWinBanner } from './ui/ScatterWinBanner'
 import { BuySpinModal } from './ui/BuySpinModal'
 import { logLedgerEvent } from './lib/accounting'
-import { supabase } from './lib/supabase'
 import { WithdrawModal } from './ui/WithdrawModal'
 
 const DEV = import.meta.env.DEV
@@ -73,12 +71,6 @@ export default function App() {
 
   const [autoSpin, setAutoSpin] = useState(false)
   const [turboStage, setTurboStage] = useState<0 | 1 | 2 | 3>(0)
-
-  const [deviceName, setDeviceNameState] = useState(() => getDeviceName())
-
-  useEffect(() => {
-    setDeviceName(deviceName)
-  }, [deviceName])
 
   const turboMultiplier = useMemo(() => {
     switch (turboStage) {
@@ -137,7 +129,7 @@ export default function App() {
     showScatterWinBanner,
     freezeUI,
     sessionReady,
-    requireSessionId,
+    deviceId,
 
     buySpinBet,
     setBuySpinBet,
@@ -213,11 +205,12 @@ export default function App() {
   }
 
   const addBalance = (source = 'coin', amount = 5) => {
+    if (!deviceId) return
+
     setBalance(b => b + amount)
 
     logLedgerEvent({
-      sessionId: requireSessionId(),
-      deviceId: getDeviceId(),
+      deviceId,
       type: 'deposit',
       amount,
       source,
@@ -229,11 +222,11 @@ export default function App() {
   }
 
   const minusBalance = (source = 'hopper', amount = 20) => {
+    if (!deviceId) return
     setBalance(b => b - amount)
 
     logLedgerEvent({
-      sessionId: requireSessionId(),
-      deviceId: getDeviceId(),
+      deviceId,
       type: 'withdrawal',
       amount,
       source,
@@ -415,12 +408,12 @@ export default function App() {
   useEffect(() => {
     if (phase !== 'highlight') return
     if (!activeCascade?.win) return
+    if (!deviceId) return
 
     commitWin(activeCascade.win)
 
     logLedgerEvent({
-      sessionId: requireSessionId(),
-      deviceId: getDeviceId(),
+      deviceId,
       type: 'win',
       amount: activeCascade.win,
       source: 'game',
@@ -692,29 +685,6 @@ export default function App() {
       delete window.__ARCADE_INPUT__
     }
   }, [])
-
-  useEffect(() => {
-    registerDevice(getDeviceName()).then(() => {})
-  }, [])
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (!deviceName.trim()) return
-
-      supabase
-        .from('devices')
-        .upsert(
-          {
-            device_id: getDeviceId(),
-            name: deviceName,
-          },
-          { onConflict: 'device_id' },
-        )
-        .then(() => {})
-    }, 500)
-
-    return () => clearTimeout(t)
-  }, [deviceName])
 
   if (!sessionReady) return null
   return (
@@ -1056,13 +1026,9 @@ export default function App() {
                 </div>
 
                 <div className={`device-info ${showFreeSpinIntro && 'hidden'}`}>
-                  <label className="device-label">Device</label>
-                  <input
-                    className="device-input"
-                    value={deviceName}
-                    onChange={e => setDeviceNameState(e.target.value)}
-                    placeholder="Enter device name"
-                  />
+                  <label className="device-label">
+                    Device: <span>{deviceId}</span>
+                  </label>
                 </div>
               </div>
             </div>

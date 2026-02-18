@@ -1,31 +1,35 @@
 import { supabase } from './supabase'
-import { getDeviceId } from './device'
 
-export async function fetchSessionBalance(sessionId: string) {
-  const deviceId = getDeviceId()
-
+export async function fetchDeviceBalance(deviceId: string) {
   const { data, error } = await supabase
-    .from('v_session_balances')
+    .from('devices')
     .select('balance')
     .eq('device_id', deviceId)
-    .eq('session_id', sessionId)
-    .maybeSingle()
+    .single()
 
   if (error) throw error
 
-  return data?.balance ?? null
+  return data.balance ?? 0
 }
 
-export async function fetchDeviceBalance() {
-  const deviceId = getDeviceId()
+export function subscribeToDeviceBalance(deviceId: string, onChange: (balance: number) => void) {
+  const channel = supabase
+    .channel(`device-balance-${deviceId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'devices',
+        filter: `device_id=eq.${deviceId}`,
+      },
+      payload => {
+        onChange(payload.new.balance)
+      },
+    )
+    .subscribe()
 
-  const { data, error } = await supabase
-    .from('v_device_balances')
-    .select('balance')
-    .eq('device_id', deviceId)
-    .maybeSingle()
-
-  if (error) throw error
-
-  return data?.balance ?? 0
+  return () => {
+    supabase.removeChannel(channel)
+  }
 }

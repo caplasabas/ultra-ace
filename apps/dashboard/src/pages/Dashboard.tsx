@@ -1,36 +1,39 @@
 // src/pages/Dashboard.tsx
-import { useKpis } from '../hooks/useKpis'
-import { useJackpot } from '../hooks/useJackpot'
+import { useEffect, useState } from 'react'
 import { useDevices } from '../hooks/useDevices'
-import { KpiCards } from '../components/KpiCards.tsx'
+import { toggleGame, useGames } from '../hooks/useGames'
+import { DeviceModal } from '../components/DeviceModal.tsx'
+import moment from 'moment'
 
 export default function Dashboard() {
-  const kpis = useKpis()
-  const jackpot = useJackpot()
   const devices = useDevices()
+  const games = useGames()
 
-  if (!kpis || !jackpot) return <div>Loading…</div>
+  const [selectedDevice, setSelectedDevice] = useState<any | null>(null)
+
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!errorMessage) return
+    const t = setTimeout(() => setErrorMessage(null), 4000)
+    return () => clearTimeout(t)
+  }, [errorMessage])
+
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-8">
+    <div className="p-6 max-w-7xl mx-auto space-y-10">
       <header>
-        <h1 className="text-2xl font-semibold">UltraAce Dashboard</h1>
+        <h1 className="text-2xl font-semibold">Dashboard</h1>
         <p className="text-slate-400 text-sm">Live operational metrics</p>
       </header>
 
-      <KpiCards gross={kpis.gross} payouts={kpis.payouts} net={kpis.net} rtp={kpis.rtp} />
-
-      <section className="rounded-lg bg-slate-900 p-4 border border-slate-800">
-        <h2 className="text-lg font-semibold mb-2">Jackpot</h2>
-        <div className="flex gap-6 text-sm">
-          <div>Total: ₱{Number(jackpot.total).toLocaleString()}</div>
-          <div>Remaining: ₱{Number(jackpot.remaining).toLocaleString()}</div>
-          <div className={jackpot.happyHour ? 'text-green-400' : 'text-slate-400'}>
-            {jackpot.happyHour ? 'HAPPY HOUR' : 'Normal'}
-          </div>
+      {errorMessage && (
+        <div className="p-3 bg-red-900/40 border border-red-700 text-red-300 text-sm rounded">
+          {errorMessage}
         </div>
-      </section>
+      )}
 
-      <section className="mt-8">
+      {/* ---------------- DEVICES ---------------- */}
+      <section>
         <h2 className="text-lg font-semibold mb-3">Devices</h2>
 
         <div className="overflow-x-auto rounded-lg border border-slate-800">
@@ -39,16 +42,22 @@ export default function Dashboard() {
               <tr>
                 <th className="px-4 py-2 text-left">Device</th>
                 <th className="px-4 py-2 text-right">Balance</th>
-                <th className="px-4 py-2 text-left">Last Seen</th>
+                <th className="px-4 py-2 text-right">Last Seen</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
               {devices.map(d => (
-                <tr key={d.device_id} className="hover:bg-slate-900/50">
-                  <td className="px-4 py-2">{d.name ?? 'Unnamed'}</td>
-                  <td className="px-4 py-2 text-right">₱{Number(d.balance).toLocaleString()}</td>
-                  <td className="px-4 py-2">
-                    {d.last_seen ? new Date(d.last_seen).toLocaleString() : '—'}
+                <tr
+                  key={d.device_id}
+                  className="hover:bg-slate-900/50 cursor-pointer"
+                  onClick={() => setSelectedDevice(d)}
+                >
+                  <td className="px-4 py-2">{d.device_id ?? 'Unnamed'}</td>
+                  <td className="px-4 py-2 text-right font-mono">
+                    ₱{Number(d.balance).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-2 text-right text-xs text-slate-400">
+                    {d.updated_at ? moment(d.updated_at).format('YYYY-MM-DD HH:mm') : '—'}
                   </td>
                 </tr>
               ))}
@@ -56,6 +65,49 @@ export default function Dashboard() {
           </table>
         </div>
       </section>
+
+      {/* ---------------- GLOBAL GAMES ---------------- */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Global Games</h2>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          {games.map(g => (
+            <div
+              key={g.id}
+              className="flex items-center justify-between p-4 border border-slate-800 rounded-lg"
+            >
+              <div>
+                <div className="font-medium">{g.name}</div>
+                <div className="text-xs text-slate-400">
+                  {g.type} • v{g.version}
+                </div>
+              </div>
+
+              <button
+                onClick={async () => {
+                  const result = await toggleGame(g.id, !g.enabled)
+
+                  if (!result.ok) {
+                    setErrorMessage(result?.error?.message ?? null)
+                  } else {
+                    setErrorMessage(null)
+                  }
+                }}
+                className={`px-3 py-1 text-xs rounded ${
+                  g.enabled ? 'bg-green-600/20 text-green-400' : 'bg-red-600/20 text-red-400'
+                }`}
+              >
+                {g.enabled ? 'Enabled' : 'Disabled'}
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ---------------- DEVICE MODAL ---------------- */}
+      {selectedDevice && (
+        <DeviceModal device={selectedDevice} onClose={() => setSelectedDevice(null)} />
+      )}
     </div>
   )
 }
