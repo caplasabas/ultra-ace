@@ -564,6 +564,12 @@ export default function App() {
 
       const s = gameStateRef.current
 
+      if (
+        payload.action !== 'SPIN' &&
+        (s.showWithdrawModal || s.showFreeSpinIntro || s.showBuySpinModal)
+      )
+        return
+
       switch (payload.action) {
         case 'SPIN': {
           if (
@@ -574,26 +580,41 @@ export default function App() {
             !s.showScatterWinBanner &&
             s.balance >= s.bet
           ) {
+            if (s.showWithdrawModal) {
+              setShowWithdrawModalRef.current(false)
+              return
+            }
+
+            if (s.showBuySpinModal) {
+              setShowBuySpinModalRef.current(false)
+              return
+            }
+
+            if (s.showFreeSpinIntro) {
+              setShowFreeSpinIntroRef.current(false)
+              return
+            }
+
             spinRef.current()
           }
           break
         }
 
         case 'MENU': {
-          if (s.showWithdrawModal) {
-            setShowWithdrawModalRef.current(false)
-            return
-          }
-
-          if (s.showBuySpinModal) {
-            setShowBuySpinModalRef.current(false)
-            return
-          }
-
-          if (s.showFreeSpinIntro) {
-            setShowFreeSpinIntroRef.current(false)
-            return
-          }
+          // if (s.showWithdrawModal) {
+          //   setShowWithdrawModalRef.current(false)
+          //   return
+          // }
+          //
+          // if (s.showBuySpinModal) {
+          //   setShowBuySpinModalRef.current(false)
+          //   return
+          // }
+          //
+          // if (s.showFreeSpinIntro) {
+          //   setShowFreeSpinIntroRef.current(false)
+          //   return
+          // }
           break
         }
 

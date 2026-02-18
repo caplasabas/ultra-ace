@@ -53,7 +53,7 @@ export default function Dashboard() {
                   onClick={() => setSelectedDevice(d)}
                 >
                   <td className="px-4 py-2">{d.device_id ?? 'Unnamed'}</td>
-                  <td className="px-4 py-2 text-right font-mono">
+                  <td className="px-4 py-2 text-right font-mono font-bold text-green-400">
                     ₱{Number(d.balance).toLocaleString()}
                   </td>
                   <td className="px-4 py-2 text-right text-xs text-slate-400">
@@ -70,15 +70,15 @@ export default function Dashboard() {
       <section>
         <h2 className="text-lg font-semibold mb-3">Global Games</h2>
 
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid md:grid-cols-6 gap-4">
           {games.map(g => (
             <div
               key={g.id}
-              className="flex items-center justify-between p-4 border border-slate-800 rounded-lg"
+              className="flex flex-col gap-2 items-center justify-between p-2 border border-slate-800 rounded-lg"
             >
-              <div>
-                <div className="font-medium">{g.name}</div>
-                <div className="text-xs text-slate-400">
+              <div className="flex  flex-col items-center">
+                <div className="font-medium text-sm">{g.name}</div>
+                <div className="text-[10px] text-slate-600">
                   {g.type} • v{g.version}
                 </div>
               </div>

@@ -184,7 +184,6 @@ export function useEngine() {
       win: outcome.win ?? 0,
       cascadeWins: (outcome.cascades ?? []).map(c => c.win ?? 0),
     })
-    console.log('freeSpinsAwarded', outcome.freeSpinsAwarded)
 
     if (outcome.freeSpinsAwarded > 0) {
       if (!isFreeGame) {
