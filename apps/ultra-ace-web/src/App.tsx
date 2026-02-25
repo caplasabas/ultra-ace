@@ -16,6 +16,7 @@ import { ScatterWinBanner } from './ui/ScatterWinBanner'
 import { BuySpinModal } from './ui/BuySpinModal'
 import { logLedgerEvent } from './lib/accounting'
 import { WithdrawModal } from './ui/WithdrawModal'
+import { installMetricFlushHooks } from './lib/metrics'
 
 const DEV = import.meta.env.DEV
 
@@ -95,6 +96,10 @@ export default function App() {
 
     const el = document.querySelector('.game-scale') as HTMLElement
     if (el) el.style.transform = `scale(${scale})`
+  }, [])
+
+  useEffect(() => {
+    installMetricFlushHooks()
   }, [])
 
   useEffect(() => {

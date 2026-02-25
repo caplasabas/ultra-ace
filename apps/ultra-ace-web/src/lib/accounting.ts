@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { mapLedgerTypeToMetricEvent, queueMetricEvent } from './metrics'
 
 export async function logLedgerEvent({
   deviceId,
@@ -13,6 +14,11 @@ export async function logLedgerEvent({
   source?: string
   metadata?: any
 }) {
+  const metricEventType = mapLedgerTypeToMetricEvent(type)
+  if (metricEventType) {
+    queueMetricEvent(deviceId, metricEventType, amount)
+  }
+
   const delta = type === 'withdrawal' || type === 'bet' ? -amount : amount
 
   const { error } = await supabase.from('device_ledger').insert({

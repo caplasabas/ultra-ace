@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 export function DeviceModal({ device, onClose }: { device: any; onClose: () => void }) {
   const cabinetGames = useCabinetGames(device.device_id)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
+  const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
 
   useEffect(() => {
     if (!errorMessage) return
@@ -27,7 +29,29 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
               </div>
 
               <div className="text-base md:text-lg font-mono font-bold text-green-400">
-                ₱{Number(device.balance).toLocaleString()}
+                {formatCurrency(device.balance)}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+              <div className="rounded border border-green-700/40 bg-green-900/20 px-2 py-1">
+                <div className="text-[10px] text-green-300/80">Balance</div>
+                <div className="text-sm font-mono text-green-300">{formatCurrency(device.balance)}</div>
+              </div>
+
+              <div className="rounded border border-sky-700/40 bg-sky-900/20 px-2 py-1">
+                <div className="text-[10px] text-sky-300/80">Coins-In</div>
+                <div className="text-sm font-mono text-sky-300">{formatCurrency(device.coins_in_total)}</div>
+              </div>
+
+              <div className="rounded border border-amber-700/40 bg-amber-900/20 px-2 py-1">
+                <div className="text-[10px] text-amber-300/80">Hopper</div>
+                <div className="text-sm font-mono text-amber-300">{formatCurrency(device.hopper_balance)}</div>
+              </div>
+
+              <div className="rounded border border-violet-700/40 bg-violet-900/20 px-2 py-1">
+                <div className="text-[10px] text-violet-300/80">Bet Amount</div>
+                <div className="text-sm font-mono text-violet-300">{formatCurrency(device.bet_total)}</div>
               </div>
             </div>
           </div>
