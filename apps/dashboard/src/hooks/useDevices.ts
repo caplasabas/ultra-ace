@@ -11,6 +11,9 @@ export type DeviceRow = {
   bet_total?: number | null
   win_total?: number | null
   withdraw_total?: number | null
+  spins_total?: number | null
+  prize_pool_contrib_total?: number | null
+  prize_pool_paid_total?: number | null
   updated_at?: string | null
 }
 

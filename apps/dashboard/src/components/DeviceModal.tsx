@@ -6,6 +6,8 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
   const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
+  const deviceRtp =
+    asNumber(device.bet_total) > 0 ? (asNumber(device.win_total) / asNumber(device.bet_total)) * 100 : 0
 
   useEffect(() => {
     if (!errorMessage) return
@@ -33,7 +35,7 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-2 mt-2">
               <div className="rounded border border-green-700/40 bg-green-900/20 px-2 py-1">
                 <div className="text-[10px] text-green-300/80">Balance</div>
                 <div className="text-sm font-mono text-green-300">{formatCurrency(device.balance)}</div>
@@ -52,6 +54,16 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
               <div className="rounded border border-violet-700/40 bg-violet-900/20 px-2 py-1">
                 <div className="text-[10px] text-violet-300/80">Bet Amount</div>
                 <div className="text-sm font-mono text-violet-300">{formatCurrency(device.bet_total)}</div>
+              </div>
+
+              <div className="rounded border border-cyan-700/40 bg-cyan-900/20 px-2 py-1">
+                <div className="text-[10px] text-cyan-300/80">Spins</div>
+                <div className="text-sm font-mono text-cyan-300">{asNumber(device.spins_total).toLocaleString()}</div>
+              </div>
+
+              <div className="rounded border border-fuchsia-700/40 bg-fuchsia-900/20 px-2 py-1">
+                <div className="text-[10px] text-fuchsia-300/80">RTP</div>
+                <div className="text-sm font-mono text-fuchsia-300">{deviceRtp.toFixed(2)}%</div>
               </div>
             </div>
           </div>

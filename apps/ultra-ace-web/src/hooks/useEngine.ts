@@ -3,6 +3,8 @@ import {
   CascadeStep,
   createRNG,
   DEFAULT_ENGINE_CONFIG,
+  DEFAULT_ENGINE_HAPPY_HOUR,
+  hotUpdateEngine,
   spin,
   SpinOutcome,
   startEngine,
@@ -11,6 +13,8 @@ import { DebugSpinInfo } from 'src/debug/DebugHud'
 import { logLedgerEvent } from '../lib/accounting'
 import { ensureDeviceRegistered } from '../lib/device'
 import { fetchDeviceBalance, subscribeToDeviceBalance } from '../lib/balance'
+import { queueMetricEvent } from '../lib/metrics'
+import { fetchCasinoRuntimeLive, subscribeCasinoRuntimeLive } from '../lib/runtime'
 
 const BUY_FREE_SPIN_MULTIPLIER = 50
 
@@ -83,11 +87,21 @@ export function useEngine() {
     let mounted = true
 
     let unsubscribe: (() => void) | null = null
+    let runtimeChannel: { unsubscribe: () => void } | null = null
 
     startEngine({
       config: DEFAULT_ENGINE_CONFIG,
       version: 'ui-local-default',
     })
+
+    const applyRuntimeMode = (mode: 'BASE' | 'HAPPY') => {
+      const nextConfig = mode === 'HAPPY' ? DEFAULT_ENGINE_HAPPY_HOUR : DEFAULT_ENGINE_CONFIG
+
+      hotUpdateEngine({
+        config: nextConfig,
+        version: `runtime-${mode}-${Date.now()}`,
+      })
+    }
 
     async function init() {
       if (!mounted) return
@@ -111,6 +125,19 @@ export function useEngine() {
       })
 
       setSessionReady(true)
+
+      try {
+        const runtime = await fetchCasinoRuntimeLive()
+        if (mounted) {
+          applyRuntimeMode(runtime.active_mode)
+        }
+      } catch (err) {
+        console.error('[runtime] initial load failed', err)
+      }
+
+      runtimeChannel = subscribeCasinoRuntimeLive(next => {
+        applyRuntimeMode(next.active_mode)
+      })
     }
 
     init().catch(err => {
@@ -120,6 +147,7 @@ export function useEngine() {
     return () => {
       mounted = false
       if (unsubscribe) unsubscribe()
+      if (runtimeChannel) runtimeChannel.unsubscribe()
     }
   }, [])
 
@@ -150,6 +178,10 @@ export function useEngine() {
 
     setSpinning(true)
 
+    if (deviceIdRef.current) {
+      queueMetricEvent(deviceIdRef.current, 'spin', 1)
+    }
+
     if (!isFreeGame) {
       setTotalWin(0)
       setBalance(b => b - bet)
@@ -158,7 +190,7 @@ export function useEngine() {
 
     const spinAmount = isFreeGame && scatterTriggerType === 'buy' ? buySpinBet : bet
 
-    if (deviceIdRef.current) {
+    if (deviceIdRef.current && !isFreeGame) {
       logLedgerEvent({
         deviceId: deviceIdRef.current,
         type: 'bet',
@@ -211,6 +243,8 @@ export function useEngine() {
     setBalance(b => b - cost)
     setSpinning(true)
     setTotalWin(0)
+
+    queueMetricEvent(deviceIdRef.current, 'spin', 1)
 
     if (sessionIdRef?.current) {
       logLedgerEvent({

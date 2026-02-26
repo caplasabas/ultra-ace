@@ -569,12 +569,6 @@ export default function App() {
 
       const s = gameStateRef.current
 
-      if (
-        payload.action !== 'SPIN' &&
-        (s.showWithdrawModal || s.showFreeSpinIntro || s.showBuySpinModal)
-      )
-        return
-
       switch (payload.action) {
         case 'SPIN': {
           if (
@@ -583,7 +577,9 @@ export default function App() {
             !s.autoSpin &&
             (!s.isFreeGame || s.showFreeSpinIntro) &&
             !s.showScatterWinBanner &&
-            s.balance >= s.bet
+            s.balance >= s.bet &&
+            !s.showWithdrawModal &&
+            !s.showBuySpinModal
           ) {
             // if (s.showWithdrawModal) {
             //   setShowWithdrawModalRef.current(false)
