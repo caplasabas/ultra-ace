@@ -20,12 +20,14 @@ export default function Dashboard() {
   }, [errorMessage])
 
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
-  const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
+  const formatCurrency = (v: number | string | null | undefined) =>
+    `₱${asNumber(v).toLocaleString()}`
 
   const globalTotalBalance = devices.reduce((sum, d) => sum + asNumber(d.balance), 0)
   const globalTotalCoinsIn = devices.reduce((sum, d) => sum + asNumber(d.coins_in_total), 0)
   const globalTotalHopper = devices.reduce((sum, d) => sum + asNumber(d.hopper_balance), 0)
   const globalTotalBet = devices.reduce((sum, d) => sum + asNumber(d.bet_total), 0)
+  const globalTotalWin = devices.reduce((sum, d) => sum + asNumber(d.win_total), 0)
 
   return (
     <>
@@ -46,22 +48,37 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             <div className="rounded-lg border border-green-700/40 bg-green-900/20 p-4">
               <div className="text-xs text-green-300/80 mb-1">Total Balance</div>
-              <div className="text-2xl font-bold font-mono text-green-400">{formatCurrency(globalTotalBalance)}</div>
+              <div className="text-2xl font-bold font-mono text-green-400">
+                {formatCurrency(globalTotalBalance)}
+              </div>
             </div>
 
             <div className="rounded-lg border border-sky-700/40 bg-sky-900/20 p-4">
               <div className="text-xs text-sky-300/80 mb-1">Total Coins-In</div>
-              <div className="text-2xl font-bold font-mono text-sky-300">{formatCurrency(globalTotalCoinsIn)}</div>
+              <div className="text-2xl font-bold font-mono text-sky-300">
+                {formatCurrency(globalTotalCoinsIn)}
+              </div>
             </div>
 
             <div className="rounded-lg border border-amber-700/40 bg-amber-900/20 p-4">
               <div className="text-xs text-amber-300/80 mb-1">Total Hopper</div>
-              <div className="text-2xl font-bold font-mono text-amber-300">{formatCurrency(globalTotalHopper)}</div>
+              <div className="text-2xl font-bold font-mono text-amber-300">
+                {formatCurrency(globalTotalHopper)}
+              </div>
             </div>
 
             <div className="rounded-lg border border-violet-700/40 bg-violet-900/20 p-4">
               <div className="text-xs text-violet-300/80 mb-1">Total Bet Amount</div>
-              <div className="text-2xl font-bold font-mono text-violet-300">{formatCurrency(globalTotalBet)}</div>
+              <div className="text-2xl font-bold font-mono text-violet-300">
+                {formatCurrency(globalTotalBet)}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-red-700/40 bg-red-900/20 p-4">
+              <div className="text-xs text-red-300/80 mb-1">Total Win Amount</div>
+              <div className="text-2xl font-bold font-mono text-red-300">
+                {formatCurrency(globalTotalWin)}
+              </div>
             </div>
           </div>
         </section>
@@ -79,6 +96,7 @@ export default function Dashboard() {
                   <th className="px-4 py-2 text-right">Coins-In</th>
                   <th className="px-4 py-2 text-right">Hopper</th>
                   <th className="px-4 py-2 text-right">Bet Amount</th>
+                  <th className="px-4 py-2 text-right">Win Amount</th>
                   <th className="px-4 py-2 text-right">Last Seen</th>
                 </tr>
               </thead>
@@ -101,6 +119,10 @@ export default function Dashboard() {
                     </td>
                     <td className="px-4 py-2 text-right font-mono text-violet-300">
                       {formatCurrency(d.bet_total)}
+                    </td>
+
+                    <td className="px-4 py-2 text-right font-mono text-violet-300">
+                      {formatCurrency(d.win_total)}
                     </td>
                     <td className="px-4 py-2 text-right text-xs text-slate-400">
                       {d.updated_at ? moment(d.updated_at).format('YYYY-MM-DD HH:mm') : '—'}
