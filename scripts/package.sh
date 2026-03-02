@@ -13,7 +13,7 @@ echo "🔧 Building engine"
 npm run build --workspace=@ultra-ace/engine
 
 echo "🎮 Building web"
-npm run build --workspace=ultra-ace-web
+VITE_GAME_VERSION="$VERSION" npm run build --workspace=ultra-ace-web
 
 echo "📦 Packaging"
 cp -r apps/ultra-ace-web/dist/* "$OUT_DIR/"
@@ -37,4 +37,4 @@ EOF
   find . -type f ! -name checksum.sha256 -exec sha256sum {} \; > checksum.sha256
 )
 
-echo "✅ Packaged $GAM E_ID $VERSION"
+echo "✅ Packaged $GAME_ID $VERSION"

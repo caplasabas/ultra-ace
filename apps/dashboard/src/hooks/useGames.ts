@@ -48,3 +48,9 @@ export async function toggleGame(gameId: string, enabled: boolean) {
 
   return { ok: true }
 }
+
+export async function getGame(gameId: string) {
+  const { data, error } = await supabase.from('games').select('*').eq('id', gameId).single()
+  if (error) return { ok: false, error, data: null }
+  return { ok: true, data }
+}

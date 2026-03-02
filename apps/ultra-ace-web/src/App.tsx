@@ -14,11 +14,12 @@ import BGM from './assets/audio/bgm.mp3'
 import { FreeSpinIntro } from './ui/FreeSpinIntro'
 import { ScatterWinBanner } from './ui/ScatterWinBanner'
 import { BuySpinModal } from './ui/BuySpinModal'
-import { logLedgerEvent } from './lib/accounting'
+import { installAccountingRetryHooks, logLedgerEvent } from './lib/accounting'
 import { WithdrawModal } from './ui/WithdrawModal'
 import { installMetricFlushHooks } from './lib/metrics'
 
 const DEV = import.meta.env.DEV
+const GAME_BUILD_VERSION = import.meta.env.VITE_GAME_VERSION || 'dev'
 
 const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kind }))
 //
@@ -100,6 +101,7 @@ export default function App() {
 
   useEffect(() => {
     installMetricFlushHooks()
+    installAccountingRetryHooks()
   }, [])
 
   useEffect(() => {
@@ -124,13 +126,12 @@ export default function App() {
     bet,
     setBet,
     freeSpinTotal,
-    setFreeSpinTotal,
     showFreeSpinIntro,
     setShowFreeSpinIntro,
     pendingFreeSpins,
     buyFreeSpins,
     scatterTriggerType,
-    consumeFreeSpin,
+    startFreeSpins,
     showScatterWinBanner,
     freezeUI,
     sessionReady,
@@ -197,17 +198,42 @@ export default function App() {
     })
   }
 
+  const WITHDRAW_STEP = 20
+  const WITHDRAW_MIN = 60
+  const getMaxWithdrawSelectable = (balanceValue: number) =>
+    Math.floor(balanceValue / WITHDRAW_STEP) * WITHDRAW_STEP
+  const isValidWithdrawAmount = (amount: number, balanceValue: number) => {
+    if (!Number.isFinite(amount)) return false
+    const max = getMaxWithdrawSelectable(balanceValue)
+    return amount >= WITHDRAW_MIN && amount <= max && amount % WITHDRAW_STEP === 0
+  }
+
   const addWithdrawAmount = () => {
+    const max = getMaxWithdrawSelectable(balance)
+    if (max < WITHDRAW_MIN) return
     setWithdrawAmount(prev => {
-      return Math.min(prev + 20, balance)
+      return Math.min(prev + WITHDRAW_STEP, max)
     })
   }
 
   const minusWithdrawAmount = () => {
+    const max = getMaxWithdrawSelectable(balance)
+    if (max < WITHDRAW_MIN) return
     setWithdrawAmount(prev => {
-      return Math.max(60, prev - 20)
+      return Math.max(WITHDRAW_MIN, prev - WITHDRAW_STEP)
     })
   }
+
+  useEffect(() => {
+    if (!showWithdrawModal) return
+    const max = getMaxWithdrawSelectable(balance)
+    if (max < WITHDRAW_MIN) return
+    setWithdrawAmount(prev => {
+      const normalized = Math.floor(prev / WITHDRAW_STEP) * WITHDRAW_STEP
+      const withMin = Math.max(WITHDRAW_MIN, normalized)
+      return Math.min(withMin, max)
+    })
+  }, [showWithdrawModal, balance, setWithdrawAmount])
 
   const addBalance = (source = 'coin', amount = 5) => {
     if (!deviceId) return
@@ -243,6 +269,7 @@ export default function App() {
   }
 
   const [showBuySpinModal, setShowBuySpinModal] = useState(false)
+  const lastLoggedWinKeyRef = useRef<string>('')
 
   const spinRef = useRef(spin)
   const setAutoSpinRef = useRef(setAutoSpin)
@@ -261,6 +288,9 @@ export default function App() {
   const addBuySpinBetRef = useRef(addBuySpinBet)
   const minusBuySpinBetRef = useRef(minusBuySpinBet)
   const buyFreeSpinsRef = useRef(buyFreeSpins)
+  const startFreeSpinsRef = useRef(startFreeSpins)
+  const addBalanceRef = useRef(addBalance)
+  const minusBalanceRef = useRef(minusBalance)
 
   const {
     phase,
@@ -365,7 +395,7 @@ export default function App() {
   const isReady = (isIdle && !spinning) || (showFreeSpinIntro && !freezeUI)
 
   useEffect(() => {
-    if (!isIdle && !isFreeGame) return
+    if (!isIdle) return
     if (!autoSpin && !isFreeGame) return
     if (showFreeSpinIntro || isFreeSpinPreview || showScatterWinBanner || showBuySpinModal) return
     if (pauseColumn && !isFreeGame && pendingFreeSpins > 0) return
@@ -396,44 +426,20 @@ export default function App() {
   ])
 
   useEffect(() => {
-    if (!isFreeGame) return
-    if (!isIdle) return
-    if (freeSpinsLeft <= -1) return
-
-    const t = setTimeout(() => {
-      consumeFreeSpin()
-      if (freeSpinsLeft > -1) {
-        spin()
-      }
-    }, 300)
-
-    return () => clearTimeout(t)
-  }, [isFreeGame, isIdle, freeSpinsLeft])
-
-  useEffect(() => {
     if (phase !== 'highlight') return
     if (!activeCascade?.win) return
-    if (!deviceId) return
+
+    const winKey = `${spinId}:${cascadeIndex}`
+    if (lastLoggedWinKeyRef.current === winKey) return
+    lastLoggedWinKeyRef.current = winKey
 
     commitWin(activeCascade.win)
-
-    logLedgerEvent({
-      deviceId,
-      type: 'win',
-      amount: activeCascade.win,
-      source: 'game',
-      metadata: {
-        cascadeIndex,
-        multiplier: activeCascade.multiplier,
-      },
-    }).then(() => {})
-
-    if (isFreeGame || pauseColumn !== null || pendingFreeSpins > 0 || freeSpinsLeft > 0) {
-      setFreeSpinTotal(v => v + activeCascade.win)
-    } else {
-      setBalance(v => v + activeCascade.win)
-    }
-  }, [phase, pauseColumn, pendingFreeSpins, freeSpinsLeft])
+  }, [
+    phase,
+    activeCascade,
+    spinId,
+    cascadeIndex,
+  ])
 
   const BASE_MULTIPLIERS = [1, 2, 3, 5]
   const FREE_MULTIPLIERS = [2, 4, 6, 10]
@@ -446,46 +452,33 @@ export default function App() {
   }
 
   const activeMultiplierIndex = getMultiplierIndex(cascadeIndex)
-  const [introShown, setIntroShown] = useState(false)
 
-  const onShowFreeSpinIntro = (delayMs: number) => {
-    return setTimeout(() => {
-      setIntroShown(true)
+  useEffect(() => {
+    if (phase !== 'idle') return
+
+    if (!isFreeGame && pendingFreeSpins > 0 && !showFreeSpinIntro) {
       setShowFreeSpinIntro(true)
-
-      const hide = setTimeout(() => {
-        setIsFreeSpinPreview(true)
-        // setShowFreeSpinIntro(false)
-
-        // const hideSpin = setTimeout(() => {
-        if (gameStateRef.current.showFreeSpinIntro) {
-          spin()
-          // consumeFreeSpin()
-        }
-        // }, 300)
-        // return () => clearTimeout(hideSpin)
-      }, 10_000)
-
-      return () => clearTimeout(hide)
-    }, delayMs)
-  }
-
-  useEffect(() => {
-    if (pauseColumn) {
-      if (introShown) return
-      if (isFreeGame) return
-      if (!isScatterHighlight) return
-      const show = onShowFreeSpinIntro(300)
-      return () => clearTimeout(show)
+      setIsFreeSpinPreview(false)
+      return
     }
-  }, [introShown, isFreeGame, pauseColumn, isScatterHighlight])
 
-  useEffect(() => {
-    if (phase === 'idle') {
-      setIntroShown(false)
+    if (!isFreeGame && pendingFreeSpins <= 0 && !showFreeSpinIntro) {
       setIsFreeSpinPreview(false)
     }
-  }, [phase])
+  }, [phase, isFreeGame, pendingFreeSpins, showFreeSpinIntro, setShowFreeSpinIntro])
+
+  useEffect(() => {
+    if (!showFreeSpinIntro) return
+
+    const timer = window.setTimeout(() => {
+      setIsFreeSpinPreview(true)
+      if (gameStateRef.current.showFreeSpinIntro) {
+        startFreeSpinsRef.current()
+      }
+    }, 10_000)
+
+    return () => clearTimeout(timer)
+  }, [showFreeSpinIntro])
 
   useEffect(() => {
     gameStateRef.current = {
@@ -541,6 +534,9 @@ export default function App() {
     addBuySpinBetRef.current = addBuySpinBet
     minusBuySpinBetRef.current = minusBuySpinBet
     buyFreeSpinsRef.current = buyFreeSpins
+    startFreeSpinsRef.current = startFreeSpins
+    addBalanceRef.current = addBalance
+    minusBalanceRef.current = minusBalance
   })
 
   useEffect(() => {
@@ -549,13 +545,28 @@ export default function App() {
 
       // --- COIN ---
       if (payload.type === 'COIN') {
-        addBalance('coin', payload.credits)
+        addBalanceRef.current('coin', payload.credits)
         return
       }
 
       // --- WITHDRAW COMPLETE ---
       if (payload.type === 'WITHDRAW_DISPENSE') {
-        minusBalance('hopper', payload.dispensed)
+        minusBalanceRef.current('hopper', payload.dispensed)
+        return
+      }
+
+      if (payload.type === 'HOPPER_COIN') {
+        const amount = Number(payload.amount ?? 20)
+        if (deviceId) {
+          logLedgerEvent({
+            deviceId,
+            type: 'hopper_in',
+            amount,
+            source: 'hopper',
+          }).catch(e => {
+            console.log('LEDGER EVENT', e)
+          })
+        }
         return
       }
 
@@ -571,13 +582,19 @@ export default function App() {
 
       switch (payload.action) {
         case 'SPIN': {
+          if (s.showFreeSpinIntro) {
+            setIsFreeSpinPreview(true)
+            startFreeSpinsRef.current()
+            return
+          }
+
           if (
             s.isReady &&
             !s.spinning &&
             !s.autoSpin &&
-            (!s.isFreeGame || s.showFreeSpinIntro) &&
+            !s.showFreeSpinIntro &&
             !s.showScatterWinBanner &&
-            s.balance >= s.bet &&
+            (s.isFreeGame || s.balance >= s.bet) &&
             !s.showWithdrawModal &&
             !s.showBuySpinModal
           ) {
@@ -684,8 +701,9 @@ export default function App() {
         case 'WITHDRAW': {
           if (s.isReady && !s.spinning && !s.autoSpin && !s.showBuySpinModal) {
             if (!s.showWithdrawModal) {
+              if (getMaxWithdrawSelectable(s.balance) < WITHDRAW_MIN) break
               setShowWithdrawModalRef.current(true)
-            } else if (!s.isWithdrawing && s.balance >= s.withdrawAmount) {
+            } else if (!s.isWithdrawing && isValidWithdrawAmount(s.withdrawAmount, s.balance)) {
               fetch('http://localhost:5174', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -738,7 +756,7 @@ export default function App() {
                   !isReady ||
                   pauseColumn !== null ||
                   balance === 0 ||
-                  balance < 100 ||
+                  balance < 60 ||
                   isFreeGame ||
                   freeSpinsLeft > 0
                 }
@@ -830,7 +848,7 @@ export default function App() {
                 onMinusAmount={minusWithdrawAmount}
                 onCancel={() => setShowWithdrawModal(false)}
                 onConfirm={() => {
-                  // setShowWithdrawModal(false)
+                  if (!isValidWithdrawAmount(withdrawAmount, balance)) return
 
                   fetch('http://localhost:5174', {
                     method: 'POST',
@@ -982,22 +1000,16 @@ export default function App() {
                       className={`spin-btn spin ${(isReady && !autoSpin) || (!autoSpin && !isFreeGame) || showFreeSpinIntro ? 'spin-image active' : 'stop-image'}`}
                       disabled={
                         !isReady ||
-                        balance === 0 ||
-                        balance < bet ||
-                        (isFreeGame &&
-                          freeSpinsLeft < 10 &&
-                          !showFreeSpinIntro &&
-                          !showScatterWinBanner)
+                        (!showFreeSpinIntro && !isFreeGame && (balance === 0 || balance < bet))
                       }
                       onClick={() => {
                         if (showFreeSpinIntro) {
                           setIsFreeSpinPreview(true)
+                          startFreeSpins()
+                          return
                         }
 
-                        const t = setTimeout(() => {
-                          spin()
-                        }, 300)
-                        return () => clearTimeout(t)
+                        spin()
                       }}
                       aria-label="Spin"
                     />
@@ -1039,8 +1051,8 @@ export default function App() {
 
                   <div className="balance-display">
                     Balance <span className="balance-amount">{formatPeso(balance ?? 0)}</span>
-                    <button className="add-btn" onClick={() => addBalance('bypass', 5000)}>
-                      +{formatPeso(5000, true, true, 2)}
+                    <button className="add-btn" onClick={() => addBalance('bypass', 2)}>
+                      +{formatPeso(2, true, true, 2)}
                     </button>
                   </div>
 
@@ -1057,6 +1069,7 @@ export default function App() {
           </div>
 
           <div id="frame-light-overlay" />
+          <div className="game-version-tag">v{GAME_BUILD_VERSION}</div>
         </div>
       </div>
     </div>

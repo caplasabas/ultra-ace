@@ -1,5 +1,6 @@
 import { toggleCabinetGame, useCabinetGames } from '../hooks/useCabinetGames.ts'
 import { useEffect, useState } from 'react'
+import { prepareGamePackage, removeGamePackage } from '../lib/arcadeAdmin.ts'
 
 export function DeviceModal({ device, onClose }: { device: any; onClose: () => void }) {
   const cabinetGames = useCabinetGames(device.device_id)
@@ -8,6 +9,11 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
   const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
   const deviceRtp =
     asNumber(device.bet_total) > 0 ? (asNumber(device.win_total) / asNumber(device.bet_total)) * 100 : 0
+  const deviceHouseWin = asNumber(device.bet_total) - asNumber(device.win_total)
+  const deviceHouseEdge =
+    asNumber(device.bet_total) > 0 ? (deviceHouseWin / asNumber(device.bet_total)) * 100 : 0
+  const hopperAlertThreshold = asNumber((device as any)?.hopper_alert_threshold ?? 500)
+  const hopperLow = asNumber(device.hopper_balance) <= hopperAlertThreshold
 
   useEffect(() => {
     if (!errorMessage) return
@@ -35,7 +41,7 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-2 mt-2">
+            <div className="grid grid-cols-2 md:grid-cols-8 gap-2 mt-2">
               <div className="rounded border border-green-700/40 bg-green-900/20 px-2 py-1">
                 <div className="text-[10px] text-green-300/80">Balance</div>
                 <div className="text-sm font-mono text-green-300">{formatCurrency(device.balance)}</div>
@@ -48,12 +54,30 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
 
               <div className="rounded border border-amber-700/40 bg-amber-900/20 px-2 py-1">
                 <div className="text-[10px] text-amber-300/80">Hopper</div>
-                <div className="text-sm font-mono text-amber-300">{formatCurrency(device.hopper_balance)}</div>
+                <div className={`text-sm font-mono ${hopperLow ? 'text-red-300 animate-pulse' : 'text-amber-300'}`}>
+                  {formatCurrency(device.hopper_balance)}
+                </div>
               </div>
 
               <div className="rounded border border-violet-700/40 bg-violet-900/20 px-2 py-1">
                 <div className="text-[10px] text-violet-300/80">Bet Amount</div>
                 <div className="text-sm font-mono text-violet-300">{formatCurrency(device.bet_total)}</div>
+              </div>
+
+              <div className="rounded border border-orange-700/40 bg-orange-900/20 px-2 py-1">
+                <div className="text-[10px] text-orange-300/80">House Win</div>
+                <div
+                  className={`text-sm font-mono ${
+                    deviceHouseWin < 0 ? 'text-red-300 animate-pulse' : 'text-orange-300'
+                  }`}
+                >
+                  {formatCurrency(deviceHouseWin)}
+                </div>
+              </div>
+
+              <div className="rounded border border-rose-700/40 bg-rose-900/20 px-2 py-1">
+                <div className="text-[10px] text-rose-300/80">House Edge</div>
+                <div className="text-sm font-mono text-rose-300">{deviceHouseEdge.toFixed(2)}%</div>
               </div>
 
               <div className="rounded border border-cyan-700/40 bg-cyan-900/20 px-2 py-1">
@@ -92,11 +116,37 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
 
                     <button
                       onClick={async () => {
-                        const result = await toggleCabinetGame(device.device_id, g.id, !g.installed)
+                        const nextInstalled = !g.installed
+                        const result = await toggleCabinetGame(device.device_id, g.id, nextInstalled)
 
                         if (!result.ok) {
                           setErrorMessage(result?.error?.message ?? null)
                         } else {
+                          if (!nextInstalled) {
+                            const removeResult = await removeGamePackage(
+                              g.id,
+                              Number(g.version ?? 1),
+                              true,
+                            )
+                            if (!removeResult.ok) {
+                              setErrorMessage(
+                                `Disabled but remove failed: ${removeResult.error?.message ?? 'unknown error'}`,
+                              )
+                              return
+                            }
+                          } else if (g.package_url) {
+                            const prepareResult = await prepareGamePackage(
+                              g.id,
+                              g.package_url,
+                              Number(g.version ?? 1),
+                            )
+                            if (!prepareResult.ok) {
+                              setErrorMessage(
+                                `Enabled but prefetch failed: ${prepareResult.error?.message ?? 'unknown error'}`,
+                              )
+                              return
+                            }
+                          }
                           setErrorMessage(null)
                         }
                       }}

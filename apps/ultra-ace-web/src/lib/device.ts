@@ -14,6 +14,8 @@ export async function getDeviceId(): Promise<string> {
     console.log('Fetching hardware ID...')
     const res = await fetch('http://localhost:5174/device-id', {
       signal: AbortSignal.timeout(3000),
+    }).catch(e => {
+      return e
     })
     console.log('Response status:', res.status)
 

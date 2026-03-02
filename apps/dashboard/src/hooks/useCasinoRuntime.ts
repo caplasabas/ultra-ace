@@ -24,6 +24,7 @@ export type CasinoRuntime = {
   auto_happy_enabled: boolean
   prize_pool_balance: number
   prize_pool_goal: number
+  hopper_alert_threshold: number
   updated_at: string
   active_target_rtp_pct?: number
 }

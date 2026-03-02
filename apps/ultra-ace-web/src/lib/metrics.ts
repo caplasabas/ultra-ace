@@ -9,9 +9,9 @@ type MetricBucket = {
   event_ts: string
 }
 
-const FLUSH_SOON_MS = Number(import.meta.env.VITE_METRIC_FLUSH_SOON_MS ?? 220)
-const PERIODIC_FLUSH_MS = Number(import.meta.env.VITE_METRIC_PERIODIC_FLUSH_MS ?? 900)
-const RETRY_FLUSH_MS = Number(import.meta.env.VITE_METRIC_RETRY_MS ?? 900)
+const FLUSH_SOON_MS = Number(import.meta.env.VITE_METRIC_FLUSH_SOON_MS ?? 80)
+const PERIODIC_FLUSH_MS = Number(import.meta.env.VITE_METRIC_PERIODIC_FLUSH_MS ?? 250)
+const RETRY_FLUSH_MS = Number(import.meta.env.VITE_METRIC_RETRY_MS ?? 350)
 const SHOULD_WRITE_LEDGER = import.meta.env.VITE_METRIC_WRITE_LEDGER === '1'
 
 const buckets = new Map<string, MetricBucket>()
@@ -31,7 +31,7 @@ function scheduleFlushSoon(delayMs = FLUSH_SOON_MS) {
   flushTimer = window.setTimeout(() => {
     flushTimer = null
     void flushMetricEvents()
-  }, delayMs)
+  }, 0)
 }
 
 function requeueSnapshot(snapshot: MetricBucket[]) {
@@ -92,7 +92,7 @@ export async function flushMetricEvents() {
   try {
     const { error } = await supabase.rpc('apply_metric_events', {
       p_events: snapshot,
-      p_write_ledger: SHOULD_WRITE_LEDGER,
+      p_write_ledger: true,
     })
 
     if (error) throw error

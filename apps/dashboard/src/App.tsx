@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import Dashboard from './pages/Dashboard'
 import Settings from './pages/Settings'
+import Accounting from './pages/Accounting'
 
-type Page = 'dashboard' | 'settings'
+type Page = 'dashboard' | 'settings' | 'accounting'
 
 function App() {
   const [page, setPage] = useState<Page>('dashboard')
@@ -31,10 +32,20 @@ function App() {
           >
             Settings
           </button>
+          <button
+            onClick={() => setPage('accounting')}
+            className={`px-3 py-1 rounded text-sm border ${
+              page === 'accounting'
+                ? 'bg-slate-800 border-slate-600 text-white'
+                : 'bg-slate-900 border-slate-800 text-slate-300'
+            }`}
+          >
+            Accounting
+          </button>
         </div>
       </nav>
 
-      {page === 'dashboard' ? <Dashboard /> : <Settings />}
+      {page === 'dashboard' ? <Dashboard /> : page === 'settings' ? <Settings /> : <Accounting />}
     </div>
   )
 }

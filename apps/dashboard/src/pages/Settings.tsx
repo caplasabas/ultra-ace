@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useCasinoRuntime } from '../hooks/useCasinoRuntime'
-import { toggleGame, useGames } from '../hooks/useGames'
+import { getGame, toggleGame, useGames } from '../hooks/useGames'
+import { prepareGamePackage, purgeGamePackages, removeGamePackage } from '../lib/arcadeAdmin'
 
 export default function Settings() {
   const games = useGames()
@@ -13,6 +14,7 @@ export default function Settings() {
   const [happyProfileId, setHappyProfileId] = useState('')
   const [prizePoolGoal, setPrizePoolGoal] = useState('10000')
   const [prizePoolBalance, setPrizePoolBalance] = useState('0')
+  const [hopperAlertThreshold, setHopperAlertThreshold] = useState('500')
   const [autoHappy, setAutoHappy] = useState(true)
 
   useEffect(() => {
@@ -22,6 +24,7 @@ export default function Settings() {
     setHappyProfileId(runtime.happy_profile_id)
     setPrizePoolGoal(String(runtime.prize_pool_goal ?? 0))
     setPrizePoolBalance(String(runtime.prize_pool_balance ?? 0))
+    setHopperAlertThreshold(String(runtime.hopper_alert_threshold ?? 500))
     setAutoHappy(Boolean(runtime.auto_happy_enabled))
   }, [runtime])
 
@@ -46,6 +49,7 @@ export default function Settings() {
       auto_happy_enabled: autoHappy,
       prize_pool_goal: Math.max(0, Number(prizePoolGoal || 0)),
       prize_pool_balance: Math.max(0, Number(prizePoolBalance || 0)),
+      hopper_alert_threshold: Math.max(0, Number(hopperAlertThreshold || 0)),
     })
 
     setSaving(false)
@@ -60,6 +64,15 @@ export default function Settings() {
 
     if (!result.ok) {
       setErrorMessage(result.error?.message ?? 'Failed to toggle happy hour')
+    }
+  }
+
+  async function purgeRuntimeCache() {
+    const result = await purgeGamePackages()
+    if (!result.ok) {
+      setErrorMessage(result.error?.message ?? 'Failed to purge runtime packages')
+    } else {
+      setErrorMessage(null)
     }
   }
 
@@ -169,6 +182,17 @@ export default function Settings() {
               onChange={e => setPrizePoolBalance(e.target.value)}
             />
           </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-300">Hopper Alert Threshold</span>
+            <input
+              className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+              type="number"
+              min={0}
+              value={hopperAlertThreshold}
+              onChange={e => setHopperAlertThreshold(e.target.value)}
+            />
+          </label>
         </div>
 
         <label className="inline-flex items-center gap-2 text-sm text-slate-300">
@@ -193,6 +217,17 @@ export default function Settings() {
 
       <section className="rounded-lg border border-slate-800 bg-slate-900/40 p-4 space-y-4">
         <h2 className="text-lg font-semibold">Global Games</h2>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={purgeRuntimeCache}
+            className="px-3 py-2 rounded bg-rose-700/30 border border-rose-600 text-rose-300 text-sm"
+          >
+            Purge Runtime Cache
+          </button>
+          <span className="text-xs text-slate-400">
+            Clears decrypted runtime game bundles on connected cabinet API.
+          </span>
+        </div>
 
         <div className="grid md:grid-cols-6 grid-cols-2 gap-4">
           {games.map(g => (
@@ -209,11 +244,41 @@ export default function Settings() {
 
               <button
                 onClick={async () => {
-                  const result = await toggleGame(g.id, !g.enabled)
+                  const nextEnabled = !g.enabled
+                  const result = await toggleGame(g.id, nextEnabled)
 
                   if (!result.ok) {
                     setErrorMessage(result?.error?.message ?? null)
                   } else {
+                    const gameResult = await getGame(g.id)
+                    if (gameResult.ok && gameResult.data) {
+                      const game = gameResult.data as any
+                      if (!nextEnabled) {
+                        const removeResult = await removeGamePackage(
+                          game.id,
+                          Number(game.version ?? 1),
+                          true,
+                        )
+                        if (!removeResult.ok) {
+                          setErrorMessage(
+                            `Disabled but remove failed: ${removeResult.error?.message ?? 'unknown error'}`,
+                          )
+                          return
+                        }
+                      } else if (game.package_url) {
+                        const prepareResult = await prepareGamePackage(
+                          game.id,
+                          game.package_url,
+                          Number(game.version ?? 1),
+                        )
+                        if (!prepareResult.ok) {
+                          setErrorMessage(
+                            `Enabled but prefetch failed: ${prepareResult.error?.message ?? 'unknown error'}`,
+                          )
+                          return
+                        }
+                      }
+                    }
                     setErrorMessage(null)
                   }
                 }}

@@ -10,15 +10,26 @@ import {
   startEngine,
 } from '@ultra-ace/engine'
 import { DebugSpinInfo } from 'src/debug/DebugHud'
-import { logLedgerEvent } from '../lib/accounting'
 import { ensureDeviceRegistered } from '../lib/device'
 import { fetchDeviceBalance, subscribeToDeviceBalance } from '../lib/balance'
-import { queueMetricEvent } from '../lib/metrics'
 import { fetchCasinoRuntimeLive, subscribeCasinoRuntimeLive } from '../lib/runtime'
+import { commitSpinAccounting } from '../lib/accounting'
 
 const BUY_FREE_SPIN_MULTIPLIER = 50
 
 const SCATTER_BANNER_DURATION = 5000
+const FREE_SPIN_SNAPSHOT_PREFIX = 'ultraace.free-spin-state'
+const FREE_SPIN_SNAPSHOT_MAX_AGE_MS = 1000 * 60 * 60 * 6
+
+type FreeSpinSnapshot = {
+  updatedAt: number
+  isFreeGame: boolean
+  freeSpinsLeft: number
+  pendingFreeSpins: number
+  freeSpinTotal: number
+  showFreeSpinIntro: boolean
+  scatterTriggerType: 'natural' | 'buy' | null
+}
 
 function generateSeed(): string {
   const buf = new Uint32Array(4)
@@ -30,6 +41,7 @@ function generateSeed(): string {
 export function useEngine() {
   const sessionIdRef = useRef<string | null>(null)
   const lastOutcomeRef = useRef<SpinOutcome | null>(null)
+  const spinCounterRef = useRef(0)
 
   const rngRef = useRef<ReturnType<typeof createRNG> | null>(null)
   const seedRef = useRef<string | null>(null)
@@ -77,6 +89,35 @@ export function useEngine() {
   const [withdrawAmount, setWithdrawAmount] = useState(60)
   const [isWithdrawing, setIsWithdrawing] = useState(false)
   const [showWithdrawModal, setShowWithdrawModal] = useState(false)
+  const isFreeGameRef = useRef(false)
+  const freeSpinsLeftRef = useRef(0)
+  const freeSpinTotalRef = useRef(0)
+
+  const snapshotKeyRef = useRef<string | null>(null)
+
+  function clearFreeSpinSnapshot() {
+    if (typeof window === 'undefined') return
+    if (!snapshotKeyRef.current) return
+    window.localStorage.removeItem(snapshotKeyRef.current)
+  }
+
+  function persistFreeSpinSnapshot(next: FreeSpinSnapshot) {
+    if (typeof window === 'undefined') return
+    if (!snapshotKeyRef.current) return
+    const hasActiveState =
+      next.isFreeGame ||
+      next.pendingFreeSpins > 0 ||
+      next.freeSpinsLeft > 0 ||
+      next.showFreeSpinIntro ||
+      next.freeSpinTotal > 0
+
+    if (!hasActiveState) {
+      clearFreeSpinSnapshot()
+      return
+    }
+
+    window.localStorage.setItem(snapshotKeyRef.current, JSON.stringify(next))
+  }
 
   /* -----------------------------
      Debug
@@ -107,6 +148,7 @@ export function useEngine() {
       if (!mounted) return
       const id = await ensureDeviceRegistered('Arcade Cabinet')
       setDeviceId(id)
+      snapshotKeyRef.current = `${FREE_SPIN_SNAPSHOT_PREFIX}:${id}`
 
       const seed = `${id}:${generateSeed()}`
       seedRef.current = seed
@@ -114,6 +156,36 @@ export function useEngine() {
 
       const initialBalance = await fetchDeviceBalance(id)
       setBalance(initialBalance)
+
+      if (typeof window !== 'undefined' && snapshotKeyRef.current) {
+        try {
+          const raw = window.localStorage.getItem(snapshotKeyRef.current)
+          if (raw) {
+            const parsed = JSON.parse(raw) as FreeSpinSnapshot
+            const age = Date.now() - Number(parsed.updatedAt ?? 0)
+            if (age >= 0 && age <= FREE_SPIN_SNAPSHOT_MAX_AGE_MS) {
+              const restoredFreeSpinsLeft = Math.max(0, Math.floor(parsed.freeSpinsLeft ?? 0))
+              const restoredPendingFreeSpins = Math.max(
+                0,
+                Math.floor(parsed.pendingFreeSpins ?? 0),
+              )
+              const restoredIsFreeGame = Boolean(parsed.isFreeGame) && restoredFreeSpinsLeft > 0
+              const restoredShowIntro = !restoredIsFreeGame && restoredPendingFreeSpins > 0
+
+              setIsFreeGame(restoredIsFreeGame)
+              setFreeSpinsLeft(restoredIsFreeGame ? restoredFreeSpinsLeft : 0)
+              setPendingFreeSpins(restoredPendingFreeSpins)
+              setFreeSpinTotal(Math.max(0, Number(parsed.freeSpinTotal ?? 0)))
+              setShowFreeSpinIntro(restoredShowIntro)
+              setScatterTriggerType(parsed.scatterTriggerType ?? null)
+            } else {
+              window.localStorage.removeItem(snapshotKeyRef.current)
+            }
+          }
+        } catch {
+          window.localStorage.removeItem(snapshotKeyRef.current)
+        }
+      }
 
       unsubscribe = subscribeToDeviceBalance(id, newBalance => {
         setBalance(dbBalance => {
@@ -155,55 +227,123 @@ export function useEngine() {
     deviceIdRef.current = deviceId
   }, [deviceId])
 
+  useEffect(() => {
+    isFreeGameRef.current = isFreeGame
+  }, [isFreeGame])
+
+  useEffect(() => {
+    freeSpinsLeftRef.current = freeSpinsLeft
+  }, [freeSpinsLeft])
+
+  useEffect(() => {
+    freeSpinTotalRef.current = freeSpinTotal
+  }, [freeSpinTotal])
+
+  useEffect(() => {
+    persistFreeSpinSnapshot({
+      updatedAt: Date.now(),
+      isFreeGame,
+      freeSpinsLeft,
+      pendingFreeSpins,
+      freeSpinTotal,
+      showFreeSpinIntro,
+      scatterTriggerType,
+    })
+  }, [
+    isFreeGame,
+    freeSpinsLeft,
+    pendingFreeSpins,
+    freeSpinTotal,
+    showFreeSpinIntro,
+    scatterTriggerType,
+  ])
+
+  useEffect(() => {
+    if (!spinning && !isFreeGame && pendingFreeSpins > 0 && !showFreeSpinIntro) {
+      setShowFreeSpinIntro(true)
+    }
+  }, [spinning, isFreeGame, pendingFreeSpins, showFreeSpinIntro])
+
+  function startFreeSpins() {
+    if (isFreeGameRef.current) return false
+    if (pendingFreeSpins <= 0) return false
+
+    setIsFreeGame(true)
+    setFreeSpinsLeft(pendingFreeSpins)
+    setShowFreeSpinIntro(false)
+    setPendingFreeSpins(0)
+    return true
+  }
+
   /* -----------------------------
      Spin execution
   ----------------------------- */
-  function spinNow() {
+  async function spinNow() {
     if (spinning) return
     if (!rngRef.current) return
 
-    // Enter free spins
-    if (!isFreeGame && pendingFreeSpins > 0) {
-      setIsFreeGame(true)
-      setFreeSpinsLeft(pendingFreeSpins)
+    // Free-spin intro/manual path should explicitly enter free spins first.
+    if (!isFreeGame && pendingFreeSpins > 0) return
 
-      setShowFreeSpinIntro(false)
-
-      setPendingFreeSpins(0)
-
-      return
-    }
-
-    if (balance < bet || (balance === 0 && !isFreeGame)) return
+    if (!isFreeGame && balance < bet) return
+    if (isFreeGame && freeSpinsLeftRef.current <= 0) return
 
     setSpinning(true)
-
-    if (deviceIdRef.current) {
-      queueMetricEvent(deviceIdRef.current, 'spin', 1)
-    }
 
     if (!isFreeGame) {
       setTotalWin(0)
       setBalance(b => b - bet)
       setFreeSpinTotal(0)
+    } else {
+      // One decrement per started free spin.
+      setFreeSpinsLeft(v => Math.max(v - 1, 0))
     }
 
     const spinAmount = isFreeGame && scatterTriggerType === 'buy' ? buySpinBet : bet
-
-    if (deviceIdRef.current && !isFreeGame) {
-      logLedgerEvent({
-        deviceId: deviceIdRef.current,
-        type: 'bet',
-        amount: spinAmount,
-        source: 'game',
-      }).then(() => {})
-    }
 
     const outcome: SpinOutcome = spin(rngRef.current, {
       betPerSpin: spinAmount,
       lines: 5,
       isFreeGame,
     })
+    const totalWin = (outcome.cascades ?? []).reduce((sum, c) => sum + Number(c.win ?? 0), 0)
+    const nextSpinId = spinCounterRef.current + 1
+    spinCounterRef.current = nextSpinId
+
+    if (deviceIdRef.current) {
+      try {
+        await commitSpinAccounting({
+          deviceId: deviceIdRef.current,
+          spinId: nextSpinId,
+          isFreeGame,
+          betAmount: isFreeGame ? 0 : spinAmount,
+          totalWin,
+          freeSpinsAwarded: outcome.freeSpinsAwarded ?? 0,
+          cascades: outcome.cascades?.length ?? 0,
+          triggerType: scatterTriggerType ?? null,
+        })
+      } catch (error) {
+        console.error('[engine] spin accounting failed, skipping animation start', error)
+        if (!isFreeGame) {
+          setBalance(b => b + bet)
+          setFreeSpinTotal(0)
+        } else {
+          setFreeSpinsLeft(v => v + 1)
+        }
+        setSpinning(false)
+        return
+      }
+    }
+
+    if (!isFreeGame) {
+      if (outcome.freeSpinsAwarded > 0) {
+        if (totalWin > 0) setFreeSpinTotal(totalWin)
+      } else if (totalWin > 0) {
+        setBalance(b => b + totalWin)
+      }
+    } else if (totalWin > 0) {
+      setFreeSpinTotal(v => v + totalWin)
+    }
 
     lastOutcomeRef.current = outcome
 
@@ -233,7 +373,7 @@ export function useEngine() {
     setTotalWin(v => v + amount)
   }
 
-  function buyFreeSpins(betAmount: number) {
+  async function buyFreeSpins(betAmount: number) {
     if (spinning || showFreeSpinIntro || freeSpinsLeft > 0 || pendingFreeSpins > 0) return
     if (!rngRef.current || !deviceIdRef.current) return
 
@@ -244,17 +384,6 @@ export function useEngine() {
     setSpinning(true)
     setTotalWin(0)
 
-    queueMetricEvent(deviceIdRef.current, 'spin', 1)
-
-    if (sessionIdRef?.current) {
-      logLedgerEvent({
-        deviceId: deviceIdRef.current,
-        type: 'bet',
-        amount: cost,
-        source: 'game',
-      }).then(() => {})
-    }
-
     const outcome: SpinOutcome = spin(rngRef.current, {
       betPerSpin: betAmount,
       lines: 5,
@@ -262,7 +391,34 @@ export function useEngine() {
       forceScatter: true,
     })
 
+    const totalWin = (outcome.cascades ?? []).reduce((sum, c) => sum + Number(c.win ?? 0), 0)
+    const nextSpinId = spinCounterRef.current + 1
+    spinCounterRef.current = nextSpinId
+
+    try {
+      await commitSpinAccounting({
+        deviceId: deviceIdRef.current,
+        spinId: nextSpinId,
+        isFreeGame: false,
+        betAmount: cost,
+        totalWin,
+        freeSpinsAwarded: outcome.freeSpinsAwarded ?? 0,
+        cascades: outcome.cascades?.length ?? 0,
+        triggerType: 'buy',
+      })
+    } catch (error) {
+      console.error('[engine] buy spin accounting failed, skipping animation start', error)
+      setBalance(b => b + cost)
+      setSpinning(false)
+      return
+    }
+
     setScatterTriggerType('buy')
+    if (outcome.freeSpinsAwarded > 0) {
+      if (totalWin > 0) setFreeSpinTotal(totalWin)
+    } else if (totalWin > 0) {
+      setBalance(b => b + totalWin)
+    }
     setPendingCascades(outcome.cascades ?? [])
     setSpinId(v => v + 1)
 
@@ -302,19 +458,11 @@ export function useEngine() {
     if (loss > 0) {
       // const contribution = Math.floor(loss * 0.05)
     }
-  }
 
-  /* -----------------------------
-     Consume free spin (AFTER settle)
-  ----------------------------- */
-  function consumeFreeSpin() {
-    setFreeSpinsLeft(v => {
-      const next = Math.max(v - 1, -1)
-      if (next === -1) {
-        endFreeSpin()
-      }
-      return next
-    })
+    // End free game only after the last free spin has fully settled.
+    if (isFreeGameRef.current && freeSpinsLeftRef.current === 0) {
+      endFreeSpin()
+    }
   }
 
   const endFreeSpin = () => {
@@ -324,13 +472,14 @@ export function useEngine() {
       setShowScatterWinBanner(true)
 
       setTimeout(() => {
-        setBalance(balance + freeSpinTotal)
+        setBalance(v => v + freeSpinTotalRef.current)
         setFreeSpinTotal(0)
         setTotalWin(0)
 
         setShowScatterWinBanner(false)
         setScatterTriggerType('natural')
         setFreezeUI(false)
+        clearFreeSpinSnapshot()
       }, SCATTER_BANNER_DURATION)
     }, 600)
   }
@@ -370,7 +519,7 @@ export function useEngine() {
     debugInfo,
     buyFreeSpins,
     scatterTriggerType,
-    consumeFreeSpin,
+    startFreeSpins,
 
     freezeUI,
     sessionReady,

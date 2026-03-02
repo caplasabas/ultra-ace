@@ -17,6 +17,7 @@ export function useCabinetGames(deviceId: string | null) {
         type,
         enabled,
         version,
+        package_url,
         emulator_core,
         cabinet_games (
           installed,
@@ -38,6 +39,7 @@ export function useCabinetGames(deviceId: string | null) {
           type: g.type,
           enabled: g.enabled,
           version: g.version,
+          package_url: g.package_url,
           installed: cabinetRow?.installed ?? false,
         }
       }) ?? []

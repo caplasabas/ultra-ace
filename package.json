@@ -13,7 +13,11 @@
     "engine:simulate": "npm --workspace packages/engine run simulate",
     "build:engine": "npm run build --workspace=@ultra-ace/engine",
     "build:web": "npm run build --workspace=ultra-ace-web",
-    "build": "npm run build:engine && npm run build:web"
+    "build": "npm run build:engine && npm run build:web",
+    "package:game": "bash scripts/package.sh",
+    "deploy:local": "bash scripts/deploy-local.sh",
+    "package:encrypted": "bash scripts/package-encrypted.sh",
+    "publish:supabase": "node scripts/publish-supabase.mjs"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.49.0",

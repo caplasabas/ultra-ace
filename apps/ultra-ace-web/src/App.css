@@ -3922,3 +3922,17 @@ button:focus-visible {
     width: 140px;
 }
 
+.game-version-tag {
+    position: absolute;
+    right: 12px;
+    bottom: 8px;
+    z-index: 1200;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.72);
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 3px 6px;
+    pointer-events: none;
+}
