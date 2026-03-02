@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase.ts'
 export function DeviceModal({ device, onClose }: { device: any; onClose: () => void }) {
   const cabinetGames = useCabinetGames(device.device_id)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [overrideBusy, setOverrideBusy] = useState(false)
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
   const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
@@ -16,8 +17,15 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
     asNumber(device.bet_total) > 0 ? (deviceHouseWin / asNumber(device.bet_total)) * 100 : 0
   const hopperAlertThreshold = asNumber((device as any)?.hopper_alert_threshold ?? 500)
   const hopperLow = asNumber(device.hopper_balance) <= hopperAlertThreshold
-  const [overrideBalance, setOverrideBalance] = useState(String(Math.max(0, asNumber(device.balance))))
-  const [overrideHopper, setOverrideHopper] = useState(String(Math.max(0, asNumber(device.hopper_balance))))
+  const [balanceAmount, setBalanceAmount] = useState('0')
+  const [balanceKind, setBalanceKind] = useState<'debit' | 'credit'>('credit')
+  const [balanceAccountName, setBalanceAccountName] = useState('Manual Accounting Override')
+  const [balanceNotes, setBalanceNotes] = useState('')
+
+  const [hopperAmount, setHopperAmount] = useState('0')
+  const [hopperKind, setHopperKind] = useState<'debit' | 'credit'>('credit')
+  const [hopperAccountName, setHopperAccountName] = useState('Manual Hopper Override')
+  const [hopperNotes, setHopperNotes] = useState('')
 
   useEffect(() => {
     if (!errorMessage) return
@@ -26,22 +34,45 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
   }, [errorMessage])
 
   useEffect(() => {
-    setOverrideBalance(String(Math.max(0, asNumber(device.balance))))
-    setOverrideHopper(String(Math.max(0, asNumber(device.hopper_balance))))
+    setBalanceAmount('0')
+    setHopperAmount('0')
   }, [device.device_id, device.balance, device.hopper_balance])
 
-  async function applyBalanceOverride() {
-    const nextValue = Math.max(0, Number(overrideBalance || 0))
-    if (!Number.isFinite(nextValue)) {
-      setErrorMessage('Invalid balance override value')
+  useEffect(() => {
+    if (!successMessage) return
+    const t = setTimeout(() => setSuccessMessage(null), 4000)
+    return () => clearTimeout(t)
+  }, [successMessage])
+
+  async function postOverrideEntry(params: {
+    target: 'accounting_balance' | 'hopper_balance'
+    entryKind: 'debit' | 'credit'
+    amountText: string
+    accountName: string
+    notes: string
+  }) {
+    const amount = Math.max(0, Number(params.amountText || 0))
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setErrorMessage('Amount must be greater than 0')
+      return
+    }
+    if (!params.accountName.trim()) {
+      setErrorMessage('Account name is required')
       return
     }
 
     setOverrideBusy(true)
-    const { error } = await supabase
-      .from('devices')
-      .update({ balance: nextValue, updated_at: new Date().toISOString() })
-      .eq('device_id', device.device_id)
+    const { data, error } = await supabase.rpc('post_device_admin_ledger_entry', {
+      p_device_id: device.device_id,
+      p_target: params.target,
+      p_entry_kind: params.entryKind,
+      p_amount: amount,
+      p_account_name: params.accountName.trim(),
+      p_notes: params.notes.trim() || null,
+      p_metadata: {
+        source: 'dashboard_device_modal',
+      },
+    })
     setOverrideBusy(false)
 
     if (error) {
@@ -49,29 +80,14 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
       return
     }
 
+    const before = Number((data as any)?.before ?? 0)
+    const after = Number((data as any)?.after ?? 0)
+    const applied = Number((data as any)?.amount ?? amount)
+    setSuccessMessage(
+      `${params.target === 'accounting_balance' ? 'Balance' : 'Hopper'} ${params.entryKind.toUpperCase()} ${formatCurrency(applied)} • ${formatCurrency(before)} -> ${formatCurrency(after)}`,
+    )
     setErrorMessage(null)
-  }
-
-  async function applyHopperOverride() {
-    const nextValue = Math.max(0, Number(overrideHopper || 0))
-    if (!Number.isFinite(nextValue)) {
-      setErrorMessage('Invalid hopper override value')
-      return
-    }
-
-    setOverrideBusy(true)
-    const { error } = await supabase
-      .from('devices')
-      .update({ hopper_balance: nextValue, updated_at: new Date().toISOString() })
-      .eq('device_id', device.device_id)
-    setOverrideBusy(false)
-
-    if (error) {
-      setErrorMessage(error.message)
-      return
-    }
-
-    setErrorMessage(null)
+    return true
   }
 
   return (
@@ -167,49 +183,112 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
               <h4 className="text-sm font-semibold mb-2">Manual Overrides (Demo)</h4>
               <div className="grid md:grid-cols-2 grid-cols-1 gap-3 mb-4">
                 <div className="rounded border border-slate-700 bg-slate-950/70 p-3">
-                  <div className="text-xs text-slate-400 mb-2">Accounting Balance Override</div>
-                  <div className="flex gap-2">
+                  <div className="text-xs text-slate-400 mb-2">Accounting Balance Ledger Entry</div>
+                  <div className="grid grid-cols-3 gap-2 mb-2">
+                    <select
+                      className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm"
+                      value={balanceKind}
+                      onChange={e => setBalanceKind(e.target.value as 'debit' | 'credit')}
+                    >
+                      <option value="credit">Credit</option>
+                      <option value="debit">Debit</option>
+                    </select>
                     <input
-                      className="flex-1 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm"
+                      className="col-span-2 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm"
                       type="number"
                       min={0}
                       step={1}
-                      value={overrideBalance}
-                      onChange={e => setOverrideBalance(e.target.value)}
+                      value={balanceAmount}
+                      onChange={e => setBalanceAmount(e.target.value)}
+                      placeholder="Amount"
                     />
-                    <button
-                      onClick={applyBalanceOverride}
-                      disabled={overrideBusy}
-                      className="px-3 py-1 rounded text-xs bg-blue-700/30 border border-blue-600 text-blue-300 disabled:opacity-50"
-                    >
-                      Set
-                    </button>
                   </div>
+                  <input
+                    className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs mb-2"
+                    value={balanceAccountName}
+                    onChange={e => setBalanceAccountName(e.target.value)}
+                    placeholder="Account name"
+                  />
+                  <input
+                    className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs mb-2"
+                    value={balanceNotes}
+                    onChange={e => setBalanceNotes(e.target.value)}
+                    placeholder="Notes"
+                  />
+                  <button
+                    onClick={() => {
+                      void postOverrideEntry({
+                        target: 'accounting_balance',
+                        entryKind: balanceKind,
+                        amountText: balanceAmount,
+                        accountName: balanceAccountName,
+                        notes: balanceNotes,
+                      })
+                    }}
+                    disabled={overrideBusy}
+                    className="w-full px-3 py-1 rounded text-xs bg-blue-700/30 border border-blue-600 text-blue-300 disabled:opacity-50"
+                  >
+                    Post Entry
+                  </button>
                 </div>
 
                 <div className="rounded border border-slate-700 bg-slate-950/70 p-3">
-                  <div className="text-xs text-slate-400 mb-2">Hopper Balance Override</div>
-                  <div className="flex gap-2">
+                  <div className="text-xs text-slate-400 mb-2">Hopper Balance Ledger Entry</div>
+                  <div className="grid grid-cols-3 gap-2 mb-2">
+                    <select
+                      className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm"
+                      value={hopperKind}
+                      onChange={e => setHopperKind(e.target.value as 'debit' | 'credit')}
+                    >
+                      <option value="credit">Credit</option>
+                      <option value="debit">Debit</option>
+                    </select>
                     <input
-                      className="flex-1 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm"
+                      className="col-span-2 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm"
                       type="number"
                       min={0}
                       step={1}
-                      value={overrideHopper}
-                      onChange={e => setOverrideHopper(e.target.value)}
+                      value={hopperAmount}
+                      onChange={e => setHopperAmount(e.target.value)}
+                      placeholder="Amount"
                     />
-                    <button
-                      onClick={applyHopperOverride}
-                      disabled={overrideBusy}
-                      className="px-3 py-1 rounded text-xs bg-amber-700/30 border border-amber-600 text-amber-300 disabled:opacity-50"
-                    >
-                      Set
-                    </button>
                   </div>
+                  <input
+                    className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs mb-2"
+                    value={hopperAccountName}
+                    onChange={e => setHopperAccountName(e.target.value)}
+                    placeholder="Account name"
+                  />
+                  <input
+                    className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs mb-2"
+                    value={hopperNotes}
+                    onChange={e => setHopperNotes(e.target.value)}
+                    placeholder="Notes"
+                  />
+                  <button
+                    onClick={() => {
+                      void postOverrideEntry({
+                        target: 'hopper_balance',
+                        entryKind: hopperKind,
+                        amountText: hopperAmount,
+                        accountName: hopperAccountName,
+                        notes: hopperNotes,
+                      })
+                    }}
+                    disabled={overrideBusy}
+                    className="w-full px-3 py-1 rounded text-xs bg-amber-700/30 border border-amber-600 text-amber-300 disabled:opacity-50"
+                  >
+                    Post Entry
+                  </button>
                 </div>
               </div>
 
               <h4 className="text-sm font-semibold mb-3">Games</h4>
+              {successMessage && (
+                <div className="p-2 mb-3 bg-green-900/30 border border-green-700 text-green-300 text-xs rounded">
+                  {successMessage}
+                </div>
+              )}
               {errorMessage && (
                 <div className="p-2 mb-3 bg-red-900/40 border border-red-700 text-red-300 text-xs rounded">
                   {errorMessage}

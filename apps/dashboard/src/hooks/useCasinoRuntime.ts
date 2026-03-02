@@ -90,10 +90,22 @@ export function useCasinoRuntime() {
     return { ok: true }
   }
 
+  async function demoReset(keepDeviceIds: string[]) {
+    const payload = (keepDeviceIds ?? []).map(v => v.trim()).filter(Boolean)
+    const { error } = await supabase.rpc('demo_reset_runtime_metrics', {
+      p_keep_device_ids: payload,
+    })
+    if (error) return { ok: false, error }
+
+    await fetchRuntime()
+    return { ok: true }
+  }
+
   return {
     runtime,
     profiles,
     updateRuntime,
     setHappyHour,
+    demoReset,
   }
 }

@@ -5,7 +5,7 @@ import { prepareGamePackage, purgeGamePackages, removeGamePackage } from '../lib
 
 export default function Settings() {
   const games = useGames()
-  const { runtime, profiles, updateRuntime, setHappyHour } = useCasinoRuntime()
+  const { runtime, profiles, updateRuntime, setHappyHour, demoReset } = useCasinoRuntime()
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -16,6 +16,8 @@ export default function Settings() {
   const [prizePoolBalance, setPrizePoolBalance] = useState('0')
   const [hopperAlertThreshold, setHopperAlertThreshold] = useState('500')
   const [autoHappy, setAutoHappy] = useState(true)
+  const [keepDeviceIdsText, setKeepDeviceIdsText] = useState('')
+  const [resetConfirm, setResetConfirm] = useState('')
 
   useEffect(() => {
     if (!runtime) return
@@ -74,6 +76,27 @@ export default function Settings() {
     } else {
       setErrorMessage(null)
     }
+  }
+
+  async function runDemoReset() {
+    if (resetConfirm !== 'RESET') {
+      setErrorMessage('Type RESET to confirm demo reset')
+      return
+    }
+
+    const keepDeviceIds = keepDeviceIdsText
+      .split(/[,\n]/)
+      .map(v => v.trim())
+      .filter(Boolean)
+
+    const result = await demoReset(keepDeviceIds)
+    if (!result.ok) {
+      setErrorMessage(result.error?.message ?? 'Failed to run demo reset')
+      return
+    }
+
+    setErrorMessage(null)
+    setResetConfirm('')
   }
 
   return (
@@ -299,6 +322,42 @@ export default function Settings() {
               </button>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-red-800/70 bg-red-950/20 p-4 space-y-4">
+        <h2 className="text-lg font-semibold text-red-300">Demo Reset</h2>
+        <p className="text-xs text-red-200/80">
+          Clears metrics/ledger history, removes non-kept devices, resets balances and runtime banks.
+        </p>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-red-200">Keep Device IDs (comma or newline separated)</span>
+          <textarea
+            className="bg-slate-950 border border-red-800/70 rounded px-3 py-2 min-h-[88px]"
+            value={keepDeviceIdsText}
+            onChange={e => setKeepDeviceIdsText(e.target.value)}
+            placeholder="8260caefe187dd89"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm max-w-xs">
+          <span className="text-red-200">Type RESET to confirm</span>
+          <input
+            className="bg-slate-950 border border-red-800/70 rounded px-3 py-2"
+            value={resetConfirm}
+            onChange={e => setResetConfirm(e.target.value)}
+            placeholder="RESET"
+          />
+        </label>
+
+        <div>
+          <button
+            onClick={runDemoReset}
+            className="px-4 py-2 rounded bg-red-700/30 border border-red-600 text-red-300"
+          >
+            Run Demo Reset
+          </button>
         </div>
       </section>
     </div>
