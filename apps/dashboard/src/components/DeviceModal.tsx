@@ -1,10 +1,12 @@
 import { toggleCabinetGame, useCabinetGames } from '../hooks/useCabinetGames.ts'
 import { useEffect, useState } from 'react'
 import { prepareGamePackage, removeGamePackage } from '../lib/arcadeAdmin.ts'
+import { supabase } from '../lib/supabase.ts'
 
 export function DeviceModal({ device, onClose }: { device: any; onClose: () => void }) {
   const cabinetGames = useCabinetGames(device.device_id)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [overrideBusy, setOverrideBusy] = useState(false)
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
   const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
   const deviceRtp =
@@ -14,12 +16,63 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
     asNumber(device.bet_total) > 0 ? (deviceHouseWin / asNumber(device.bet_total)) * 100 : 0
   const hopperAlertThreshold = asNumber((device as any)?.hopper_alert_threshold ?? 500)
   const hopperLow = asNumber(device.hopper_balance) <= hopperAlertThreshold
+  const [overrideBalance, setOverrideBalance] = useState(String(Math.max(0, asNumber(device.balance))))
+  const [overrideHopper, setOverrideHopper] = useState(String(Math.max(0, asNumber(device.hopper_balance))))
 
   useEffect(() => {
     if (!errorMessage) return
     const t = setTimeout(() => setErrorMessage(null), 4000)
     return () => clearTimeout(t)
   }, [errorMessage])
+
+  useEffect(() => {
+    setOverrideBalance(String(Math.max(0, asNumber(device.balance))))
+    setOverrideHopper(String(Math.max(0, asNumber(device.hopper_balance))))
+  }, [device.device_id, device.balance, device.hopper_balance])
+
+  async function applyBalanceOverride() {
+    const nextValue = Math.max(0, Number(overrideBalance || 0))
+    if (!Number.isFinite(nextValue)) {
+      setErrorMessage('Invalid balance override value')
+      return
+    }
+
+    setOverrideBusy(true)
+    const { error } = await supabase
+      .from('devices')
+      .update({ balance: nextValue, updated_at: new Date().toISOString() })
+      .eq('device_id', device.device_id)
+    setOverrideBusy(false)
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+
+    setErrorMessage(null)
+  }
+
+  async function applyHopperOverride() {
+    const nextValue = Math.max(0, Number(overrideHopper || 0))
+    if (!Number.isFinite(nextValue)) {
+      setErrorMessage('Invalid hopper override value')
+      return
+    }
+
+    setOverrideBusy(true)
+    const { error } = await supabase
+      .from('devices')
+      .update({ hopper_balance: nextValue, updated_at: new Date().toISOString() })
+      .eq('device_id', device.device_id)
+    setOverrideBusy(false)
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+
+    setErrorMessage(null)
+  }
 
   return (
     <div className="fixed inset-0   bg-black/85 z-50 overflow-y-auto">
@@ -111,6 +164,51 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
 
           <div className="flex flex-col overflow-hidden">
             <div className="px-4">
+              <h4 className="text-sm font-semibold mb-2">Manual Overrides (Demo)</h4>
+              <div className="grid md:grid-cols-2 grid-cols-1 gap-3 mb-4">
+                <div className="rounded border border-slate-700 bg-slate-950/70 p-3">
+                  <div className="text-xs text-slate-400 mb-2">Accounting Balance Override</div>
+                  <div className="flex gap-2">
+                    <input
+                      className="flex-1 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm"
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={overrideBalance}
+                      onChange={e => setOverrideBalance(e.target.value)}
+                    />
+                    <button
+                      onClick={applyBalanceOverride}
+                      disabled={overrideBusy}
+                      className="px-3 py-1 rounded text-xs bg-blue-700/30 border border-blue-600 text-blue-300 disabled:opacity-50"
+                    >
+                      Set
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded border border-slate-700 bg-slate-950/70 p-3">
+                  <div className="text-xs text-slate-400 mb-2">Hopper Balance Override</div>
+                  <div className="flex gap-2">
+                    <input
+                      className="flex-1 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm"
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={overrideHopper}
+                      onChange={e => setOverrideHopper(e.target.value)}
+                    />
+                    <button
+                      onClick={applyHopperOverride}
+                      disabled={overrideBusy}
+                      className="px-3 py-1 rounded text-xs bg-amber-700/30 border border-amber-600 text-amber-300 disabled:opacity-50"
+                    >
+                      Set
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <h4 className="text-sm font-semibold mb-3">Games</h4>
               {errorMessage && (
                 <div className="p-2 mb-3 bg-red-900/40 border border-red-700 text-red-300 text-xs rounded">

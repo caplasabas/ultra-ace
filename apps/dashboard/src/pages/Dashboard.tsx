@@ -96,12 +96,25 @@ export default function Dashboard() {
             </div>
 
             <div className="rounded-lg border border-emerald-700/40 bg-emerald-900/20 p-4">
-              <div className="text-xs text-emerald-300/80 mb-1">Mode / Prize Pool</div>
-              <div className="text-base font-bold text-emerald-300">
+              <div className="text-xs text-emerald-300/80 mb-1">Mode / Pools</div>
+              <div
+                className={`text-base font-bold ${
+                  runtime?.active_mode === 'HAPPY' ? 'text-amber-300' : 'text-emerald-300'
+                }`}
+              >
                 {runtime?.active_mode ?? 'BASE'}
               </div>
-              <div className="text-sm text-emerald-200/90 mt-1 font-mono">
+              <div className="text-xs text-emerald-200/90 mt-1">Accum Pool</div>
+              <div className="text-sm text-emerald-200/90 font-mono">
                 {formatCurrency(runtime?.prize_pool_balance)} / {formatCurrency(runtime?.prize_pool_goal)}
+              </div>
+              <div className="text-xs text-amber-200/90 mt-2">Happy Hour Bank (Live)</div>
+              <div
+                className={`font-mono font-extrabold ${
+                  runtime?.active_mode === 'HAPPY' ? 'text-lg text-amber-300 animate-pulse' : 'text-sm text-amber-200'
+                }`}
+              >
+                {formatCurrency(runtime?.happy_hour_prize_balance)}
               </div>
             </div>
 
