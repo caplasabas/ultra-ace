@@ -169,12 +169,19 @@ export default function Dashboard() {
                       <td className="px-4 py-2 text-right font-mono text-sky-300">
                         {formatCurrency(d.coins_in_total)}
                       </td>
-                      <td
-                        className={`px-4 py-2 text-right font-mono ${
-                          hopperLow ? 'text-red-300 animate-pulse' : 'text-amber-300'
-                        }`}
-                      >
-                        {formatCurrency(d.hopper_balance)}
+                      <td className="px-4 py-2 text-right font-mono">
+                        <div
+                          className={`inline-flex items-center gap-2 ${
+                            hopperLow ? 'text-red-300 animate-pulse font-extrabold text-base' : 'text-amber-300'
+                          }`}
+                        >
+                          {hopperLow && (
+                            <span className="rounded border-2 border-red-500 bg-red-950/80 px-2 py-0.5 text-[10px] font-black tracking-wide text-red-200">
+                              LOW HOPPER
+                            </span>
+                          )}
+                          <span>{formatCurrency(d.hopper_balance)}</span>
+                        </div>
                       </td>
                       <td className="px-4 py-2 text-right font-mono text-violet-300">
                         {formatCurrency(d.bet_total)}

@@ -52,10 +52,27 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
                 <div className="text-sm font-mono text-sky-300">{formatCurrency(device.coins_in_total)}</div>
               </div>
 
-              <div className="rounded border border-amber-700/40 bg-amber-900/20 px-2 py-1">
+              <div
+                className={`rounded border px-2 py-1 ${
+                  hopperLow ? 'border-red-500 bg-red-950/40' : 'border-amber-700/40 bg-amber-900/20'
+                }`}
+              >
                 <div className="text-[10px] text-amber-300/80">Hopper</div>
-                <div className={`text-sm font-mono ${hopperLow ? 'text-red-300 animate-pulse' : 'text-amber-300'}`}>
-                  {formatCurrency(device.hopper_balance)}
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  {hopperLow && (
+                    <span className="rounded border-2 border-red-500 bg-red-950/80 px-2 py-0.5 text-[10px] font-black tracking-wide text-red-200">
+                      LOW HOPPER
+                    </span>
+                  )}
+                  <div
+                    className={`font-mono ${
+                      hopperLow
+                        ? 'text-red-200 animate-pulse font-extrabold text-xl leading-none'
+                        : 'text-amber-300 text-sm'
+                    }`}
+                  >
+                    {formatCurrency(device.hopper_balance)}
+                  </div>
                 </div>
               </div>
 
