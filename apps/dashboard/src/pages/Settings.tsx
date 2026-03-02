@@ -94,10 +94,19 @@ export default function Settings() {
 
         <div className="text-sm text-slate-300">
           <span className="mr-3">
-            Current Mode: <strong>{runtime?.active_mode ?? 'BASE'}</strong>
+            Current Mode:{' '}
+            <strong className={runtime?.active_mode === 'HAPPY' ? 'text-amber-300' : 'text-sky-300'}>
+              {runtime?.active_mode ?? 'BASE'}
+            </strong>
           </span>
           <span className="mr-3">
-            Prize Pool: <strong>{formatCurrency(runtime?.prize_pool_balance)}</strong>
+            Pool (Accum): <strong>{formatCurrency(runtime?.prize_pool_balance)}</strong>
+          </span>
+          <span className="mr-3">
+            Happy Bank:{' '}
+            <strong className={runtime?.active_mode === 'HAPPY' ? 'text-amber-300' : ''}>
+              {formatCurrency(runtime?.happy_hour_prize_balance)}
+            </strong>
           </span>
           <span>
             Goal: <strong>{formatCurrency(runtime?.prize_pool_goal)}</strong>

@@ -23,6 +23,7 @@ export type CasinoRuntime = {
   manual_happy_enabled: boolean
   auto_happy_enabled: boolean
   prize_pool_balance: number
+  happy_hour_prize_balance: number
   prize_pool_goal: number
   hopper_alert_threshold: number
   updated_at: string
@@ -62,9 +63,13 @@ export function useCasinoRuntime() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rtp_profiles' }, fetchProfiles)
       .subscribe()
 
+    // Fallback polling to avoid stale runtime UI if realtime drops updates.
+    const poll = window.setInterval(fetchRuntime, 2000)
+
     return () => {
       void supabase.removeChannel(runtimeChannel)
       void supabase.removeChannel(profilesChannel)
+      window.clearInterval(poll)
     }
   }, [])
 

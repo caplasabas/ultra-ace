@@ -50,6 +50,7 @@ export function useEngine() {
   const deviceIdRef = useRef<string | null>(null)
 
   const [sessionReady, setSessionReady] = useState(false)
+  const [runtimeMode, setRuntimeMode] = useState<'BASE' | 'HAPPY'>('BASE')
 
   /* -----------------------------
      Core spin state
@@ -142,6 +143,7 @@ export function useEngine() {
         config: nextConfig,
         version: `runtime-${mode}-${Date.now()}`,
       })
+      setRuntimeMode(mode)
     }
 
     async function init() {
@@ -223,6 +225,21 @@ export function useEngine() {
     }
   }, [])
 
+  async function refreshRuntimeMode() {
+    try {
+      const runtime = await fetchCasinoRuntimeLive()
+      const mode = runtime.active_mode === 'HAPPY' ? 'HAPPY' : 'BASE'
+      const nextConfig = mode === 'HAPPY' ? DEFAULT_ENGINE_HAPPY_HOUR : DEFAULT_ENGINE_CONFIG
+      hotUpdateEngine({
+        config: nextConfig,
+        version: `runtime-pre-spin-${mode}-${Date.now()}`,
+      })
+      setRuntimeMode(mode)
+    } catch (err) {
+      console.error('[runtime] pre-spin refresh failed', err)
+    }
+  }
+
   useEffect(() => {
     deviceIdRef.current = deviceId
   }, [deviceId])
@@ -258,12 +275,6 @@ export function useEngine() {
     scatterTriggerType,
   ])
 
-  useEffect(() => {
-    if (!spinning && !isFreeGame && pendingFreeSpins > 0 && !showFreeSpinIntro) {
-      setShowFreeSpinIntro(true)
-    }
-  }, [spinning, isFreeGame, pendingFreeSpins, showFreeSpinIntro])
-
   function startFreeSpins() {
     if (isFreeGameRef.current) return false
     if (pendingFreeSpins <= 0) return false
@@ -289,6 +300,7 @@ export function useEngine() {
     if (isFreeGame && freeSpinsLeftRef.current <= 0) return
 
     setSpinning(true)
+    await refreshRuntimeMode()
 
     if (!isFreeGame) {
       setTotalWin(0)
@@ -383,6 +395,7 @@ export function useEngine() {
     setBalance(b => b - cost)
     setSpinning(true)
     setTotalWin(0)
+    await refreshRuntimeMode()
 
     const outcome: SpinOutcome = spin(rngRef.current, {
       betPerSpin: betAmount,
@@ -519,6 +532,7 @@ export function useEngine() {
     debugInfo,
     buyFreeSpins,
     scatterTriggerType,
+    runtimeMode,
     startFreeSpins,
 
     freezeUI,

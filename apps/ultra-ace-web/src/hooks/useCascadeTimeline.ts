@@ -165,13 +165,18 @@ export function useCascadeTimeline(
   const pauseOriginRef = useRef<number | null>(null)
 
   const lastCompletedSpinRef = useRef<number | null>(null)
+  const activeSpinRef = useRef<number | null>(null)
 
   const spinCompleted =
-    state.phase === 'idle' && spinId > 0 && lastCompletedSpinRef.current !== spinId
+    state.phase === 'idle' &&
+    spinId > 0 &&
+    activeSpinRef.current === spinId &&
+    lastCompletedSpinRef.current !== spinId
 
   useEffect(() => {
     if (spinCompleted) {
       lastCompletedSpinRef.current = spinId
+      activeSpinRef.current = null
     }
   }, [spinCompleted, spinId])
 
@@ -189,6 +194,7 @@ export function useCascadeTimeline(
   ----------------------------- */
   useEffect(() => {
     if (spinId === 0) return
+    activeSpinRef.current = spinId
     pauseLockedRef.current = false
     pauseOriginRef.current = null
     dispatch({ type: 'START', cascades })

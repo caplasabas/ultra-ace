@@ -131,6 +131,7 @@ export default function App() {
     pendingFreeSpins,
     buyFreeSpins,
     scatterTriggerType,
+    runtimeMode,
     startFreeSpins,
     showScatterWinBanner,
     freezeUI,
@@ -269,7 +270,9 @@ export default function App() {
   }
 
   const [showBuySpinModal, setShowBuySpinModal] = useState(false)
+  const [introCountdown, setIntroCountdown] = useState(10)
   const lastLoggedWinKeyRef = useRef<string>('')
+  const pendingIntroStartRef = useRef(false)
 
   const spinRef = useRef(spin)
   const setAutoSpinRef = useRef(setAutoSpin)
@@ -301,6 +304,7 @@ export default function App() {
     isScatterHighlight,
     initialRefillColumn,
     activePausedColumn,
+    spinCompleted,
   } = useCascadeTimeline(
     cascades,
     spinId,
@@ -453,10 +457,32 @@ export default function App() {
 
   const activeMultiplierIndex = getMultiplierIndex(cascadeIndex)
 
-  useEffect(() => {
-    if (phase !== 'idle') return
+  function triggerFreeSpinStart() {
+    if (!gameStateRef.current.showFreeSpinIntro) return
+    pendingIntroStartRef.current = true
+    setIsFreeSpinPreview(true)
+    const started = startFreeSpinsRef.current()
+    if (!started) {
+      pendingIntroStartRef.current = false
+    }
+  }
 
-    if (!isFreeGame && pendingFreeSpins > 0 && !showFreeSpinIntro) {
+  useEffect(() => {
+    // Normal flow: only show intro after this spin fully completes timeline.
+    if (!isFreeGame && spinCompleted && pendingFreeSpins > 0 && !showFreeSpinIntro) {
+      setShowFreeSpinIntro(true)
+      setIsFreeSpinPreview(false)
+      return
+    }
+
+    // Resume flow: restored state after refresh with pending free spins.
+    if (
+      !isFreeGame &&
+      spinId === 0 &&
+      !spinning &&
+      pendingFreeSpins > 0 &&
+      !showFreeSpinIntro
+    ) {
       setShowFreeSpinIntro(true)
       setIsFreeSpinPreview(false)
       return
@@ -465,20 +491,45 @@ export default function App() {
     if (!isFreeGame && pendingFreeSpins <= 0 && !showFreeSpinIntro) {
       setIsFreeSpinPreview(false)
     }
-  }, [phase, isFreeGame, pendingFreeSpins, showFreeSpinIntro, setShowFreeSpinIntro])
+  }, [
+    spinCompleted,
+    spinId,
+    spinning,
+    isFreeGame,
+    pendingFreeSpins,
+    showFreeSpinIntro,
+    setShowFreeSpinIntro,
+  ])
 
   useEffect(() => {
     if (!showFreeSpinIntro) return
 
     const timer = window.setTimeout(() => {
-      setIsFreeSpinPreview(true)
-      if (gameStateRef.current.showFreeSpinIntro) {
-        startFreeSpinsRef.current()
-      }
+      triggerFreeSpinStart()
     }, 10_000)
 
     return () => clearTimeout(timer)
   }, [showFreeSpinIntro])
+
+  useEffect(() => {
+    if (!showFreeSpinIntro) return
+    setIntroCountdown(10)
+
+    const countdownTimer = window.setInterval(() => {
+      setIntroCountdown(prev => Math.max(0, prev - 1))
+    }, 1000)
+
+    return () => clearInterval(countdownTimer)
+  }, [showFreeSpinIntro])
+
+  useEffect(() => {
+    if (!pendingIntroStartRef.current) return
+    if (showFreeSpinIntro) return
+    if (!isFreeGame || !isIdle || spinning || freeSpinsLeft <= 0) return
+
+    pendingIntroStartRef.current = false
+    spinRef.current()
+  }, [showFreeSpinIntro, isFreeGame, isIdle, spinning, freeSpinsLeft])
 
   useEffect(() => {
     gameStateRef.current = {
@@ -583,8 +634,7 @@ export default function App() {
       switch (payload.action) {
         case 'SPIN': {
           if (s.showFreeSpinIntro) {
-            setIsFreeSpinPreview(true)
-            startFreeSpinsRef.current()
+            triggerFreeSpinStart()
             return
           }
 
@@ -729,7 +779,7 @@ export default function App() {
   if (!sessionReady) return null
   return (
     <div className="viewport">
-      <div className="game-root">
+      <div className={`game-root mode-${runtimeMode.toLowerCase()}`}>
         <div className="game-frame">
           <div className="frame-bg">
             <div className={`bg-inner ${isFreeGame || isFreeSpinPreview ? 'free-spin' : ''}`}>
@@ -740,7 +790,11 @@ export default function App() {
 
           <div className="game-content">
             <div className={`banner-layer intro ${showFreeSpinIntro ? 'visible' : ''}`}>
-              <FreeSpinIntro spins={pendingFreeSpins || 0} />
+              <FreeSpinIntro
+                spins={pendingFreeSpins || 0}
+                countdown={introCountdown}
+                onStart={triggerFreeSpinStart}
+              />
             </div>
 
             <div className={`banner-layer win ${showScatterWinBanner ? 'visible' : ''}`}>
@@ -1004,8 +1058,7 @@ export default function App() {
                       }
                       onClick={() => {
                         if (showFreeSpinIntro) {
-                          setIsFreeSpinPreview(true)
-                          startFreeSpins()
+                          triggerFreeSpinStart()
                           return
                         }
 
