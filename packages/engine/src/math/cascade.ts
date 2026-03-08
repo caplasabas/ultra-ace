@@ -10,11 +10,20 @@ import {
 } from '../config/wild.config.js'
 import { EngineConfig } from '../runtime/engineConfig.js'
 
+const HAPPY_GOLD_ELIGIBLE = new Set<SymbolKind>(['A', 'K', 'Q', 'J'])
+
+function isGoldEligible(kind: SymbolKind, isHappyHour: boolean): boolean {
+  if (kind === 'SCATTER') return false
+  if (!isHappyHour) return true
+  return HAPPY_GOLD_ELIGIBLE.has(kind)
+}
+
 export function runCascades(
   cfg: EngineConfig,
   initialWindow: Symbol[][],
   totalBet: number,
   isFreeGame: boolean,
+  freeSpinSource: 'natural' | 'buy',
   rng: () => number,
 ) {
   const window = cloneWindow(initialWindow)
@@ -91,7 +100,7 @@ export function runCascades(
 
     const winningSymbolMap = buildWinningSymbolMap(wins)
 
-    refillInPlace(cfg, window, rng, isFreeGame, winningSymbolMap)
+    refillInPlace(cfg, window, rng, isFreeGame, freeSpinSource, winningSymbolMap)
 
     cascades.push({
       index: i,
@@ -156,6 +165,7 @@ function refillInPlace(
   window: Symbol[][],
   rng: () => number,
   isFreeGame: boolean,
+  freeSpinSource: 'natural' | 'buy',
   winningSymbolMap: Map<SymbolKind, number>,
 ) {
   for (let r = 0; r < window.length; r++) {
@@ -199,10 +209,13 @@ function refillInPlace(
       } while (attempts < 20)
 
       const goldAllowed = r !== 0 && r !== window.length - 1
-      const goldChance =
-        isFreeGame || cfg.mode === 'HAPPY_HOUR' ? cfg.gold.freeRefillChance : cfg.gold.refillChance
+      const baseFreeRefillChance =
+        freeSpinSource === 'natural'
+          ? cfg.gold.freeRefillChance * cfg.gold.naturalFreeRefillBoost
+          : cfg.gold.freeRefillChance
+      const goldChance = isFreeGame || cfg.mode === 'HAPPY_HOUR' ? baseFreeRefillChance : cfg.gold.refillChance
 
-      if (goldAllowed && symbol.kind !== 'SCATTER' && rng() < goldChance) {
+      if (goldAllowed && isGoldEligible(symbol.kind, cfg.mode === 'HAPPY_HOUR') && rng() < goldChance) {
         symbol.isGold = true
         symbol.goldTTL = cfg.gold.ttl
       }

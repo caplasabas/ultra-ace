@@ -1,10 +1,9 @@
 interface Props {
   spins: number
   countdown: number
-  onStart: () => void
 }
 
-export function FreeSpinIntro({ spins, countdown, onStart }: Props) {
+export function FreeSpinIntro({ spins, countdown }: Props) {
   return (
     <div className="scatter-intro">
       <div className="scatter-bg" />
@@ -25,10 +24,7 @@ export function FreeSpinIntro({ spins, countdown, onStart }: Props) {
         </div>
 
         <div className="scatter-intro-actions">
-          <button className="scatter-start-btn" onClick={onStart}>
-            START FREE SPINS
-          </button>
-          <div className="scatter-start-countdown">Auto start in {countdown}s</div>
+          <div className="scatter-start-countdown">Press SPIN or auto start in {countdown}s</div>
         </div>
       </div>
     </div>

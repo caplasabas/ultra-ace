@@ -5,6 +5,7 @@ export interface SpinInput {
   lines: number
   isFreeGame?: boolean
   forceScatter?: boolean
+  freeSpinSource?: 'natural' | 'buy'
 }
 
 export interface SpinOutcome {

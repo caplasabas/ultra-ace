@@ -14,6 +14,20 @@ export type DeviceRow = {
   spins_total?: number | null
   prize_pool_contrib_total?: number | null
   prize_pool_paid_total?: number | null
+  current_game_id?: string | null
+  current_game_name?: string | null
+  device_status?: 'idle' | 'playing' | 'offline' | null
+  active_session_id?: number | null
+  session_started_at?: string | null
+  session_last_heartbeat?: string | null
+  session_ended_at?: string | null
+  runtime_mode?: 'BASE' | 'HAPPY' | null
+  is_free_game?: boolean | null
+  free_spins_left?: number | null
+  pending_free_spins?: number | null
+  show_free_spin_intro?: boolean | null
+  current_spin_id?: number | null
+  session_metadata?: Record<string, any> | null
   updated_at?: string | null
 }
 

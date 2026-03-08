@@ -253,6 +253,7 @@ export function useCascadeTimeline(
     // ---------------------------------
     const cardsPerColumn = activeCascade?.window?.[0]?.length ?? 4
     const columnDuration = cardsPerColumn * PAUSED_INITIAL_ROW_DROP_DELAY
+    const columnStep = columnDuration * 0.6
 
     for (let col = pauseOrigin + 1; col < TOTAL_REELS; col++) {
       const offset = col - (pauseOrigin + 1)
@@ -262,15 +263,18 @@ export function useCascadeTimeline(
           () => {
             dispatch({ type: 'SET_ACTIVE_PAUSED_COLUMN', column: col })
           },
-          scaled(INITIAL_REFILL_PAUSE_MS + offset * columnDuration),
+          scaled(INITIAL_REFILL_PAUSE_MS + offset * columnStep),
         ),
       )
     }
     const hasScatterWin =
       activeCascade?.window?.flat().filter(s => s.kind === 'SCATTER').length >= 3
 
+    const pausedColumns = TOTAL_REELS - (pauseOrigin + 1)
     const totalDuration =
-      INITIAL_REFILL_PAUSE_MS + (TOTAL_REELS - (pauseOrigin + 1)) * columnDuration
+      INITIAL_REFILL_PAUSE_MS +
+      Math.max(0, pausedColumns - 1) * columnStep +
+      columnDuration
 
     timers.push(
       window.setTimeout(() => {

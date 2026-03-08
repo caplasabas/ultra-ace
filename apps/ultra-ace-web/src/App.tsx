@@ -20,6 +20,7 @@ import { installMetricFlushHooks } from './lib/metrics'
 
 const DEV = import.meta.env.DEV
 const GAME_BUILD_VERSION = import.meta.env.VITE_GAME_VERSION || 'dev'
+const FREE_SPIN_PRESTART_DELAY_MS = 1500
 
 const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kind }))
 //
@@ -133,6 +134,7 @@ export default function App() {
     scatterTriggerType,
     runtimeMode,
     startFreeSpins,
+    settleSpinVisuals,
     showScatterWinBanner,
     freezeUI,
     sessionReady,
@@ -438,15 +440,10 @@ export default function App() {
     lastLoggedWinKeyRef.current = winKey
 
     commitWin(activeCascade.win)
-  }, [
-    phase,
-    activeCascade,
-    spinId,
-    cascadeIndex,
-  ])
+  }, [phase, activeCascade, spinId, cascadeIndex])
 
   const BASE_MULTIPLIERS = [1, 2, 3, 5]
-  const FREE_MULTIPLIERS = [2, 4, 6, 10]
+  const FREE_MULTIPLIERS = [1, 2, 4, 6, 10]
 
   const ladder = isFreeGame || isFreeSpinPreview ? FREE_MULTIPLIERS : BASE_MULTIPLIERS
 
@@ -460,12 +457,19 @@ export default function App() {
   function triggerFreeSpinStart() {
     if (!gameStateRef.current.showFreeSpinIntro) return
     pendingIntroStartRef.current = true
-    setIsFreeSpinPreview(true)
     const started = startFreeSpinsRef.current()
-    if (!started) {
+    if (started) {
+      // Show initial free-spin state briefly before first spin starts.
+      setIsFreeSpinPreview(true)
+    } else {
       pendingIntroStartRef.current = false
     }
   }
+
+  useEffect(() => {
+    if (!spinCompleted) return
+    settleSpinVisuals()
+  }, [spinCompleted, settleSpinVisuals])
 
   useEffect(() => {
     // Normal flow: only show intro after this spin fully completes timeline.
@@ -476,13 +480,7 @@ export default function App() {
     }
 
     // Resume flow: restored state after refresh with pending free spins.
-    if (
-      !isFreeGame &&
-      spinId === 0 &&
-      !spinning &&
-      pendingFreeSpins > 0 &&
-      !showFreeSpinIntro
-    ) {
+    if (!isFreeGame && spinId === 0 && !spinning && pendingFreeSpins > 0 && !showFreeSpinIntro) {
       setShowFreeSpinIntro(true)
       setIsFreeSpinPreview(false)
       return
@@ -527,8 +525,13 @@ export default function App() {
     if (showFreeSpinIntro) return
     if (!isFreeGame || !isIdle || spinning || freeSpinsLeft <= 0) return
 
-    pendingIntroStartRef.current = false
-    spinRef.current()
+    const t = window.setTimeout(() => {
+      pendingIntroStartRef.current = false
+      setIsFreeSpinPreview(false)
+      spinRef.current()
+    }, FREE_SPIN_PRESTART_DELAY_MS)
+
+    return () => clearTimeout(t)
   }, [showFreeSpinIntro, isFreeGame, isIdle, spinning, freeSpinsLeft])
 
   useEffect(() => {
@@ -790,11 +793,7 @@ export default function App() {
 
           <div className="game-content">
             <div className={`banner-layer intro ${showFreeSpinIntro ? 'visible' : ''}`}>
-              <FreeSpinIntro
-                spins={pendingFreeSpins || 0}
-                countdown={introCountdown}
-                onStart={triggerFreeSpinStart}
-              />
+              <FreeSpinIntro spins={pendingFreeSpins || 0} countdown={introCountdown} />
             </div>
 
             <div className={`banner-layer win ${showScatterWinBanner ? 'visible' : ''}`}>
@@ -1049,34 +1048,9 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className={`controls-center ${showFreeSpinIntro && 'center'}`}>
-                    <button
-                      className={`spin-btn spin ${(isReady && !autoSpin) || (!autoSpin && !isFreeGame) || showFreeSpinIntro ? 'spin-image active' : 'stop-image'}`}
-                      disabled={
-                        !isReady ||
-                        (!showFreeSpinIntro && !isFreeGame && (balance === 0 || balance < bet))
-                      }
-                      onClick={() => {
-                        if (showFreeSpinIntro) {
-                          triggerFreeSpinStart()
-                          return
-                        }
-
-                        spin()
-                      }}
-                      aria-label="Spin"
-                    />
-                  </div>
+                  <div className={`controls-center ${showFreeSpinIntro && 'center'}`}></div>
 
                   <div className={`controls-right ${showFreeSpinIntro && 'hidden'}`}>
-                    <button
-                      className={`spin-btn auto spin-auto-image ${autoSpin ? 'active' : ''}`}
-                      disabled={
-                        isFreeGame || balance === 0 || balance < bet || pauseColumn !== null
-                      }
-                      onClick={() => setAutoSpin(!autoSpin)}
-                    />
-
                     <button
                       className={`spin-btn turbo spin-turbo-image ${turboMultiplier > 1 ? 'active' : ''} ${turboStage === 1 ? 'turbo-1' : ''} ${turboStage === 2 ? 'turbo-2' : ''}  ${turboStage === 3 ? 'turbo-3' : ''}`}
                       disabled={balance === 0 || balance < bet || pauseColumn !== null}
@@ -1088,9 +1062,30 @@ export default function App() {
                         })
                       }}
                     />
-
-                    <button className={`spin-btn settings`} />
+                    <button
+                      className={`spin-btn auto spin-auto-image ${autoSpin ? 'active' : ''}`}
+                      disabled={
+                        isFreeGame || balance === 0 || balance < bet || pauseColumn !== null
+                      }
+                      onClick={() => setAutoSpin(!autoSpin)}
+                    />
                   </div>
+                  <button
+                    className={`spin-btn spin ${((isReady && !autoSpin) || (!autoSpin && !isFreeGame) || showFreeSpinIntro) && isReady ? 'spin-image active' : 'stop-image'}`}
+                    disabled={
+                      !isReady ||
+                      (!showFreeSpinIntro && !isFreeGame && (balance === 0 || balance < bet))
+                    }
+                    onClick={() => {
+                      if (showFreeSpinIntro) {
+                        triggerFreeSpinStart()
+                        return
+                      }
+
+                      spin()
+                    }}
+                    aria-label="Spin"
+                  />
                 </div>
                 <div className={`bottom-info ${showFreeSpinIntro && 'hidden'}`}>
                   <div className="bottom-info-left">
@@ -1112,11 +1107,11 @@ export default function App() {
                   <div className="bottom-info-right" />
                 </div>
 
-                <div className={`device-info ${showFreeSpinIntro && 'hidden'}`}>
-                  <label className="device-label">
-                    Device: <span>{deviceId}</span>
-                  </label>
-                </div>
+                {/*<div className={`device-info ${showFreeSpinIntro && 'hidden'}`}>*/}
+                {/*  <label className="device-label">*/}
+                {/*    Device: <span>{deviceId}</span>*/}
+                {/*  </label>*/}
+                {/*</div>*/}
               </div>
             </div>
           </div>

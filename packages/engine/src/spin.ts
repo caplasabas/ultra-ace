@@ -2,18 +2,27 @@ import { PRNG } from './rng.js'
 import { runCascades } from './math/cascade.js'
 import { SpinInput, SpinOutcome } from './types/spin.js'
 import { Symbol } from './types/symbol.js'
+import { SymbolKind } from './types/symbol.js'
 import { getEngineConfig, getEngineVersion, getReels } from './runtime/engineContext.js'
 
 const FORBIDDEN_GOLD_REELS = new Set([0])
+const HAPPY_GOLD_ELIGIBLE = new Set<SymbolKind>(['A', 'K', 'Q', 'J'])
 
 function cloneSymbol(s: Symbol): Symbol {
   return { ...s }
+}
+
+function isGoldEligible(kind: SymbolKind, isHappyHour: boolean): boolean {
+  if (kind === 'SCATTER') return false
+  if (!isHappyHour) return true
+  return HAPPY_GOLD_ELIGIBLE.has(kind)
 }
 
 export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
   const cfg = getEngineConfig()
 
   const isFreeGame = Boolean(input.isFreeGame)
+  const freeSpinSource: 'natural' | 'buy' = input.freeSpinSource ?? 'natural'
   const totalBet = isFreeGame ? 0 : input.betPerSpin
 
   const { base, free } = getReels(cfg, getEngineVersion() ?? 'V1', rng)
@@ -40,18 +49,43 @@ export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
   ---------------------------------------- */
   for (let reelIndex = 0; reelIndex < window.length; reelIndex++) {
     for (const symbol of window[reelIndex]) {
-      const goldChance = input.isFreeGame ? cfg.gold.freeInitialChance : cfg.gold.initialChance
+      const freeInitialGoldChance =
+        freeSpinSource === 'natural'
+          ? cfg.gold.freeInitialChance * cfg.gold.naturalFreeInitialBoost
+          : cfg.gold.freeInitialChance
+      const goldChance = input.isFreeGame ? freeInitialGoldChance : cfg.gold.initialChance
 
-      if (!FORBIDDEN_GOLD_REELS.has(reelIndex) && symbol.kind !== 'SCATTER' && rng() < goldChance) {
+      if (
+        !FORBIDDEN_GOLD_REELS.has(reelIndex) &&
+        isGoldEligible(symbol.kind, cfg.mode === 'HAPPY_HOUR') &&
+        rng() < goldChance
+      ) {
         symbol.isGold = true
         symbol.goldTTL = cfg.gold.ttl
       }
     }
   }
 
+  // Happy Hour: reduce "fake tease" feel by converting some 1/2-scatter starts into 3+ triggers.
+  if (!isFreeGame && cfg.mode === 'HAPPY_HOUR') {
+    const rawScatterCount = window.flat().filter(s => s.kind === 'SCATTER').length
+    if (rawScatterCount === 1 && rng() < cfg.scatter.teaseUpgradeChanceFrom1) {
+      forceThreeScatters(window, rng)
+    } else if (rawScatterCount === 2 && rng() < cfg.scatter.teaseUpgradeChanceFrom2) {
+      forceThreeScatters(window, rng)
+    }
+  }
+
   const scatterCount = window.flat().filter(s => s.kind === 'SCATTER').length
 
-  const { totalWin, cascades } = runCascades(cfg, window, input.betPerSpin, isFreeGame, rng)
+  const { totalWin, cascades } = runCascades(
+    cfg,
+    window,
+    input.betPerSpin,
+    isFreeGame,
+    freeSpinSource,
+    rng,
+  )
 
   let freeSpinsAwarded = !isFreeGame && scatterCount >= 3 ? cfg.scatter.baseAward : 0
 

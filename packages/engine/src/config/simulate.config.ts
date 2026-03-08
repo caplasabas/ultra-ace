@@ -1,8 +1,12 @@
-import { DEFAULT_ENGINE_CONFIG, type EngineConfig } from '../runtime/engineConfig.js'
+import {
+  DEFAULT_ENGINE_CONFIG,
+  DEFAULT_ENGINE_HAPPY_HOUR,
+  type EngineConfig,
+} from '../runtime/engineConfig.js'
 
 export const SIMULATION_CONFIG = {
-  // spins: 1_000_000,
-  spins: 100_000,
+  spins: 1_000_000,
+  // spins: 100_000,
   betPerSpin: 60,
   lines: 5,
   // seed: 'ultra-ace-test',
@@ -31,24 +35,7 @@ export const SIM_ENGINE_CONFIG: EngineConfig = {
 }
 
 export const SIM_ENGINE_CONFIG_HAPPY_HOUR: EngineConfig = {
-  ...DEFAULT_ENGINE_CONFIG,
+  ...DEFAULT_ENGINE_HAPPY_HOUR,
 
   mode: 'HAPPY_HOUR',
-
-  rtpProfile: {
-    baseTarget: 1.8,
-    freeTarget: 1.9,
-  },
-
-  gold: {
-    ...DEFAULT_ENGINE_CONFIG.gold,
-    initialChance: 0.02,
-    refillChance: 0.08,
-    freeInitialChance: 0.12,
-    freeRefillChance: 0.48,
-  },
-
-  cascades: {
-    ...DEFAULT_ENGINE_CONFIG.cascades,
-  },
 }

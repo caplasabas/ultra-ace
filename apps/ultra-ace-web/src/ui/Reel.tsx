@@ -350,5 +350,8 @@ export const Reel = memo(
     a.phase === b.phase &&
     a.layer === b.layer &&
     a.winningPositions === b.winningPositions &&
-    a.initialRefillColumn === b.initialRefillColumn,
+    a.initialRefillColumn === b.initialRefillColumn &&
+    a.activePausedColumn === b.activePausedColumn &&
+    a.turboMultiplier === b.turboMultiplier &&
+    a.isScatterHighlight === b.isScatterHighlight,
 )

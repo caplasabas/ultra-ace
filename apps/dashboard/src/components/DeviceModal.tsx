@@ -103,6 +103,12 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
                 <h3 className="text-base md:text-lg font-semibold">
                   Device: {device.device_id ?? 'Unnamed Device'}
                 </h3>
+                <div className="mt-1 text-xs text-slate-400">
+                  Status: {(device.device_status ?? 'idle').toUpperCase()} • Game:{' '}
+                  {device.current_game_name ?? device.current_game_id ?? '—'} • Mode:{' '}
+                  {device.runtime_mode ?? 'BASE'}
+                  {device.is_free_game ? ` • Free Spins Left: ${asNumber(device.free_spins_left)}` : ''}
+                </div>
               </div>
 
               <div className="text-base md:text-lg font-mono font-bold text-green-400">
