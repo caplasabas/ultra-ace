@@ -9,6 +9,7 @@ export default function Settings() {
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [isRuntimeFormDirty, setIsRuntimeFormDirty] = useState(false)
 
   const [baseProfileId, setBaseProfileId] = useState('')
   const [happyProfileId, setHappyProfileId] = useState('')
@@ -19,16 +20,21 @@ export default function Settings() {
   const [keepDeviceIdsText, setKeepDeviceIdsText] = useState('')
   const [resetConfirm, setResetConfirm] = useState('')
 
-  useEffect(() => {
+  function applyRuntimeToForm() {
     if (!runtime) return
-
     setBaseProfileId(runtime.base_profile_id)
     setHappyProfileId(runtime.happy_profile_id)
     setPrizePoolGoal(String(runtime.prize_pool_goal ?? 0))
     setPrizePoolBalance(String(runtime.prize_pool_balance ?? 0))
     setHopperAlertThreshold(String(runtime.hopper_alert_threshold ?? 500))
     setAutoHappy(Boolean(runtime.auto_happy_enabled))
-  }, [runtime])
+  }
+
+  useEffect(() => {
+    if (!runtime) return
+    if (isRuntimeFormDirty) return
+    applyRuntimeToForm()
+  }, [runtime, isRuntimeFormDirty])
 
   useEffect(() => {
     if (!errorMessage) return
@@ -58,7 +64,10 @@ export default function Settings() {
 
     if (!result.ok) {
       setErrorMessage(result.error?.message ?? 'Failed to save settings')
+      return
     }
+
+    setIsRuntimeFormDirty(false)
   }
 
   async function toggleHappyHour(enable: boolean) {
@@ -168,7 +177,10 @@ export default function Settings() {
             <select
               className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
               value={baseProfileId}
-              onChange={e => setBaseProfileId(e.target.value)}
+              onChange={e => {
+                setIsRuntimeFormDirty(true)
+                setBaseProfileId(e.target.value)
+              }}
             >
               {baseProfiles.map(p => (
                 <option key={p.id} value={p.id}>
@@ -183,7 +195,10 @@ export default function Settings() {
             <select
               className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
               value={happyProfileId}
-              onChange={e => setHappyProfileId(e.target.value)}
+              onChange={e => {
+                setIsRuntimeFormDirty(true)
+                setHappyProfileId(e.target.value)
+              }}
             >
               {happyProfiles.map(p => (
                 <option key={p.id} value={p.id}>
@@ -200,7 +215,10 @@ export default function Settings() {
               type="number"
               min={0}
               value={prizePoolGoal}
-              onChange={e => setPrizePoolGoal(e.target.value)}
+              onChange={e => {
+                setIsRuntimeFormDirty(true)
+                setPrizePoolGoal(e.target.value)
+              }}
             />
           </label>
 
@@ -211,7 +229,10 @@ export default function Settings() {
               type="number"
               min={0}
               value={prizePoolBalance}
-              onChange={e => setPrizePoolBalance(e.target.value)}
+              onChange={e => {
+                setIsRuntimeFormDirty(true)
+                setPrizePoolBalance(e.target.value)
+              }}
             />
           </label>
 
@@ -222,7 +243,10 @@ export default function Settings() {
               type="number"
               min={0}
               value={hopperAlertThreshold}
-              onChange={e => setHopperAlertThreshold(e.target.value)}
+              onChange={e => {
+                setIsRuntimeFormDirty(true)
+                setHopperAlertThreshold(e.target.value)
+              }}
             />
           </label>
         </div>
@@ -231,7 +255,10 @@ export default function Settings() {
           <input
             type="checkbox"
             checked={autoHappy}
-            onChange={e => setAutoHappy(e.target.checked)}
+            onChange={e => {
+              setIsRuntimeFormDirty(true)
+              setAutoHappy(e.target.checked)
+            }}
           />
           Auto-trigger happy hour when prize pool reaches goal
         </label>

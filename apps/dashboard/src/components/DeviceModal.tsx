@@ -12,9 +12,7 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
   const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
   const deviceRtp =
     asNumber(device.bet_total) > 0 ? (asNumber(device.win_total) / asNumber(device.bet_total)) * 100 : 0
-  const deviceHouseWin = asNumber(device.bet_total) - asNumber(device.win_total)
-  const deviceHouseEdge =
-    asNumber(device.bet_total) > 0 ? (deviceHouseWin / asNumber(device.bet_total)) * 100 : 0
+  const deviceHouseWin = asNumber(device.house_take_total ?? (asNumber(device.bet_total) - asNumber(device.win_total)))
   const hopperAlertThreshold = asNumber((device as any)?.hopper_alert_threshold ?? 500)
   const hopperLow = asNumber(device.hopper_balance) <= hopperAlertThreshold
   const [balanceAmount, setBalanceAmount] = useState('0')
@@ -116,7 +114,7 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-8 gap-2 mt-2">
+            <div className="grid grid-cols-2 md:grid-cols-7 gap-2 mt-2">
               <div className="rounded border border-green-700/40 bg-green-900/20 px-2 py-1">
                 <div className="text-[10px] text-green-300/80">Balance</div>
                 <div className="text-sm font-mono text-green-300">{formatCurrency(device.balance)}</div>
@@ -165,11 +163,6 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
                 >
                   {formatCurrency(deviceHouseWin)}
                 </div>
-              </div>
-
-              <div className="rounded border border-rose-700/40 bg-rose-900/20 px-2 py-1">
-                <div className="text-[10px] text-rose-300/80">House Edge</div>
-                <div className="text-sm font-mono text-rose-300">{deviceHouseEdge.toFixed(2)}%</div>
               </div>
 
               <div className="rounded border border-cyan-700/40 bg-cyan-900/20 px-2 py-1">

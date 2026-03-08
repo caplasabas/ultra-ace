@@ -10,6 +10,8 @@ export type DeviceRow = {
   hopper_balance?: number | null
   bet_total?: number | null
   win_total?: number | null
+  house_take_total?: number | null
+  last_bet_amount?: number | null
   withdraw_total?: number | null
   spins_total?: number | null
   prize_pool_contrib_total?: number | null

@@ -12,9 +12,9 @@ type SortField =
   | 'coins_in_total'
   | 'hopper_balance'
   | 'bet_total'
+  | 'last_bet_amount'
   | 'win_total'
   | 'house_win'
-  | 'house_edge'
   | 'spins_total'
   | 'rtp'
   | 'updated_at'
@@ -27,8 +27,8 @@ const SORT_OPTIONS: { field: SortField; label: string }[] = [
   { field: 'balance', label: 'Balance' },
   { field: 'coins_in_total', label: 'Coins-In' },
   { field: 'hopper_balance', label: 'Hopper' },
+  { field: 'last_bet_amount', label: 'Last Bet' },
   { field: 'house_win', label: 'House Win' },
-  { field: 'house_edge', label: 'House Edge' },
   { field: 'spins_total', label: 'Spins' },
   { field: 'rtp', label: 'RTP' },
 ]
@@ -36,7 +36,7 @@ const SORT_OPTIONS: { field: SortField; label: string }[] = [
 export default function Dashboard() {
   const devices = useDevices()
   const stats = useGlobalStats()
-  const { runtime } = useCasinoRuntime()
+  const { runtime, profiles } = useCasinoRuntime()
 
   const [selectedDevice, setSelectedDevice] = useState<any | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -56,19 +56,16 @@ export default function Dashboard() {
 
   const globalBet = asNumber(stats?.total_bet_amount)
   const globalWin = asNumber(stats?.total_win_amount)
-  const globalHouseWin = globalBet - globalWin
-  const globalHouseEdge = globalBet > 0 ? (globalHouseWin / globalBet) * 100 : 0
+  const globalHouseWin = asNumber(stats?.total_house_take ?? (globalBet - globalWin))
   const hopperAlertThreshold = asNumber(runtime?.hopper_alert_threshold ?? 500)
+  const activeProfileId =
+    runtime?.active_mode === 'HAPPY' ? runtime?.happy_profile_id : runtime?.base_profile_id
+  const activeHousePct = profiles.find(p => p.id === activeProfileId)?.house_pct
 
   const getSortValue = (device: DeviceRow, field: SortField): number | string => {
     if (field === 'device_id') return (device.device_id ?? '').toLowerCase()
     if (field === 'updated_at') return device.updated_at ? moment(device.updated_at).valueOf() : 0
-    if (field === 'house_win') return asNumber(device.bet_total) - asNumber(device.win_total)
-    if (field === 'house_edge') {
-      return asNumber(device.bet_total) > 0
-        ? ((asNumber(device.bet_total) - asNumber(device.win_total)) / asNumber(device.bet_total)) * 100
-        : 0
-    }
+    if (field === 'house_win') return asNumber(device.house_take_total ?? (asNumber(device.bet_total) - asNumber(device.win_total)))
     if (field === 'rtp') {
       return asNumber(device.bet_total) > 0
         ? (asNumber(device.win_total) / asNumber(device.bet_total)) * 100
@@ -200,20 +197,15 @@ export default function Dashboard() {
             </div>
 
             <div className="rounded-lg border border-orange-700/40 bg-orange-900/20 p-4">
-              <div className="text-xs text-orange-300/80 mb-1">Global House Win</div>
+              <div className="text-xs text-orange-300/80 mb-1">
+                Global House Win ({activeHousePct != null ? `${activeHousePct}%` : '—'})
+              </div>
               <div
                 className={`text-xl sm:text-2xl font-bold font-mono ${
                   globalHouseWin < 0 ? 'text-red-300 animate-pulse' : 'text-orange-300'
                 }`}
               >
                 {formatCurrency(globalHouseWin)}
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-rose-700/40 bg-rose-900/20 p-4">
-              <div className="text-xs text-rose-300/80 mb-1">Global House Edge</div>
-              <div className="text-xl sm:text-2xl font-bold font-mono text-rose-300">
-                {formatPercent(globalHouseEdge)}
               </div>
             </div>
           </div>
@@ -264,9 +256,7 @@ export default function Dashboard() {
                   asNumber(d.bet_total) > 0
                     ? (asNumber(d.win_total) / asNumber(d.bet_total)) * 100
                     : 0
-                const deviceHouseWin = asNumber(d.bet_total) - asNumber(d.win_total)
-                const deviceHouseEdge =
-                  asNumber(d.bet_total) > 0 ? (deviceHouseWin / asNumber(d.bet_total)) * 100 : 0
+                const deviceHouseWin = asNumber(d.house_take_total ?? (asNumber(d.bet_total) - asNumber(d.win_total)))
                 const hopperLow = asNumber(d.hopper_balance) <= hopperAlertThreshold
 
                 return (
@@ -326,14 +316,14 @@ export default function Dashboard() {
                         </div>
                       </div>
                       <div>
+                        <div className="text-[10px] text-slate-500">Last Bet</div>
+                        <div className="font-mono text-sm text-violet-300">{formatCurrency(d.last_bet_amount)}</div>
+                      </div>
+                      <div>
                         <div className="text-[10px] text-slate-500">House Win</div>
                         <div className={`font-mono text-sm ${deviceHouseWin < 0 ? 'text-red-300' : 'text-orange-300'}`}>
                           {formatCurrency(deviceHouseWin)}
                         </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-slate-500">House Edge</div>
-                        <div className="font-mono text-sm text-rose-300">{formatPercent(deviceHouseEdge)}</div>
                       </div>
                       <div>
                         <div className="text-[10px] text-slate-500">Spins</div>
@@ -379,15 +369,15 @@ export default function Dashboard() {
                     </button>
                   </th>
                   <th className="px-4 py-2 text-right">Bet</th>
+                  <th className="px-4 py-2 text-right">
+                    <button type="button" className="hover:text-white" onClick={() => onSort('last_bet_amount')}>
+                      Last Bet {sortField === 'last_bet_amount' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                    </button>
+                  </th>
                   <th className="px-4 py-2 text-right">Win</th>
                   <th className="px-4 py-2 text-right">
                     <button type="button" className="hover:text-white" onClick={() => onSort('house_win')}>
                       House Win {sortField === 'house_win' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
-                    </button>
-                  </th>
-                  <th className="px-4 py-2 text-right">
-                    <button type="button" className="hover:text-white" onClick={() => onSort('house_edge')}>
-                      House Edge {sortField === 'house_edge' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
                   <th className="px-4 py-2 text-right">
@@ -413,9 +403,7 @@ export default function Dashboard() {
                     asNumber(d.bet_total) > 0
                       ? (asNumber(d.win_total) / asNumber(d.bet_total)) * 100
                       : 0
-                  const deviceHouseWin = asNumber(d.bet_total) - asNumber(d.win_total)
-                  const deviceHouseEdge =
-                    asNumber(d.bet_total) > 0 ? (deviceHouseWin / asNumber(d.bet_total)) * 100 : 0
+                  const deviceHouseWin = asNumber(d.house_take_total ?? (asNumber(d.bet_total) - asNumber(d.win_total)))
                   const hopperLow = asNumber(d.hopper_balance) <= hopperAlertThreshold
 
                   return (
@@ -469,6 +457,9 @@ export default function Dashboard() {
                         {formatCurrency(d.bet_total)}
                       </td>
                       <td className="px-4 py-2 text-right font-mono text-violet-300">
+                        {formatCurrency(d.last_bet_amount)}
+                      </td>
+                      <td className="px-4 py-2 text-right font-mono text-violet-300">
                         {formatCurrency(d.win_total)}
                       </td>
                       <td
@@ -477,9 +468,6 @@ export default function Dashboard() {
                         }`}
                       >
                         {formatCurrency(deviceHouseWin)}
-                      </td>
-                      <td className="px-4 py-2 text-right font-mono text-rose-300">
-                        {formatPercent(deviceHouseEdge)}
                       </td>
                       <td className="px-4 py-2 text-right font-mono text-cyan-300">
                         {asNumber(d.spins_total).toLocaleString()}

@@ -7,9 +7,11 @@ export type GlobalStatsRow = {
   total_hopper: number
   total_bet_amount: number
   total_win_amount: number
+  total_house_take?: number
   total_withdraw_amount: number
   total_spins: number
   global_rtp_percent: number
+  global_house_edge_percent?: number
   device_count: number
 }
 
