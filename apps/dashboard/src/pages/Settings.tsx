@@ -71,6 +71,21 @@ export default function Settings() {
 
   const baseProfiles = useMemo(() => profiles.filter(p => p.mode === 'BASE'), [profiles])
   const happyProfiles = useMemo(() => profiles.filter(p => p.mode === 'HAPPY'), [profiles])
+  const selectedBaseProfile = useMemo(
+    () => baseProfiles.find(p => p.id === baseProfileId) ?? null,
+    [baseProfiles, baseProfileId],
+  )
+  const selectedHappyProfile = useMemo(
+    () => happyProfiles.find(p => p.id === happyProfileId) ?? null,
+    [happyProfiles, happyProfileId],
+  )
+  const baseHousePct = Number(selectedBaseProfile?.house_pct ?? 0)
+  const happyHousePct = Number(selectedHappyProfile?.house_pct ?? 0)
+  const jackpotContribValue = Math.max(0, Number(jackpotContribPct || 0))
+  const baseHappyRemainder = 100 - baseHousePct - jackpotContribValue
+  const happyHappyRemainder = 100 - happyHousePct - jackpotContribValue
+  const splitInvalid = baseHappyRemainder < 0 || happyHappyRemainder < 0
+  const jackpotMaxAllowed = Math.max(0, Math.min(100 - baseHousePct, 100 - happyHousePct))
 
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
   const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
@@ -85,6 +100,17 @@ export default function Settings() {
     const goalTimeHours = Math.max(0, Number(poolGoalTimeHours || 0))
     const goalTimeMinutes = Math.max(0, Number(poolGoalTimeMinutes || 0))
     const goalTimeSeconds = Math.max(60, goalTimeHours * 3600 + goalTimeMinutes * 60)
+    const jackpotPctApplied = Math.min(Math.max(0, Number(jackpotContribPct || 0)), jackpotMaxAllowed)
+
+    if (splitInvalid) {
+      setSaving(false)
+      setErrorMessage(
+        `Invalid split: jackpot % must be <= ${jackpotMaxAllowed.toFixed(
+          2,
+        )} so house+jackpot+happy always equals 100%.`,
+      )
+      return
+    }
 
     const result = await updateRuntime({
       base_profile_id: baseProfileId,
@@ -94,7 +120,7 @@ export default function Settings() {
       prize_pool_balance: Math.max(0, Number(prizePoolBalance || 0)),
       jackpot_pool_goal: Math.max(0, Number(jackpotPoolGoal || 0)),
       jackpot_pool_balance: Math.max(0, Number(jackpotPoolBalance || 0)),
-      jackpot_contrib_pct: Math.max(0, Number(jackpotContribPct || 0)),
+      jackpot_contrib_pct: jackpotPctApplied,
       jackpot_min_winners: winnerMin,
       jackpot_max_winners: winnerMax,
       jackpot_delay_min_spins: delayMin,
@@ -310,6 +336,17 @@ export default function Settings() {
                 setJackpotContribPct(e.target.value)
               }}
             />
+            <span className={`text-xs ${splitInvalid ? 'text-red-300' : 'text-slate-500'}`}>
+              Max allowed for strict 100% split: {jackpotMaxAllowed.toFixed(2)}%
+            </span>
+            <span className={`text-xs ${baseHappyRemainder < 0 ? 'text-red-300' : 'text-slate-500'}`}>
+              Base Split: House {baseHousePct.toFixed(2)}% / Jackpot {jackpotContribValue.toFixed(2)}% / Happy{' '}
+              {Math.max(baseHappyRemainder, 0).toFixed(2)}%
+            </span>
+            <span className={`text-xs ${happyHappyRemainder < 0 ? 'text-red-300' : 'text-slate-500'}`}>
+              Happy Split: House {happyHousePct.toFixed(2)}% / Jackpot {jackpotContribValue.toFixed(2)}% / Happy{' '}
+              {Math.max(happyHappyRemainder, 0).toFixed(2)}%
+            </span>
           </label>
 
           <label className="flex flex-col gap-1 text-sm">

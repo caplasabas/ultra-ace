@@ -46,15 +46,21 @@ export function useDevices() {
   }
 
   useEffect(() => {
-    fetchAll()
+    void fetchAll()
 
     const channel = supabase
       .channel('dashboard-devices')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'devices' }, fetchAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'device_game_sessions' }, fetchAll)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'jackpot_payout_queue' }, fetchAll)
       .subscribe()
 
+    const poll = window.setInterval(() => {
+      void fetchAll()
+    }, 2000)
+
     return () => {
+      window.clearInterval(poll)
       void supabase.removeChannel(channel)
     }
   }, [])
