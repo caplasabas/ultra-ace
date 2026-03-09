@@ -1,5 +1,5 @@
 import { buildReel } from '../math/reelFactory.js'
-import { EngineConfig } from './engineConfig.js'
+import { EngineConfig, normalizeEngineConfig } from './engineConfig.js'
 import { Symbol } from '../types/symbol.js'
 
 let CURRENT_CONFIG: EngineConfig | null = null
@@ -17,7 +17,7 @@ let REELS_CACHE: {
 }
 
 export function initEngine(config: EngineConfig, version: string) {
-  CURRENT_CONFIG = Object.freeze(config)
+  CURRENT_CONFIG = Object.freeze(normalizeEngineConfig(config))
   CONFIG_VERSION = version
   INITIALIZED = true
 }
@@ -26,7 +26,7 @@ export function updateEngineConfig(config: EngineConfig, version: string) {
   if (!INITIALIZED) {
     throw new Error('Engine not initialized')
   }
-  CURRENT_CONFIG = Object.freeze(config)
+  CURRENT_CONFIG = Object.freeze(normalizeEngineConfig(config))
   CONFIG_VERSION = version
 }
 

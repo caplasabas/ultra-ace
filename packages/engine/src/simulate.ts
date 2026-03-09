@@ -1,13 +1,13 @@
 import { spin } from './spin.js'
 import { createRNG } from './rng.js'
 import { startEngine } from './runtime/engineClient.js'
-import { SIM_ENGINE_CONFIG_HAPPY_HOUR, SIMULATION_CONFIG } from './config/simulate.config.js'
+import { SIM_ENGINE_CONFIG, SIMULATION_CONFIG } from './config/simulate.config.js'
 import { formatPeso } from './utils/currency.js'
 
 // ───────────── ENGINE STARTUP ─────────────
 startEngine({
-  // config: SIM_ENGINE_CONFIG,
-  config: SIM_ENGINE_CONFIG_HAPPY_HOUR,
+  config: SIM_ENGINE_CONFIG,
+  // config: SIM_ENGINE_CONFIG_HAPPY_HOUR,
   version: 'simulate-v1',
 })
 

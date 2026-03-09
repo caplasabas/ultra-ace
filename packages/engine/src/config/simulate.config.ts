@@ -19,8 +19,8 @@ export const SIM_ENGINE_CONFIG: EngineConfig = {
   mode: 'NORMAL',
 
   rtpProfile: {
-    baseTarget: 0.82,
-    freeTarget: 0.92,
+    baseTarget: 0.7,
+    freeTarget: 0.8,
   },
 
   cascades: {

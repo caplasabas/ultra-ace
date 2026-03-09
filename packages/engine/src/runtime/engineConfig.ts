@@ -60,12 +60,34 @@ export interface EngineConfig {
   }
 }
 
+const NORMAL_BASE_TARGET_MIN = 0
+const NORMAL_BASE_TARGET_MAX = 0.7
+const NORMAL_FREE_TARGET_MIN = 0
+const NORMAL_FREE_TARGET_MAX = 0.8
+
+function clamp(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min
+  return Math.min(max, Math.max(min, value))
+}
+
+export function normalizeEngineConfig(config: EngineConfig): EngineConfig {
+  if (config.mode !== 'NORMAL') return config
+
+  return {
+    ...config,
+    rtpProfile: {
+      baseTarget: clamp(config.rtpProfile.baseTarget, NORMAL_BASE_TARGET_MIN, NORMAL_BASE_TARGET_MAX),
+      freeTarget: clamp(config.rtpProfile.freeTarget, NORMAL_FREE_TARGET_MIN, NORMAL_FREE_TARGET_MAX),
+    },
+  }
+}
+
 export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
   mode: 'NORMAL',
 
   rtpProfile: {
     baseTarget: 0.7,
-    freeTarget: 0.9,
+    freeTarget: 0.8,
   },
 
   reels: {
