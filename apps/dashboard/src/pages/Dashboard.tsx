@@ -105,7 +105,11 @@ export default function Dashboard() {
   const hopperAlertThreshold = asNumber(runtime?.hopper_alert_threshold ?? 500)
   const activeProfileId =
     runtime?.active_mode === 'HAPPY' ? runtime?.happy_profile_id : runtime?.base_profile_id
-  const activeHousePct = profiles.find(p => p.id === activeProfileId)?.house_pct
+  const activeProfile = profiles.find(p => p.id === activeProfileId)
+  const activeHousePct = asNumber(activeProfile?.house_pct)
+  const activeJackpotPct = Math.max(0, asNumber(runtime?.jackpot_contrib_pct))
+  const activeHappyPct = Math.max(0, 100 - activeHousePct - activeJackpotPct)
+  const activeTargetRtpPct = asNumber(runtime?.active_target_rtp_pct ?? activeProfile?.player_pct)
 
   const getSortValue = (device: DeviceRow, field: SortField): number | string => {
     if (field === 'device_id') return (device.device_id ?? '').toLowerCase()
@@ -222,6 +226,9 @@ export default function Dashboard() {
               <div className="text-xl sm:text-2xl font-bold font-mono text-fuchsia-300">
                 {formatPercent(stats?.global_rtp_percent)}
               </div>
+              <div className="text-[11px] text-fuchsia-200/80 mt-1 font-mono">
+                Target {formatPercent(activeTargetRtpPct)}
+              </div>
             </div>
 
             <button
@@ -243,15 +250,17 @@ export default function Dashboard() {
               <div className="text-sm text-emerald-200/90 mt-1 font-mono">
                 Accum {formatCurrency(runtime?.prize_pool_balance)} / {formatCurrency(runtime?.prize_pool_goal)}
               </div>
+              <div className="text-[11px] text-emerald-200/80 mt-1 font-mono">
+                Split H/J/P {formatPercent(activeHousePct)} / {formatPercent(activeJackpotPct)} /{' '}
+                {formatPercent(activeHappyPct)}
+              </div>
               <div className="text-xs text-emerald-200/80 mt-2">
                 Queued Pots: {asNumber(runtime?.happy_pots_queued_count)} (click to view)
               </div>
             </button>
 
             <div className="rounded-lg border border-orange-700/40 bg-orange-900/20 p-4">
-              <div className="text-xs text-orange-300/80 mb-1">
-                Global House Net ({activeHousePct != null ? `${activeHousePct}% template` : '—'})
-              </div>
+              <div className="text-xs text-orange-300/80 mb-1">Global House Net ({formatPercent(activeHousePct)} template)</div>
               <div
                 className={`text-xl sm:text-2xl font-bold font-mono ${
                   globalHouseNet < 0 ? 'text-red-300 animate-pulse' : 'text-orange-300'
@@ -278,6 +287,9 @@ export default function Dashboard() {
               </div>
               <div className="text-sm text-indigo-200/90 mt-1 font-mono">
                 Pool {formatCurrency(runtime?.jackpot_pool_balance)} / {formatCurrency(runtime?.jackpot_pool_goal)}
+              </div>
+              <div className="text-[11px] text-indigo-200/80 mt-1 font-mono">
+                RTP Share {formatPercent(activeJackpotPct)}
               </div>
               <div className="text-xs text-indigo-200/80 mt-2">
                 Queued Pots: {asNumber(runtime?.jackpot_pots_queued_count)} (click to view)

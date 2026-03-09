@@ -437,7 +437,7 @@ export default function App() {
   }, [phase, activeCascade, spinId, cascadeIndex])
 
   const BASE_MULTIPLIERS = [1, 2, 3, 5]
-  const FREE_MULTIPLIERS = [1, 2, 4, 6, 10]
+  const FREE_MULTIPLIERS = [2, 4, 6, 10]
 
   const ladder = isFreeGame || isFreeSpinPreview ? FREE_MULTIPLIERS : BASE_MULTIPLIERS
 
@@ -624,11 +624,16 @@ export default function App() {
         return
       }
 
-      if (payload.type !== 'ACTION') return
+      const isTurboPlayerEvent =
+        payload.type === 'PLAYER' && payload.player === 'CASINO' && Number(payload.button) === 7
+
+      if (payload.type !== 'ACTION' && !isTurboPlayerEvent) return
+
+      const action = isTurboPlayerEvent ? 'TURBO' : payload.action
 
       const s = gameStateRef.current
 
-      switch (payload.action) {
+      switch (action) {
         case 'SPIN': {
           if (s.showFreeSpinIntro) {
             triggerFreeSpinStart()

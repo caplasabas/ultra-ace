@@ -18,6 +18,7 @@ export default function Settings() {
   const [jackpotPoolGoal, setJackpotPoolGoal] = useState('10000')
   const [jackpotPoolBalance, setJackpotPoolBalance] = useState('0')
   const [jackpotContribPct, setJackpotContribPct] = useState('10')
+  const [jackpotContribManualOverride, setJackpotContribManualOverride] = useState(false)
   const [jackpotMinWinners, setJackpotMinWinners] = useState('1')
   const [jackpotMaxWinners, setJackpotMaxWinners] = useState('5')
   const [jackpotDelayMinSpins, setJackpotDelayMinSpins] = useState('2')
@@ -42,6 +43,7 @@ export default function Settings() {
     setJackpotPoolGoal(String(runtime.jackpot_pool_goal ?? 10000))
     setJackpotPoolBalance(String(runtime.jackpot_pool_balance ?? 0))
     setJackpotContribPct(String(runtime.jackpot_contrib_pct ?? 10))
+    setJackpotContribManualOverride(false)
     setJackpotMinWinners(String(runtime.jackpot_min_winners ?? 1))
     setJackpotMaxWinners(String(runtime.jackpot_max_winners ?? 5))
     setJackpotDelayMinSpins(String(runtime.jackpot_delay_min_spins ?? 2))
@@ -55,6 +57,19 @@ export default function Settings() {
     setMaxWinEnabled(Boolean(runtime.max_win_enabled ?? true))
     setHopperAlertThreshold(String(runtime.hopper_alert_threshold ?? 500))
     setAutoHappy(Boolean(runtime.auto_happy_enabled))
+  }
+
+  function getSuggestedJackpotContribPct(nextBaseProfileId: string, nextHappyProfileId: string) {
+    const baseProfile = baseProfiles.find(p => p.id === nextBaseProfileId)
+    const happyProfile = happyProfiles.find(p => p.id === nextHappyProfileId)
+    const basePoolPct = Number(baseProfile?.pool_pct ?? 0)
+    const happyPoolPct = Number(happyProfile?.pool_pct ?? 0)
+
+    if (!baseProfile && !happyProfile) return 0
+    if (!baseProfile) return Math.max(0, happyPoolPct)
+    if (!happyProfile) return Math.max(0, basePoolPct)
+
+    return Math.max(0, Math.min(basePoolPct, happyPoolPct))
   }
 
   useEffect(() => {
@@ -86,6 +101,19 @@ export default function Settings() {
   const happyHappyRemainder = 100 - happyHousePct - jackpotContribValue
   const splitInvalid = baseHappyRemainder < 0 || happyHappyRemainder < 0
   const jackpotMaxAllowed = Math.max(0, Math.min(100 - baseHousePct, 100 - happyHousePct))
+
+  useEffect(() => {
+    if (jackpotContribManualOverride) return
+    if (!baseProfileId && !happyProfileId) return
+    const suggested = String(getSuggestedJackpotContribPct(baseProfileId, happyProfileId))
+    setJackpotContribPct(prev => (prev === suggested ? prev : suggested))
+  }, [
+    baseProfileId,
+    happyProfileId,
+    baseProfiles,
+    happyProfiles,
+    jackpotContribManualOverride,
+  ])
 
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
   const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
@@ -266,8 +294,12 @@ export default function Settings() {
               className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
               value={baseProfileId}
               onChange={e => {
+                const nextBaseProfileId = e.target.value
                 setIsRuntimeFormDirty(true)
-                setBaseProfileId(e.target.value)
+                setBaseProfileId(nextBaseProfileId)
+                if (!jackpotContribManualOverride) {
+                  setJackpotContribPct(String(getSuggestedJackpotContribPct(nextBaseProfileId, happyProfileId)))
+                }
               }}
             >
               {baseProfiles.map(p => (
@@ -284,8 +316,12 @@ export default function Settings() {
               className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
               value={happyProfileId}
               onChange={e => {
+                const nextHappyProfileId = e.target.value
                 setIsRuntimeFormDirty(true)
-                setHappyProfileId(e.target.value)
+                setHappyProfileId(nextHappyProfileId)
+                if (!jackpotContribManualOverride) {
+                  setJackpotContribPct(String(getSuggestedJackpotContribPct(baseProfileId, nextHappyProfileId)))
+                }
               }}
             >
               {happyProfiles.map(p => (
@@ -333,6 +369,7 @@ export default function Settings() {
               value={jackpotContribPct}
               onChange={e => {
                 setIsRuntimeFormDirty(true)
+                setJackpotContribManualOverride(true)
                 setJackpotContribPct(e.target.value)
               }}
             />
