@@ -8,6 +8,8 @@ export type GlobalStatsRow = {
   total_bet_amount: number
   total_win_amount: number
   total_house_take?: number
+  total_jackpot_contrib?: number
+  total_jackpot_win?: number
   total_withdraw_amount: number
   total_spins: number
   global_rtp_percent: number

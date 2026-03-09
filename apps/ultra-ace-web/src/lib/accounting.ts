@@ -123,6 +123,7 @@ export async function commitSpinAccounting({
   const baseMetadata = {
     spinId,
     isFreeGame,
+    totalWin,
     freeSpinsAwarded,
     cascades,
     triggerType: triggerType ?? null,

@@ -25,6 +25,31 @@ export type CasinoRuntime = {
   prize_pool_balance: number
   happy_hour_prize_balance: number
   prize_pool_goal: number
+  jackpot_pool_balance: number
+  jackpot_pool_goal: number
+  jackpot_contrib_pct: number
+  jackpot_min_winners: number
+  jackpot_max_winners: number
+  jackpot_delay_min_spins: number
+  jackpot_delay_max_spins: number
+  jackpot_chunk_min: number
+  jackpot_chunk_max: number
+  jackpot_win_variance: number
+  jackpot_pending_payout: boolean
+  last_jackpot_triggered_at: string | null
+  active_happy_pot_id: number | null
+  active_jackpot_pot_id: number | null
+  pool_goal_mode: 'amount' | 'spins' | 'time'
+  pool_goal_spins: number
+  pool_goal_time_seconds: number
+  happy_pool_spin_counter: number
+  jackpot_pool_spin_counter: number
+  happy_pool_goal_anchor_at: string | null
+  jackpot_pool_goal_anchor_at: string | null
+  happy_pots_queued_count: number
+  happy_pots_queued_amount: number
+  jackpot_pots_queued_count: number
+  jackpot_pots_queued_amount: number
   hopper_alert_threshold: number
   updated_at: string
   active_target_rtp_pct?: number

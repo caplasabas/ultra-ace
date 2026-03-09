@@ -30,6 +30,10 @@ export type DeviceRow = {
   show_free_spin_intro?: boolean | null
   current_spin_id?: number | null
   session_metadata?: Record<string, any> | null
+  jackpot_selected?: boolean | null
+  jackpot_target_amount?: number | null
+  jackpot_remaining_amount?: number | null
+  jackpot_spins_until_start?: number | null
   updated_at?: string | null
 }
 
@@ -37,7 +41,7 @@ export function useDevices() {
   const [rows, setRows] = useState<DeviceRow[]>([])
 
   async function fetchAll() {
-    const { data, error } = await supabase.from('devices').select('*').order('name')
+    const { data, error } = await supabase.from('devices_dashboard_live').select('*').order('name')
     if (!error) setRows(data ?? [])
   }
 
@@ -46,30 +50,8 @@ export function useDevices() {
 
     const channel = supabase
       .channel('dashboard-devices')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'devices',
-        },
-        payload => {
-          if (payload.eventType === 'DELETE') {
-            setRows(prev => prev.filter(d => d.device_id !== payload.old.device_id))
-            return
-          }
-
-          if (payload.eventType === 'INSERT') {
-            setRows(prev => {
-              if (prev.some(d => d.device_id === payload.new.device_id)) return prev
-              return [...prev, payload.new as DeviceRow]
-            })
-            return
-          }
-
-          setRows(prev => prev.map(d => (d.device_id === payload.new.device_id ? { ...d, ...payload.new } : d)))
-        },
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'devices' }, fetchAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'jackpot_payout_queue' }, fetchAll)
       .subscribe()
 
     return () => {

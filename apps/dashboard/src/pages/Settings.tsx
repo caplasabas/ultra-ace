@@ -15,6 +15,19 @@ export default function Settings() {
   const [happyProfileId, setHappyProfileId] = useState('')
   const [prizePoolGoal, setPrizePoolGoal] = useState('10000')
   const [prizePoolBalance, setPrizePoolBalance] = useState('0')
+  const [jackpotPoolGoal, setJackpotPoolGoal] = useState('10000')
+  const [jackpotPoolBalance, setJackpotPoolBalance] = useState('0')
+  const [jackpotContribPct, setJackpotContribPct] = useState('10')
+  const [jackpotMinWinners, setJackpotMinWinners] = useState('1')
+  const [jackpotMaxWinners, setJackpotMaxWinners] = useState('5')
+  const [jackpotDelayMinSpins, setJackpotDelayMinSpins] = useState('2')
+  const [jackpotDelayMaxSpins, setJackpotDelayMaxSpins] = useState('3')
+  const [jackpotChunkMin, setJackpotChunkMin] = useState('2')
+  const [jackpotChunkMax, setJackpotChunkMax] = useState('3')
+  const [jackpotWinVariance, setJackpotWinVariance] = useState('90')
+  const [poolGoalMode, setPoolGoalMode] = useState<'amount' | 'spins' | 'time'>('amount')
+  const [poolGoalSpins, setPoolGoalSpins] = useState('1000')
+  const [poolGoalTimeMinutes, setPoolGoalTimeMinutes] = useState('30')
   const [hopperAlertThreshold, setHopperAlertThreshold] = useState('500')
   const [autoHappy, setAutoHappy] = useState(true)
   const [keepDeviceIdsText, setKeepDeviceIdsText] = useState('')
@@ -26,6 +39,19 @@ export default function Settings() {
     setHappyProfileId(runtime.happy_profile_id)
     setPrizePoolGoal(String(runtime.prize_pool_goal ?? 0))
     setPrizePoolBalance(String(runtime.prize_pool_balance ?? 0))
+    setJackpotPoolGoal(String(runtime.jackpot_pool_goal ?? 10000))
+    setJackpotPoolBalance(String(runtime.jackpot_pool_balance ?? 0))
+    setJackpotContribPct(String(runtime.jackpot_contrib_pct ?? 10))
+    setJackpotMinWinners(String(runtime.jackpot_min_winners ?? 1))
+    setJackpotMaxWinners(String(runtime.jackpot_max_winners ?? 5))
+    setJackpotDelayMinSpins(String(runtime.jackpot_delay_min_spins ?? 2))
+    setJackpotDelayMaxSpins(String(runtime.jackpot_delay_max_spins ?? 3))
+    setJackpotChunkMin(String(runtime.jackpot_chunk_min ?? 2))
+    setJackpotChunkMax(String(runtime.jackpot_chunk_max ?? 3))
+    setJackpotWinVariance(String(runtime.jackpot_win_variance ?? 90))
+    setPoolGoalMode((runtime.pool_goal_mode ?? 'amount') as 'amount' | 'spins' | 'time')
+    setPoolGoalSpins(String(runtime.pool_goal_spins ?? 1000))
+    setPoolGoalTimeMinutes(String(Math.max(1, Math.round((runtime.pool_goal_time_seconds ?? 1800) / 60))))
     setHopperAlertThreshold(String(runtime.hopper_alert_threshold ?? 500))
     setAutoHappy(Boolean(runtime.auto_happy_enabled))
   }
@@ -51,12 +77,32 @@ export default function Settings() {
   async function saveRuntime() {
     setSaving(true)
 
+    const winnerMin = Math.max(1, Number(jackpotMinWinners || 1))
+    const winnerMax = Math.max(winnerMin, Number(jackpotMaxWinners || winnerMin))
+    const delayMin = Math.max(0, Number(jackpotDelayMinSpins || 0))
+    const delayMax = Math.max(delayMin, Number(jackpotDelayMaxSpins || delayMin))
+    const chunkMin = Math.max(1, Number(jackpotChunkMin || 1))
+    const chunkMax = Math.max(chunkMin, Number(jackpotChunkMax || chunkMin))
+
     const result = await updateRuntime({
       base_profile_id: baseProfileId,
       happy_profile_id: happyProfileId,
       auto_happy_enabled: autoHappy,
       prize_pool_goal: Math.max(0, Number(prizePoolGoal || 0)),
       prize_pool_balance: Math.max(0, Number(prizePoolBalance || 0)),
+      jackpot_pool_goal: Math.max(0, Number(jackpotPoolGoal || 0)),
+      jackpot_pool_balance: Math.max(0, Number(jackpotPoolBalance || 0)),
+      jackpot_contrib_pct: Math.max(0, Number(jackpotContribPct || 0)),
+      jackpot_min_winners: winnerMin,
+      jackpot_max_winners: winnerMax,
+      jackpot_delay_min_spins: delayMin,
+      jackpot_delay_max_spins: delayMax,
+      jackpot_chunk_min: chunkMin,
+      jackpot_chunk_max: chunkMax,
+      jackpot_win_variance: Math.max(0, Number(jackpotWinVariance || 0)),
+      pool_goal_mode: poolGoalMode,
+      pool_goal_spins: Math.max(1, Number(poolGoalSpins || 1000)),
+      pool_goal_time_seconds: Math.max(60, Number(poolGoalTimeMinutes || 30) * 60),
       hopper_alert_threshold: Math.max(0, Number(hopperAlertThreshold || 0)),
     })
 
@@ -143,12 +189,23 @@ export default function Settings() {
           <span>
             Goal: <strong>{formatCurrency(runtime?.prize_pool_goal)}</strong>
           </span>
+          <span className="ml-3">
+            Jackpot Pool: <strong>{formatCurrency(runtime?.jackpot_pool_balance)}</strong>
+          </span>
+          <span className="ml-3">
+            Jackpot Goal: <strong>{formatCurrency(runtime?.jackpot_pool_goal)}</strong>
+          </span>
         </div>
 
         <div className="flex flex-wrap gap-3">
           <button
             onClick={() => toggleHappyHour(true)}
-            disabled={!runtime || asNumber(runtime.prize_pool_balance) <= 0}
+            disabled={
+              !runtime ||
+              (asNumber(runtime.prize_pool_balance) <= 0 &&
+                asNumber(runtime.happy_hour_prize_balance) <= 0 &&
+                asNumber(runtime.happy_pots_queued_count) <= 0)
+            }
             className="px-3 py-2 rounded bg-green-700/30 border border-green-600 text-green-300 disabled:opacity-50"
           >
             Start Happy Hour
@@ -165,6 +222,10 @@ export default function Settings() {
 
         <p className="text-xs text-slate-400">
           Happy hour auto-reverts to BASE when prize pool reaches 0.
+        </p>
+        <p className="text-xs text-slate-400">
+          Queued Pots: Happy <strong>{asNumber(runtime?.happy_pots_queued_count)}</strong> / Jackpot{' '}
+          <strong>{asNumber(runtime?.jackpot_pots_queued_count)}</strong>
         </p>
       </section>
 
@@ -237,6 +298,146 @@ export default function Settings() {
           </label>
 
           <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-300">Jackpot Pool Goal</span>
+            <input
+              className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+              type="number"
+              min={0}
+              value={jackpotPoolGoal}
+              onChange={e => {
+                setIsRuntimeFormDirty(true)
+                setJackpotPoolGoal(e.target.value)
+              }}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-300">Jackpot Pool Balance</span>
+            <input
+              className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+              type="number"
+              min={0}
+              value={jackpotPoolBalance}
+              onChange={e => {
+                setIsRuntimeFormDirty(true)
+                setJackpotPoolBalance(e.target.value)
+              }}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-300">Jackpot Contribution % (of bet)</span>
+            <input
+              className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+              type="number"
+              min={0}
+              value={jackpotContribPct}
+              onChange={e => {
+                setIsRuntimeFormDirty(true)
+                setJackpotContribPct(e.target.value)
+              }}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-300">Jackpot Winners (Min)</span>
+            <input
+              className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+              type="number"
+              min={1}
+              value={jackpotMinWinners}
+              onChange={e => {
+                setIsRuntimeFormDirty(true)
+                setJackpotMinWinners(e.target.value)
+              }}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-300">Jackpot Winners (Max)</span>
+            <input
+              className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+              type="number"
+              min={1}
+              value={jackpotMaxWinners}
+              onChange={e => {
+                setIsRuntimeFormDirty(true)
+                setJackpotMaxWinners(e.target.value)
+              }}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-300">Delay Spins (Min)</span>
+            <input
+              className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+              type="number"
+              min={0}
+              value={jackpotDelayMinSpins}
+              onChange={e => {
+                setIsRuntimeFormDirty(true)
+                setJackpotDelayMinSpins(e.target.value)
+              }}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-300">Delay Spins (Max)</span>
+            <input
+              className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+              type="number"
+              min={0}
+              value={jackpotDelayMaxSpins}
+              onChange={e => {
+                setIsRuntimeFormDirty(true)
+                setJackpotDelayMaxSpins(e.target.value)
+              }}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-300">Payout Chunks (Min)</span>
+            <input
+              className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+              type="number"
+              min={1}
+              value={jackpotChunkMin}
+              onChange={e => {
+                setIsRuntimeFormDirty(true)
+                setJackpotChunkMin(e.target.value)
+              }}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-300">Payout Chunks (Max)</span>
+            <input
+              className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+              type="number"
+              min={1}
+              value={jackpotChunkMax}
+              onChange={e => {
+                setIsRuntimeFormDirty(true)
+                setJackpotChunkMax(e.target.value)
+              }}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-300">Jackpot Win Variance</span>
+            <input
+              className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+              type="number"
+              min={0}
+              value={jackpotWinVariance}
+              onChange={e => {
+                setIsRuntimeFormDirty(true)
+                setJackpotWinVariance(e.target.value)
+              }}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
             <span className="text-slate-300">Hopper Alert Threshold</span>
             <input
               className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
@@ -262,6 +463,52 @@ export default function Settings() {
           />
           Auto-trigger happy hour when prize pool reaches goal
         </label>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-300">Pool Goal Mode</span>
+            <select
+              className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+              value={poolGoalMode}
+              onChange={e => {
+                setIsRuntimeFormDirty(true)
+                setPoolGoalMode(e.target.value as 'amount' | 'spins' | 'time')
+              }}
+            >
+              <option value="amount">Amount</option>
+              <option value="spins">Spins</option>
+              <option value="time">Time</option>
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-300">Goal Spins</span>
+            <input
+              className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+              type="number"
+              min={1}
+              value={poolGoalSpins}
+              onChange={e => {
+                setIsRuntimeFormDirty(true)
+                setPoolGoalSpins(e.target.value)
+              }}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-300">Goal Time (Minutes)</span>
+            <input
+              className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+              type="number"
+              min={1}
+              value={poolGoalTimeMinutes}
+              onChange={e => {
+                setIsRuntimeFormDirty(true)
+                setPoolGoalTimeMinutes(e.target.value)
+              }}
+            />
+          </label>
+        </div>
 
         <div>
           <button

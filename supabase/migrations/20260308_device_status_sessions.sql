@@ -16,8 +16,10 @@ alter table public.devices
   add column if not exists current_spin_id bigint not null default 0,
   add column if not exists session_metadata jsonb not null default '{}'::jsonb;
 
+create sequence if not exists public.device_game_sessions_id_seq;
+
 create table if not exists public.device_game_sessions (
-  id bigint generated always as identity primary key,
+  id bigint not null default nextval('public.device_game_sessions_id_seq'::regclass) primary key,
   device_id text not null references public.devices(device_id) on delete cascade,
   game_id text not null,
   game_name text,
@@ -29,6 +31,9 @@ create table if not exists public.device_game_sessions (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter sequence public.device_game_sessions_id_seq
+  owned by public.device_game_sessions.id;
 
 create index if not exists idx_device_game_sessions_device_started
   on public.device_game_sessions (device_id, started_at desc);

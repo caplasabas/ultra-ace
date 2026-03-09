@@ -5,6 +5,7 @@ import { useGlobalStats } from '../hooks/useGlobalStats'
 import { useCasinoRuntime } from '../hooks/useCasinoRuntime'
 import moment from 'moment'
 import type { DeviceRow } from '../hooks/useDevices'
+import { supabase } from '../lib/supabase'
 
 type SortField =
   | 'device_id'
@@ -43,12 +44,47 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState('')
   const [sortField, setSortField] = useState<SortField>('updated_at')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [showHappyPotsModal, setShowHappyPotsModal] = useState(false)
+  const [showJackpotPotsModal, setShowJackpotPotsModal] = useState(false)
+  const [happyPots, setHappyPots] = useState<any[]>([])
+  const [jackpotPots, setJackpotPots] = useState<any[]>([])
 
   useEffect(() => {
     if (!errorMessage) return
     const t = setTimeout(() => setErrorMessage(null), 4000)
     return () => clearTimeout(t)
   }, [errorMessage])
+
+  useEffect(() => {
+    async function fetchPots() {
+      const [{ data: happyData }, { data: jackpotData }] = await Promise.all([
+        supabase
+          .from('happy_hour_pots')
+          .select('*')
+          .order('id', { ascending: false })
+          .limit(50),
+        supabase
+          .from('jackpot_pots')
+          .select('*')
+          .order('id', { ascending: false })
+          .limit(50),
+      ])
+      setHappyPots(happyData ?? [])
+      setJackpotPots(jackpotData ?? [])
+    }
+
+    void fetchPots()
+
+    const channel = supabase
+      .channel('dashboard-pool-pots')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'happy_hour_pots' }, fetchPots)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'jackpot_pots' }, fetchPots)
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [])
 
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
   const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
@@ -179,7 +215,11 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-emerald-700/40 bg-emerald-900/20 p-4">
+            <button
+              type="button"
+              onClick={() => setShowHappyPotsModal(true)}
+              className="text-left rounded-lg border border-emerald-700/40 bg-emerald-900/20 p-4 hover:border-emerald-500/70"
+            >
               <div className="text-xs text-emerald-300/80 mb-1">Mode / Pools</div>
               <div
                 className={`flex items-center justify-between text-sm font-mono font-bold ${
@@ -194,7 +234,10 @@ export default function Dashboard() {
               <div className="text-sm text-emerald-200/90 mt-1 font-mono">
                 Accum {formatCurrency(runtime?.prize_pool_balance)} / {formatCurrency(runtime?.prize_pool_goal)}
               </div>
-            </div>
+              <div className="text-xs text-emerald-200/80 mt-2">
+                Queued Pots: {asNumber(runtime?.happy_pots_queued_count)} (click to view)
+              </div>
+            </button>
 
             <div className="rounded-lg border border-orange-700/40 bg-orange-900/20 p-4">
               <div className="text-xs text-orange-300/80 mb-1">
@@ -208,6 +251,26 @@ export default function Dashboard() {
                 {formatCurrency(globalHouseWin)}
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={() => setShowJackpotPotsModal(true)}
+              className="text-left rounded-lg border border-indigo-700/40 bg-indigo-900/20 p-4 hover:border-indigo-500/70"
+            >
+              <div className="text-xs text-indigo-300/80 mb-1">Jackpot Flow</div>
+              <div className="text-sm text-indigo-200/90 mt-1 font-mono">
+                Contrib {formatCurrency(stats?.total_jackpot_contrib)}
+              </div>
+              <div className="text-sm text-indigo-200/90 mt-1 font-mono">
+                Paid {formatCurrency(stats?.total_jackpot_win)}
+              </div>
+              <div className="text-sm text-indigo-200/90 mt-1 font-mono">
+                Pool {formatCurrency(runtime?.jackpot_pool_balance)} / {formatCurrency(runtime?.jackpot_pool_goal)}
+              </div>
+              <div className="text-xs text-indigo-200/80 mt-2">
+                Queued Pots: {asNumber(runtime?.jackpot_pots_queued_count)} (click to view)
+              </div>
+            </button>
           </div>
         </section>
 
@@ -263,7 +326,11 @@ export default function Dashboard() {
                   <button
                     key={d.device_id}
                     type="button"
-                    className="w-full rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-left"
+                    className={`w-full rounded-lg border p-3 text-left ${
+                      d.jackpot_selected
+                        ? 'border-amber-300/70 bg-gradient-to-br from-amber-900/30 via-slate-900/80 to-slate-900/90 shadow-[0_0_20px_rgba(251,191,36,0.18)]'
+                        : 'border-slate-800 bg-slate-900/60'
+                    }`}
                     onClick={() => setSelectedDevice(d)}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -289,6 +356,12 @@ export default function Dashboard() {
                         {d.is_free_game && (
                           <div className="mt-1 text-[10px] text-fuchsia-300">
                             Free Spins: {asNumber(d.free_spins_left)} left
+                          </div>
+                        )}
+                        {d.jackpot_selected && (
+                          <div className="mt-1 text-[10px] font-semibold text-amber-200">
+                            JACKPOT TARGET {formatCurrency(d.jackpot_target_amount)} • Remaining{' '}
+                            {formatCurrency(d.jackpot_remaining_amount)}
                           </div>
                         )}
                       </div>
@@ -409,10 +482,23 @@ export default function Dashboard() {
                   return (
                     <tr
                       key={d.device_id}
-                      className="hover:bg-slate-900/50 cursor-pointer"
+                      className={`cursor-pointer ${
+                        d.jackpot_selected
+                          ? 'bg-amber-950/25 hover:bg-amber-900/30 ring-1 ring-inset ring-amber-400/40'
+                          : 'hover:bg-slate-900/50'
+                      }`}
                       onClick={() => setSelectedDevice(d)}
                     >
-                      <td className="px-4 py-2">{d.device_id ?? 'Unnamed'}</td>
+                      <td className="px-4 py-2">
+                        <div className="flex items-center gap-2">
+                          <span>{d.device_id ?? 'Unnamed'}</span>
+                          {d.jackpot_selected && (
+                            <span className="rounded border border-amber-400/70 bg-amber-900/50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200">
+                              JACKPOT
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-4 py-2">
                         <span
                           className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${
@@ -498,6 +584,52 @@ export default function Dashboard() {
           device={{ ...selectedDevice, hopper_alert_threshold: hopperAlertThreshold }}
           onClose={() => setSelectedDevice(null)}
         />
+      )}
+
+      {showHappyPotsModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 p-4">
+          <div className="mx-auto max-w-2xl rounded-lg border border-slate-700 bg-slate-950 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Happy Hour Pots Queue</h3>
+              <button onClick={() => setShowHappyPotsModal(false)} className="text-slate-300 hover:text-white">
+                ✕
+              </button>
+            </div>
+            <div className="max-h-[70vh] overflow-auto space-y-2">
+              {happyPots.map(p => (
+                <div key={p.id} className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm">
+                  <div className="font-mono">#{p.id} • {String(p.status).toUpperCase()} • {formatCurrency(p.amount_total)}</div>
+                  <div className="text-slate-400 text-xs mt-1">
+                    Remaining {formatCurrency(p.amount_remaining)} • {p.goal_mode}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showJackpotPotsModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 p-4">
+          <div className="mx-auto max-w-2xl rounded-lg border border-slate-700 bg-slate-950 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Jackpot Pots Queue</h3>
+              <button onClick={() => setShowJackpotPotsModal(false)} className="text-slate-300 hover:text-white">
+                ✕
+              </button>
+            </div>
+            <div className="max-h-[70vh] overflow-auto space-y-2">
+              {jackpotPots.map(p => (
+                <div key={p.id} className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm">
+                  <div className="font-mono">#{p.id} • {String(p.status).toUpperCase()} • {formatCurrency(p.amount_total)}</div>
+                  <div className="text-slate-400 text-xs mt-1">
+                    Remaining {formatCurrency(p.amount_remaining)} • {p.goal_mode}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </>
   )

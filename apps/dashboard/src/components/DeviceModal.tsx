@@ -91,7 +91,13 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
   return (
     <div className="fixed inset-0   bg-black/85 z-50 overflow-y-auto">
       <div className="min-h-full flex items-start md:items-center justify-center p-4">
-        <div className="bg-slate-900 w-full max-w-2xl max-h-[95vh] flex flex-col rounded-xl border border-slate-800">
+        <div
+          className={`bg-slate-900 w-full max-w-2xl max-h-[95vh] flex flex-col rounded-xl border ${
+            device.jackpot_selected
+              ? 'border-amber-400/70 shadow-[0_0_28px_rgba(251,191,36,0.2)]'
+              : 'border-slate-800'
+          }`}
+        >
           <div className="flex flex-col space-y-1 p-4">
             <button onClick={onClose} className="text-slate-400 hover:text-white self-end">
               ✕
@@ -107,6 +113,12 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
                   {device.runtime_mode ?? 'BASE'}
                   {device.is_free_game ? ` • Free Spins Left: ${asNumber(device.free_spins_left)}` : ''}
                 </div>
+                {device.jackpot_selected && (
+                  <div className="mt-1 text-xs font-semibold text-amber-200">
+                    JACKPOT TARGET {formatCurrency(device.jackpot_target_amount)} • Remaining{' '}
+                    {formatCurrency(device.jackpot_remaining_amount)}
+                  </div>
+                )}
               </div>
 
               <div className="text-base md:text-lg font-mono font-bold text-green-400">
