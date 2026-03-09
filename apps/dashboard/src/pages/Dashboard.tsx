@@ -260,16 +260,16 @@ export default function Dashboard() {
             </button>
 
             <div className="rounded-lg border border-orange-700/40 bg-orange-900/20 p-4">
-              <div className="text-xs text-orange-300/80 mb-1">Global House Net ({formatPercent(activeHousePct)} template)</div>
+              <div className="text-xs text-orange-300/80 mb-1">Global House Take (Strict 20% per bet)</div>
+              <div className="text-xl sm:text-2xl font-bold font-mono text-orange-300">
+                {formatCurrency(globalHouseGross)}
+              </div>
               <div
-                className={`text-xl sm:text-2xl font-bold font-mono ${
-                  globalHouseNet < 0 ? 'text-red-300 animate-pulse' : 'text-orange-300'
+                className={`text-[11px] mt-1 font-mono ${
+                  globalHouseNet < 0 ? 'text-red-300' : 'text-orange-200/80'
                 }`}
               >
-                {formatCurrency(globalHouseNet)}
-              </div>
-              <div className="text-[11px] text-orange-200/80 mt-1 font-mono">
-                Gross take {formatCurrency(globalHouseGross)}
+                Net after pool liabilities {formatCurrency(globalHouseNet)}
               </div>
             </div>
 
