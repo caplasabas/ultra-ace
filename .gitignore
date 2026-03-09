@@ -30,3 +30,5 @@ package-lock.json
 /apps/ultra-ace-web/src/assets/vfx/backup/
 /apps/ultra-ace-web/src/assets/images/backup/
 /.idea/
+/dist-package/
+/AWSCLIV2.pkg

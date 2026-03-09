@@ -11,6 +11,8 @@ export type CasinoRuntimeLive = {
   auto_happy_enabled: boolean
   prize_pool_balance: number
   prize_pool_goal: number
+  max_win_enabled?: boolean
+  max_win_multiplier?: number
   active_target_rtp_pct: number
   updated_at: string
 }

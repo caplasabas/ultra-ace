@@ -96,6 +96,8 @@ export function useEngine() {
   const [withdrawAmount, setWithdrawAmount] = useState(60)
   const [isWithdrawing, setIsWithdrawing] = useState(false)
   const [showWithdrawModal, setShowWithdrawModal] = useState(false)
+  const maxWinEnabledRef = useRef(true)
+  const currentSpinMaxWinRef = useRef<number | null>(null)
   const creditWinToBalanceRef = useRef(false)
   const suppressRealtimeBalanceRef = useRef(false)
   const queuedRealtimeBalanceRef = useRef<number | null>(null)
@@ -153,8 +155,10 @@ export function useEngine() {
       version: 'ui-local-default',
     })
 
-    const applyRuntimeMode = (mode: 'BASE' | 'HAPPY') => {
+    const applyRuntimeMode = (runtime: { active_mode: 'BASE' | 'HAPPY'; max_win_enabled?: boolean }) => {
+      const mode = runtime.active_mode === 'HAPPY' ? 'HAPPY' : 'BASE'
       const nextConfig = mode === 'HAPPY' ? DEFAULT_ENGINE_HAPPY_HOUR : DEFAULT_ENGINE_CONFIG
+      maxWinEnabledRef.current = runtime.max_win_enabled ?? true
 
       hotUpdateEngine({
         config: nextConfig,
@@ -246,14 +250,14 @@ export function useEngine() {
       try {
         const runtime = await fetchCasinoRuntimeLive()
         if (mounted) {
-          applyRuntimeMode(runtime.active_mode)
+          applyRuntimeMode(runtime)
         }
       } catch (err) {
         console.error('[runtime] initial load failed', err)
       }
 
       runtimeChannel = subscribeCasinoRuntimeLive(next => {
-        applyRuntimeMode(next.active_mode)
+        applyRuntimeMode(next)
       })
     }
 
@@ -350,6 +354,7 @@ export function useEngine() {
       const runtime = await fetchCasinoRuntimeLive()
       const mode = runtime.active_mode === 'HAPPY' ? 'HAPPY' : 'BASE'
       const nextConfig = mode === 'HAPPY' ? DEFAULT_ENGINE_HAPPY_HOUR : DEFAULT_ENGINE_CONFIG
+      maxWinEnabledRef.current = runtime.max_win_enabled ?? true
       hotUpdateEngine({
         config: nextConfig,
         version: `runtime-pre-spin-${mode}-${Date.now()}`,
@@ -358,6 +363,25 @@ export function useEngine() {
     } catch (err) {
       console.error('[runtime] pre-spin refresh failed', err)
     }
+  }
+
+  function getMaxWinCapForBet(lastBetAmount: number): number | null {
+    if (!maxWinEnabledRef.current) return null
+    const betAmount = Math.max(0, Number(lastBetAmount || 0))
+    if (betAmount <= 0) return null
+    let multiplier = 700
+    if (betAmount < 20) multiplier = 3000
+    else if (betAmount < 100) multiplier = 2500
+    else if (betAmount < 200) multiplier = 2000
+    else if (betAmount < 300) multiplier = 1500
+    else if (betAmount < 500) multiplier = 1000
+    return betAmount * multiplier
+  }
+
+  function clampToCurrentSpinMax(nextValue: number): number {
+    const cap = currentSpinMaxWinRef.current
+    if (cap === null) return nextValue
+    return Math.min(nextValue, cap)
   }
 
   useEffect(() => {
@@ -444,7 +468,9 @@ export function useEngine() {
       isFreeGame,
       freeSpinSource: isFreeGame ? (scatterTriggerType === 'buy' ? 'buy' : 'natural') : undefined,
     })
-    const totalWin = (outcome.cascades ?? []).reduce((sum, c) => sum + Number(c.win ?? 0), 0)
+    const rawTotalWin = (outcome.cascades ?? []).reduce((sum, c) => sum + Number(c.win ?? 0), 0)
+    currentSpinMaxWinRef.current = getMaxWinCapForBet(isFreeGame ? bet : spinAmount)
+    const totalWin = clampToCurrentSpinMax(rawTotalWin)
     const nextSpinId = spinCounterRef.current + 1
     spinCounterRef.current = nextSpinId
 
@@ -495,7 +521,7 @@ export function useEngine() {
     setDebugInfo({
       seed: seedRef?.current ?? undefined,
       bet,
-      win: outcome.win ?? 0,
+      win: totalWin,
       cascadeWins: (outcome.cascades ?? []).map(c => c.win ?? 0),
     })
 
@@ -513,10 +539,14 @@ export function useEngine() {
      Visual win accumulator
   ----------------------------- */
   function commitWin(amount: number) {
-    setTotalWin(v => v + amount)
-    if (creditWinToBalanceRef.current && !isFreeGameRef.current) {
-      setBalance(v => v + amount)
-    }
+    setTotalWin(current => {
+      const next = clampToCurrentSpinMax(current + amount)
+      const delta = Math.max(0, next - current)
+      if (delta > 0 && creditWinToBalanceRef.current && !isFreeGameRef.current) {
+        setBalance(v => v + delta)
+      }
+      return next
+    })
   }
 
   async function buyFreeSpins(betAmount: number) {
@@ -540,7 +570,9 @@ export function useEngine() {
       forceScatter: true,
     })
 
-    const totalWin = (outcome.cascades ?? []).reduce((sum, c) => sum + Number(c.win ?? 0), 0)
+    const rawTotalWin = (outcome.cascades ?? []).reduce((sum, c) => sum + Number(c.win ?? 0), 0)
+    currentSpinMaxWinRef.current = getMaxWinCapForBet(betAmount)
+    const totalWin = clampToCurrentSpinMax(rawTotalWin)
     const nextSpinId = spinCounterRef.current + 1
     spinCounterRef.current = nextSpinId
 

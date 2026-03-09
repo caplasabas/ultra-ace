@@ -50,6 +50,8 @@ export type CasinoRuntime = {
   happy_pots_queued_amount: number
   jackpot_pots_queued_count: number
   jackpot_pots_queued_amount: number
+  max_win_enabled: boolean
+  max_win_multiplier: number
   hopper_alert_threshold: number
   updated_at: string
   active_target_rtp_pct?: number
