@@ -189,6 +189,10 @@ export function useCascadeTimeline(
     )
   }
 
+  function scaledWithFloor(ms: number, floorMs: number) {
+    return Math.max(scaled(ms), floorMs)
+  }
+
   /* -----------------------------
      Spin start
   ----------------------------- */
@@ -243,7 +247,7 @@ export function useCascadeTimeline(
         } else {
           dispatch({ type: 'NEXT', phase: 'settle' })
         }
-      }, scaled(900)) // original initialRefill duration
+      }, scaledWithFloor(900, 220)) // keep turbo from outrunning visual deal-initial
 
       return () => clearTimeout(t)
     }
@@ -335,13 +339,13 @@ export function useCascadeTimeline(
         t = window.setTimeout(() => {
           dispatch({ type: 'NEXT', phase: 'initialRefill' })
           onCommit?.()
-        }, scaled(120))
+        }, scaledWithFloor(120, 380))
         break
 
       case 'highlight':
         t = window.setTimeout(() => {
           dispatch({ type: 'NEXT', phase: 'pop' })
-        }, scaled(1200))
+        }, scaledWithFloor(1200, 900))
         break
 
       case 'pop':
@@ -351,7 +355,7 @@ export function useCascadeTimeline(
           } else if (hasNextLineScatter) {
             dispatch({ type: 'NEXT', phase: 'settle' })
           }
-        }, scaled(800))
+        }, scaledWithFloor(800, 420))
         break
 
       case 'cascadeRefill':
@@ -363,7 +367,7 @@ export function useCascadeTimeline(
           } else {
             dispatch({ type: 'NEXT', phase: 'settle' })
           }
-        }, scaled(1050))
+        }, scaledWithFloor(1050, 220))
         break
 
       case 'postGoldTransform':
@@ -373,7 +377,7 @@ export function useCascadeTimeline(
           } else {
             dispatch({ type: 'NEXT', phase: 'settle' })
           }
-        }, scaled(900))
+        }, scaledWithFloor(900, 260))
         break
 
       case 'settle':
@@ -385,7 +389,7 @@ export function useCascadeTimeline(
               dispatch({ type: 'RESET' })
             }
           },
-          scaled(!hasNextLineWin && hasScatterWin ? 300 * turboMultiplier : 80),
+          scaledWithFloor(!hasNextLineWin && hasScatterWin ? 300 * turboMultiplier : 80, 80),
         )
         break
     }

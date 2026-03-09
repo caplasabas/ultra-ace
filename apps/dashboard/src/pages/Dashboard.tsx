@@ -92,7 +92,16 @@ export default function Dashboard() {
 
   const globalBet = asNumber(stats?.total_bet_amount)
   const globalWin = asNumber(stats?.total_win_amount)
-  const globalHouseWin = asNumber(stats?.total_house_take ?? (globalBet - globalWin))
+  const globalHouseGross = asNumber(stats?.total_house_take ?? (globalBet - globalWin))
+  const globalHouseNet = asNumber(
+    stats?.total_house_net ??
+      (asNumber(stats?.total_coins_in) -
+        asNumber(stats?.total_withdraw_amount) -
+        asNumber(stats?.total_balance) -
+        asNumber(runtime?.prize_pool_balance) -
+        asNumber(runtime?.happy_hour_prize_balance) -
+        asNumber(runtime?.jackpot_pool_balance)),
+  )
   const hopperAlertThreshold = asNumber(runtime?.hopper_alert_threshold ?? 500)
   const activeProfileId =
     runtime?.active_mode === 'HAPPY' ? runtime?.happy_profile_id : runtime?.base_profile_id
@@ -241,14 +250,17 @@ export default function Dashboard() {
 
             <div className="rounded-lg border border-orange-700/40 bg-orange-900/20 p-4">
               <div className="text-xs text-orange-300/80 mb-1">
-                Global House Win ({activeHousePct != null ? `${activeHousePct}%` : '—'})
+                Global House Net ({activeHousePct != null ? `${activeHousePct}% template` : '—'})
               </div>
               <div
                 className={`text-xl sm:text-2xl font-bold font-mono ${
-                  globalHouseWin < 0 ? 'text-red-300 animate-pulse' : 'text-orange-300'
+                  globalHouseNet < 0 ? 'text-red-300 animate-pulse' : 'text-orange-300'
                 }`}
               >
-                {formatCurrency(globalHouseWin)}
+                {formatCurrency(globalHouseNet)}
+              </div>
+              <div className="text-[11px] text-orange-200/80 mt-1 font-mono">
+                Gross take {formatCurrency(globalHouseGross)}
               </div>
             </div>
 

@@ -15,6 +15,7 @@ const RETRY_INTERVAL_MS = 1200
 
 let retryInstalled = false
 let flushInFlight = false
+let pushQueue: Promise<void> = Promise.resolve()
 
 function loadPendingEvents(): MetricEventPayload[] {
   if (typeof window === 'undefined') return []
@@ -52,6 +53,16 @@ async function pushEvents(events: MetricEventPayload[]) {
   if (error) throw error
 }
 
+function pushEventsOrdered(events: MetricEventPayload[]) {
+  const run = async () => {
+    await pushEvents(events)
+  }
+
+  const next = pushQueue.then(run, run)
+  pushQueue = next.catch(() => {})
+  return next
+}
+
 export async function flushAccountingQueue() {
   if (flushInFlight) return
   if (pendingEvents.length === 0) return
@@ -60,7 +71,7 @@ export async function flushAccountingQueue() {
   try {
     while (pendingEvents.length > 0) {
       const batch = pendingEvents.slice(0, 50)
-      await pushEvents(batch)
+      await pushEventsOrdered(batch)
       pendingEvents = pendingEvents.slice(batch.length)
       savePendingEvents(pendingEvents)
     }
@@ -160,7 +171,7 @@ export async function commitSpinAccounting({
   })
 
   try {
-    await pushEvents(events)
+    await pushEventsOrdered(events)
   } catch (error) {
     throw error
   }
@@ -200,7 +211,7 @@ export async function logLedgerEvent({
   }
 
   try {
-    await pushEvents([event])
+    await pushEventsOrdered([event])
   } catch (error) {
     enqueueEvents([event])
     console.error('[metrics] apply_metric_event failed', error)

@@ -123,7 +123,6 @@ export default function App() {
     debugInfo,
     totalWin,
     balance,
-    setBalance,
     bet,
     setBet,
     freeSpinTotal,
@@ -241,8 +240,6 @@ export default function App() {
   const addBalance = (source = 'coin', amount = 5) => {
     if (!deviceId) return
 
-    setBalance(b => b + amount)
-
     logLedgerEvent({
       deviceId,
       type: 'deposit',
@@ -257,7 +254,6 @@ export default function App() {
 
   const minusBalance = (source = 'hopper', amount = 20) => {
     if (!deviceId) return
-    setBalance(b => b - amount)
 
     logLedgerEvent({
       deviceId,

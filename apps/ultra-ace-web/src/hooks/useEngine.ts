@@ -11,6 +11,7 @@ import {
 } from '@ultra-ace/engine'
 import { DebugSpinInfo } from 'src/debug/DebugHud'
 import { ensureDeviceRegistered } from '../lib/device'
+import type { DeviceBalanceSnapshot } from '../lib/balance'
 import { fetchDeviceBalance, subscribeToDeviceBalance } from '../lib/balance'
 import { fetchCasinoRuntimeLive, subscribeCasinoRuntimeLive } from '../lib/runtime'
 import { commitSpinAccounting } from '../lib/accounting'
@@ -98,9 +99,10 @@ export function useEngine() {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false)
   const maxWinEnabledRef = useRef(true)
   const currentSpinMaxWinRef = useRef<number | null>(null)
-  const creditWinToBalanceRef = useRef(false)
+  const spinLockRef = useRef(false)
   const suppressRealtimeBalanceRef = useRef(false)
-  const queuedRealtimeBalanceRef = useRef<number | null>(null)
+  const balanceSyncInFlightRef = useRef(false)
+  const balanceSyncRequestedRef = useRef(false)
   const isFreeGameRef = useRef(false)
   const freeSpinsLeftRef = useRef(0)
   const freeSpinTotalRef = useRef(0)
@@ -131,13 +133,43 @@ export function useEngine() {
     window.localStorage.setItem(snapshotKeyRef.current, JSON.stringify(next))
   }
 
+  const applyAuthoritativeBalance = useCallback((snapshot: DeviceBalanceSnapshot) => {
+    const nextBalance = Number(snapshot.balance ?? 0)
+    if (!Number.isFinite(nextBalance)) return
+
+    if (suppressRealtimeBalanceRef.current) return
+    setBalance(current => (current === nextBalance ? current : nextBalance))
+  }, [])
+
+  const syncBalanceFromDb = useCallback(async () => {
+    const id = deviceIdRef.current
+    if (!id) return
+    if (balanceSyncInFlightRef.current) {
+      balanceSyncRequestedRef.current = true
+      return
+    }
+
+    balanceSyncInFlightRef.current = true
+    try {
+      const snapshot = await fetchDeviceBalance(id)
+      applyAuthoritativeBalance(snapshot)
+    } catch (error) {
+      console.error('[engine] authoritative balance sync failed', error)
+    } finally {
+      balanceSyncInFlightRef.current = false
+      if (balanceSyncRequestedRef.current) {
+        balanceSyncRequestedRef.current = false
+        window.setTimeout(() => {
+          void syncBalanceFromDb()
+        }, 0)
+      }
+    }
+  }, [applyAuthoritativeBalance])
+
   const releaseRealtimeBalance = useCallback(() => {
     suppressRealtimeBalanceRef.current = false
-    const queued = queuedRealtimeBalanceRef.current
-    if (queued === null) return
-    queuedRealtimeBalanceRef.current = null
-    setBalance(current => (current === queued ? current : queued))
-  }, [])
+    void syncBalanceFromDb()
+  }, [syncBalanceFromDb])
 
   /* -----------------------------
      Debug
@@ -149,6 +181,7 @@ export function useEngine() {
 
     let unsubscribe: (() => void) | null = null
     let runtimeChannel: { unsubscribe: () => void } | null = null
+    let balancePollTimer: number | null = null
 
     startEngine({
       config: DEFAULT_ENGINE_CONFIG,
@@ -200,7 +233,7 @@ export function useEngine() {
       }
 
       const initialBalance = await fetchDeviceBalance(id)
-      setBalance(initialBalance)
+      applyAuthoritativeBalance(initialBalance)
 
       if (typeof window !== 'undefined' && snapshotKeyRef.current) {
         try {
@@ -232,18 +265,14 @@ export function useEngine() {
         }
       }
 
-      unsubscribe = subscribeToDeviceBalance(id, newBalance => {
-        if (suppressRealtimeBalanceRef.current) {
-          queuedRealtimeBalanceRef.current = newBalance
-          return
-        }
-        setBalance(dbBalance => {
-          if (dbBalance !== newBalance) {
-            return newBalance
-          }
-          return dbBalance
-        })
+      unsubscribe = subscribeToDeviceBalance(id, _snapshot => {
+        void _snapshot
+        void syncBalanceFromDb()
       })
+
+      balancePollTimer = window.setInterval(() => {
+        void syncBalanceFromDb()
+      }, 2500)
 
       setSessionReady(true)
 
@@ -269,6 +298,7 @@ export function useEngine() {
       mounted = false
       if (unsubscribe) unsubscribe()
       if (runtimeChannel) runtimeChannel.unsubscribe()
+      if (balancePollTimer !== null) clearInterval(balancePollTimer)
       if (deviceIdRef.current) {
         void endDeviceGameSession({
           deviceId: deviceIdRef.current,
@@ -438,6 +468,7 @@ export function useEngine() {
   ----------------------------- */
   async function spinNow() {
     if (spinning) return
+    if (spinLockRef.current) return
     if (!rngRef.current) return
 
     // Free-spin intro/manual path should explicitly enter free spins first.
@@ -446,14 +477,14 @@ export function useEngine() {
     if (!isFreeGame && balance < bet) return
     if (isFreeGame && freeSpinsLeftRef.current <= 0) return
 
+    spinLockRef.current = true
     suppressRealtimeBalanceRef.current = true
-    creditWinToBalanceRef.current = false
     setSpinning(true)
     await refreshRuntimeMode()
 
     if (!isFreeGame) {
       setTotalWin(0)
-      setBalance(b => b - bet)
+      setBalance(b => Math.max(0, b - bet))
       setFreeSpinTotal(0)
     } else {
       // One decrement per started free spin.
@@ -468,7 +499,7 @@ export function useEngine() {
       isFreeGame,
       freeSpinSource: isFreeGame ? (scatterTriggerType === 'buy' ? 'buy' : 'natural') : undefined,
     })
-    const rawTotalWin = (outcome.cascades ?? []).reduce((sum, c) => sum + Number(c.win ?? 0), 0)
+    const rawTotalWin = Number.isFinite(Number(outcome.win)) ? Number(outcome.win) : 0
     currentSpinMaxWinRef.current = getMaxWinCapForBet(isFreeGame ? bet : spinAmount)
     const totalWin = clampToCurrentSpinMax(rawTotalWin)
     const nextSpinId = spinCounterRef.current + 1
@@ -489,12 +520,13 @@ export function useEngine() {
       } catch (error) {
         console.error('[engine] spin accounting failed, skipping animation start', error)
         if (!isFreeGame) {
-          setBalance(b => b + bet)
+          setBalance(b => b + spinAmount)
           setFreeSpinTotal(0)
         } else {
           setFreeSpinsLeft(v => v + 1)
         }
         releaseRealtimeBalance()
+        spinLockRef.current = false
         setSpinning(false)
         return
       }
@@ -503,14 +535,9 @@ export function useEngine() {
     if (!isFreeGame) {
       if (outcome.freeSpinsAwarded > 0) {
         if (totalWin > 0) setFreeSpinTotal(totalWin)
-        creditWinToBalanceRef.current = false
-      } else if (totalWin > 0) {
-        // Credit in sync with WIN label highlight updates.
-        creditWinToBalanceRef.current = true
       }
     } else if (totalWin > 0) {
       setFreeSpinTotal(v => v + totalWin)
-      creditWinToBalanceRef.current = false
     }
 
     lastOutcomeRef.current = outcome
@@ -542,7 +569,7 @@ export function useEngine() {
     setTotalWin(current => {
       const next = clampToCurrentSpinMax(current + amount)
       const delta = Math.max(0, next - current)
-      if (delta > 0 && creditWinToBalanceRef.current && !isFreeGameRef.current) {
+      if (delta > 0 && !isFreeGameRef.current) {
         setBalance(v => v + delta)
       }
       return next
@@ -551,14 +578,15 @@ export function useEngine() {
 
   async function buyFreeSpins(betAmount: number) {
     if (spinning || showFreeSpinIntro || freeSpinsLeft > 0 || pendingFreeSpins > 0) return
+    if (spinLockRef.current) return
     if (!rngRef.current || !deviceIdRef.current) return
 
     const cost = betAmount * BUY_FREE_SPIN_MULTIPLIER
     if (balance < cost) return
 
-    setBalance(b => b - cost)
+    spinLockRef.current = true
+    setBalance(b => Math.max(0, b - cost))
     suppressRealtimeBalanceRef.current = true
-    creditWinToBalanceRef.current = false
     setSpinning(true)
     setTotalWin(0)
     await refreshRuntimeMode()
@@ -570,7 +598,7 @@ export function useEngine() {
       forceScatter: true,
     })
 
-    const rawTotalWin = (outcome.cascades ?? []).reduce((sum, c) => sum + Number(c.win ?? 0), 0)
+    const rawTotalWin = Number.isFinite(Number(outcome.win)) ? Number(outcome.win) : 0
     currentSpinMaxWinRef.current = getMaxWinCapForBet(betAmount)
     const totalWin = clampToCurrentSpinMax(rawTotalWin)
     const nextSpinId = spinCounterRef.current + 1
@@ -591,6 +619,7 @@ export function useEngine() {
       console.error('[engine] buy spin accounting failed, skipping animation start', error)
       setBalance(b => b + cost)
       releaseRealtimeBalance()
+      spinLockRef.current = false
       setSpinning(false)
       return
     }
@@ -598,10 +627,6 @@ export function useEngine() {
     setScatterTriggerType('buy')
     if (outcome.freeSpinsAwarded > 0) {
       if (totalWin > 0) setFreeSpinTotal(totalWin)
-      creditWinToBalanceRef.current = false
-    } else if (totalWin > 0) {
-      // Buy-spin normal win should also credit in sync with WIN label.
-      creditWinToBalanceRef.current = true
     }
     setPendingCascades(outcome.cascades ?? [])
     setSpinId(v => v + 1)
@@ -651,9 +676,14 @@ export function useEngine() {
 
   const endFreeSpin = () => {
     setTimeout(() => {
+      const freeWin = Math.max(0, freeSpinTotalRef.current)
+      if (freeWin > 0) {
+        setBalance(v => v + freeWin)
+      }
       setIsFreeGame(false)
       setFreezeUI(true)
       setShowScatterWinBanner(true)
+      releaseRealtimeBalance()
 
       setTimeout(() => {
         setFreeSpinTotal(0)
@@ -668,7 +698,8 @@ export function useEngine() {
   }
 
   function settleSpinVisuals() {
-    creditWinToBalanceRef.current = false
+    spinLockRef.current = false
+    if (isFreeGameRef.current) return
     releaseRealtimeBalance()
   }
 
