@@ -16,7 +16,6 @@ import { ScatterWinBanner } from './ui/ScatterWinBanner'
 import { BuySpinModal } from './ui/BuySpinModal'
 import { installAccountingRetryHooks, logLedgerEvent } from './lib/accounting'
 import { WithdrawModal } from './ui/WithdrawModal'
-import { installMetricFlushHooks } from './lib/metrics'
 
 const DEV = import.meta.env.DEV
 const GAME_BUILD_VERSION = import.meta.env.VITE_GAME_VERSION || 'dev'
@@ -101,7 +100,6 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    installMetricFlushHooks()
     installAccountingRetryHooks()
   }, [])
 
@@ -444,7 +442,7 @@ export default function App() {
   const ladder = isFreeGame || isFreeSpinPreview ? FREE_MULTIPLIERS : BASE_MULTIPLIERS
 
   function getMultiplierIndex(cascadeIndex: number) {
-    const popCount = cascadeIndex
+    const popCount = Math.max(0, cascadeIndex - 1)
     return Math.min(popCount, ladder.length - 1)
   }
 

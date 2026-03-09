@@ -27,6 +27,8 @@ const SCATTER_BANNER_DURATION = 5000
 const FREE_SPIN_SNAPSHOT_PREFIX = 'ultraace.free-spin-state'
 const FREE_SPIN_SNAPSHOT_MAX_AGE_MS = 1000 * 60 * 60 * 6
 const DEVICE_STATE_HEARTBEAT_MS = 5000
+const ENABLE_DEVICE_STATE_SYNC = false
+const BALANCE_FALLBACK_SYNC_MS = 15000
 
 type FreeSpinSnapshot = {
   updatedAt: number
@@ -103,6 +105,9 @@ export function useEngine() {
   const suppressRealtimeBalanceRef = useRef(false)
   const balanceSyncInFlightRef = useRef(false)
   const balanceSyncRequestedRef = useRef(false)
+  const balanceSyncSeqRef = useRef(0)
+  const lastAuthoritativeUpdatedAtRef = useRef(0)
+  const lastAuthoritativeBalanceRef = useRef(0)
   const isFreeGameRef = useRef(false)
   const freeSpinsLeftRef = useRef(0)
   const freeSpinTotalRef = useRef(0)
@@ -138,6 +143,21 @@ export function useEngine() {
     if (!Number.isFinite(nextBalance)) return
 
     if (suppressRealtimeBalanceRef.current) return
+
+    const updatedAtMs = snapshot.updatedAt ? Date.parse(snapshot.updatedAt) : NaN
+    if (Number.isFinite(updatedAtMs) && updatedAtMs < lastAuthoritativeUpdatedAtRef.current) return
+    if (
+      Number.isFinite(updatedAtMs) &&
+      updatedAtMs === lastAuthoritativeUpdatedAtRef.current &&
+      nextBalance < lastAuthoritativeBalanceRef.current
+    ) {
+      return
+    }
+    if (Number.isFinite(updatedAtMs)) {
+      lastAuthoritativeUpdatedAtRef.current = updatedAtMs
+    }
+    lastAuthoritativeBalanceRef.current = nextBalance
+
     setBalance(current => (current === nextBalance ? current : nextBalance))
   }, [])
 
@@ -149,9 +169,14 @@ export function useEngine() {
       return
     }
 
+    const requestSeq = ++balanceSyncSeqRef.current
+    const startedSuppressed = suppressRealtimeBalanceRef.current
+
     balanceSyncInFlightRef.current = true
     try {
       const snapshot = await fetchDeviceBalance(id)
+      if (startedSuppressed) return
+      if (requestSeq !== balanceSyncSeqRef.current) return
       applyAuthoritativeBalance(snapshot)
     } catch (error) {
       console.error('[engine] authoritative balance sync failed', error)
@@ -167,9 +192,9 @@ export function useEngine() {
   }, [applyAuthoritativeBalance])
 
   const releaseRealtimeBalance = useCallback(() => {
+    // Lift suppression only; avoid immediate fetch to prevent stale REST read overwrites.
     suppressRealtimeBalanceRef.current = false
-    void syncBalanceFromDb()
-  }, [syncBalanceFromDb])
+  }, [])
 
   /* -----------------------------
      Debug
@@ -266,13 +291,12 @@ export function useEngine() {
       }
 
       unsubscribe = subscribeToDeviceBalance(id, _snapshot => {
-        void _snapshot
-        void syncBalanceFromDb()
+        applyAuthoritativeBalance(_snapshot)
       })
 
       balancePollTimer = window.setInterval(() => {
         void syncBalanceFromDb()
-      }, 2500)
+      }, BALANCE_FALLBACK_SYNC_MS)
 
       setSessionReady(true)
 
@@ -312,6 +336,7 @@ export function useEngine() {
   }, [])
 
   useEffect(() => {
+    if (!ENABLE_DEVICE_STATE_SYNC) return
     if (!sessionReady || !deviceId) return
 
     const statePayload = {
@@ -416,6 +441,10 @@ export function useEngine() {
 
   useEffect(() => {
     deviceIdRef.current = deviceId
+    if (deviceId) {
+      lastAuthoritativeUpdatedAtRef.current = 0
+      lastAuthoritativeBalanceRef.current = 0
+    }
   }, [deviceId])
 
   useEffect(() => {
@@ -478,6 +507,8 @@ export function useEngine() {
     if (isFreeGame && freeSpinsLeftRef.current <= 0) return
 
     spinLockRef.current = true
+    // Invalidate any in-flight authoritative sync started before this spin.
+    balanceSyncSeqRef.current += 1
     suppressRealtimeBalanceRef.current = true
     setSpinning(true)
     await refreshRuntimeMode()
@@ -487,6 +518,7 @@ export function useEngine() {
       setBalance(b => Math.max(0, b - bet))
       setFreeSpinTotal(0)
     } else {
+      setTotalWin(0)
       // One decrement per started free spin.
       setFreeSpinsLeft(v => Math.max(v - 1, 0))
     }
@@ -532,14 +564,6 @@ export function useEngine() {
       }
     }
 
-    if (!isFreeGame) {
-      if (outcome.freeSpinsAwarded > 0) {
-        if (totalWin > 0) setFreeSpinTotal(totalWin)
-      }
-    } else if (totalWin > 0) {
-      setFreeSpinTotal(v => v + totalWin)
-    }
-
     lastOutcomeRef.current = outcome
 
     setPendingCascades(outcome.cascades ?? [])
@@ -571,6 +595,8 @@ export function useEngine() {
       const delta = Math.max(0, next - current)
       if (delta > 0 && !isFreeGameRef.current) {
         setBalance(v => v + delta)
+      } else if (delta > 0) {
+        setFreeSpinTotal(v => v + delta)
       }
       return next
     })
@@ -585,10 +611,13 @@ export function useEngine() {
     if (balance < cost) return
 
     spinLockRef.current = true
+    // Invalidate any in-flight authoritative sync started before this spin.
+    balanceSyncSeqRef.current += 1
     setBalance(b => Math.max(0, b - cost))
     suppressRealtimeBalanceRef.current = true
     setSpinning(true)
     setTotalWin(0)
+    setFreeSpinTotal(0)
     await refreshRuntimeMode()
 
     const outcome: SpinOutcome = spin(rngRef.current, {
@@ -625,9 +654,6 @@ export function useEngine() {
     }
 
     setScatterTriggerType('buy')
-    if (outcome.freeSpinsAwarded > 0) {
-      if (totalWin > 0) setFreeSpinTotal(totalWin)
-    }
     setPendingCascades(outcome.cascades ?? [])
     setSpinId(v => v + 1)
 
@@ -676,10 +702,6 @@ export function useEngine() {
 
   const endFreeSpin = () => {
     setTimeout(() => {
-      const freeWin = Math.max(0, freeSpinTotalRef.current)
-      if (freeWin > 0) {
-        setBalance(v => v + freeWin)
-      }
       setIsFreeGame(false)
       setFreezeUI(true)
       setShowScatterWinBanner(true)

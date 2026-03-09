@@ -10,41 +10,6 @@ type MetricEventPayload = {
   metadata?: Record<string, any>
 }
 
-const ACCOUNTING_PENDING_KEY = 'ultraace.accounting.pending.v1'
-const RETRY_INTERVAL_MS = 1200
-
-let retryInstalled = false
-let flushInFlight = false
-let pushQueue: Promise<void> = Promise.resolve()
-
-function loadPendingEvents(): MetricEventPayload[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const raw = window.localStorage.getItem(ACCOUNTING_PENDING_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    return parsed as MetricEventPayload[]
-  } catch {
-    return []
-  }
-}
-
-function savePendingEvents(events: MetricEventPayload[]) {
-  if (typeof window === 'undefined') return
-  try {
-    if (events.length === 0) {
-      window.localStorage.removeItem(ACCOUNTING_PENDING_KEY)
-      return
-    }
-    window.localStorage.setItem(ACCOUNTING_PENDING_KEY, JSON.stringify(events))
-  } catch {
-    // ignore storage failures
-  }
-}
-
-let pendingEvents: MetricEventPayload[] = loadPendingEvents()
-
 async function pushEvents(events: MetricEventPayload[]) {
   const { error } = await supabase.rpc('apply_metric_events', {
     p_events: events,
@@ -53,61 +18,11 @@ async function pushEvents(events: MetricEventPayload[]) {
   if (error) throw error
 }
 
-function pushEventsOrdered(events: MetricEventPayload[]) {
-  const run = async () => {
-    await pushEvents(events)
-  }
+// Kept for compatibility with existing imports; intentionally no-op.
+export function installAccountingRetryHooks() {}
 
-  const next = pushQueue.then(run, run)
-  pushQueue = next.catch(() => {})
-  return next
-}
-
-export async function flushAccountingQueue() {
-  if (flushInFlight) return
-  if (pendingEvents.length === 0) return
-
-  flushInFlight = true
-  try {
-    while (pendingEvents.length > 0) {
-      const batch = pendingEvents.slice(0, 50)
-      await pushEventsOrdered(batch)
-      pendingEvents = pendingEvents.slice(batch.length)
-      savePendingEvents(pendingEvents)
-    }
-  } catch (error) {
-    console.error('[accounting] flush queue failed', error)
-  } finally {
-    flushInFlight = false
-  }
-}
-
-function enqueueEvents(events: MetricEventPayload[]) {
-  if (events.length === 0) return
-  pendingEvents.push(...events)
-  savePendingEvents(pendingEvents)
-  void flushAccountingQueue()
-}
-
-export function installAccountingRetryHooks() {
-  if (retryInstalled || typeof window === 'undefined') return
-  retryInstalled = true
-
-  const flushNow = () => {
-    void flushAccountingQueue()
-  }
-
-  window.addEventListener('online', flushNow)
-  window.addEventListener('focus', flushNow)
-  window.addEventListener('beforeunload', flushNow)
-  window.addEventListener('pagehide', flushNow)
-
-  window.setInterval(() => {
-    void flushAccountingQueue()
-  }, RETRY_INTERVAL_MS)
-
-  flushNow()
-}
+// Kept for compatibility with existing imports; intentionally immediate/no queue.
+export async function flushAccountingQueue() {}
 
 export async function commitSpinAccounting({
   deviceId,
@@ -128,8 +43,6 @@ export async function commitSpinAccounting({
   cascades: number
   triggerType?: 'natural' | 'buy' | null
 }) {
-  installAccountingRetryHooks()
-
   const now = new Date().toISOString()
   const baseMetadata = {
     spinId,
@@ -170,11 +83,7 @@ export async function commitSpinAccounting({
     metadata: baseMetadata,
   })
 
-  try {
-    await pushEventsOrdered(events)
-  } catch (error) {
-    throw error
-  }
+  await pushEvents(events)
 }
 
 export async function logLedgerEvent({
@@ -190,7 +99,7 @@ export async function logLedgerEvent({
   source?: string
   metadata?: any
 }) {
-  let eventType: 'coins_in' | 'hopper_in' | 'withdrawal' | 'bet' | 'win' | null = null
+  let eventType: MetricEventType | null = null
 
   if (type === 'deposit') eventType = 'coins_in'
   else if (type === 'hopper_in') eventType = 'hopper_in'
@@ -200,21 +109,13 @@ export async function logLedgerEvent({
 
   if (!eventType) return
 
-  installAccountingRetryHooks()
-
-  const event: MetricEventPayload = {
-    device_id: deviceId,
-    event_type: eventType,
-    amount,
-    event_ts: new Date().toISOString(),
-    metadata: metadata ?? { source: source ?? null },
-  }
-
-  try {
-    await pushEventsOrdered([event])
-  } catch (error) {
-    enqueueEvents([event])
-    console.error('[metrics] apply_metric_event failed', error)
-    throw error
-  }
+  await pushEvents([
+    {
+      device_id: deviceId,
+      event_type: eventType,
+      amount,
+      event_ts: new Date().toISOString(),
+      metadata: metadata ?? { source: source ?? null },
+    },
+  ])
 }
