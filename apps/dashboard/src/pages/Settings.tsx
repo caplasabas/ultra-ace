@@ -5,7 +5,7 @@ import { prepareGamePackage, purgeGamePackages, removeGamePackage } from '../lib
 
 export default function Settings() {
   const games = useGames()
-  const { runtime, profiles, updateRuntime, setHappyHour, demoReset } = useCasinoRuntime()
+  const { runtime, profiles, updateRuntime, updateProfile, setHappyHour, demoReset } = useCasinoRuntime()
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -17,8 +17,12 @@ export default function Settings() {
   const [prizePoolBalance, setPrizePoolBalance] = useState('0')
   const [jackpotPoolGoal, setJackpotPoolGoal] = useState('10000')
   const [jackpotPoolBalance, setJackpotPoolBalance] = useState('0')
-  const [jackpotContribPct, setJackpotContribPct] = useState('10')
-  const [jackpotContribManualOverride, setJackpotContribManualOverride] = useState(false)
+  const [baseHousePctInput, setBaseHousePctInput] = useState('20')
+  const [baseJackpotPctInput, setBaseJackpotPctInput] = useState('20')
+  const [baseHappyPctInput, setBaseHappyPctInput] = useState('60')
+  const [happyHousePctInput, setHappyHousePctInput] = useState('20')
+  const [happyJackpotPctInput, setHappyJackpotPctInput] = useState('20')
+  const [happyHappyPctInput, setHappyHappyPctInput] = useState('60')
   const [jackpotMinWinners, setJackpotMinWinners] = useState('1')
   const [jackpotMaxWinners, setJackpotMaxWinners] = useState('5')
   const [jackpotDelayMinSpins, setJackpotDelayMinSpins] = useState('2')
@@ -42,8 +46,6 @@ export default function Settings() {
     setPrizePoolBalance(String(runtime.prize_pool_balance ?? 0))
     setJackpotPoolGoal(String(runtime.jackpot_pool_goal ?? 10000))
     setJackpotPoolBalance(String(runtime.jackpot_pool_balance ?? 0))
-    setJackpotContribPct(String(runtime.jackpot_contrib_pct ?? 10))
-    setJackpotContribManualOverride(false)
     setJackpotMinWinners(String(runtime.jackpot_min_winners ?? 1))
     setJackpotMaxWinners(String(runtime.jackpot_max_winners ?? 5))
     setJackpotDelayMinSpins(String(runtime.jackpot_delay_min_spins ?? 2))
@@ -57,19 +59,6 @@ export default function Settings() {
     setMaxWinEnabled(Boolean(runtime.max_win_enabled ?? true))
     setHopperAlertThreshold(String(runtime.hopper_alert_threshold ?? 500))
     setAutoHappy(Boolean(runtime.auto_happy_enabled))
-  }
-
-  function getSuggestedJackpotContribPct(nextBaseProfileId: string, nextHappyProfileId: string) {
-    const baseProfile = baseProfiles.find(p => p.id === nextBaseProfileId)
-    const happyProfile = happyProfiles.find(p => p.id === nextHappyProfileId)
-    const basePoolPct = Number(baseProfile?.pool_pct ?? 0)
-    const happyPoolPct = Number(happyProfile?.pool_pct ?? 0)
-
-    if (!baseProfile && !happyProfile) return 0
-    if (!baseProfile) return Math.max(0, happyPoolPct)
-    if (!happyProfile) return Math.max(0, basePoolPct)
-
-    return Math.max(0, Math.min(basePoolPct, happyPoolPct))
   }
 
   useEffect(() => {
@@ -94,26 +83,32 @@ export default function Settings() {
     () => happyProfiles.find(p => p.id === happyProfileId) ?? null,
     [happyProfiles, happyProfileId],
   )
-  const baseHousePct = Number(selectedBaseProfile?.house_pct ?? 0)
-  const happyHousePct = Number(selectedHappyProfile?.house_pct ?? 0)
-  const jackpotContribValue = Math.max(0, Number(jackpotContribPct || 0))
-  const baseHappyRemainder = 100 - baseHousePct - jackpotContribValue
-  const happyHappyRemainder = 100 - happyHousePct - jackpotContribValue
-  const splitInvalid = baseHappyRemainder < 0 || happyHappyRemainder < 0
-  const jackpotMaxAllowed = Math.max(0, Math.min(100 - baseHousePct, 100 - happyHousePct))
+  const baseHousePct = Math.max(0, Number(baseHousePctInput || 0))
+  const baseJackpotPct = Math.max(0, Number(baseJackpotPctInput || 0))
+  const baseHappyPct = Math.max(0, Number(baseHappyPctInput || 0))
+  const happyHousePct = Math.max(0, Number(happyHousePctInput || 0))
+  const happyJackpotPct = Math.max(0, Number(happyJackpotPctInput || 0))
+  const happyHappyPct = Math.max(0, Number(happyHappyPctInput || 0))
+
+  const baseSplitTotal = baseHousePct + baseJackpotPct + baseHappyPct
+  const happySplitTotal = happyHousePct + happyJackpotPct + happyHappyPct
+  const splitInvalid =
+    !Number.isFinite(baseSplitTotal) ||
+    !Number.isFinite(happySplitTotal) ||
+    Math.abs(baseSplitTotal - 100) > 0.0001 ||
+    Math.abs(happySplitTotal - 100) > 0.0001
 
   useEffect(() => {
-    if (jackpotContribManualOverride) return
-    if (!baseProfileId && !happyProfileId) return
-    const suggested = String(getSuggestedJackpotContribPct(baseProfileId, happyProfileId))
-    setJackpotContribPct(prev => (prev === suggested ? prev : suggested))
-  }, [
-    baseProfileId,
-    happyProfileId,
-    baseProfiles,
-    happyProfiles,
-    jackpotContribManualOverride,
-  ])
+    if (!selectedBaseProfile || !selectedHappyProfile) return
+    if (isRuntimeFormDirty) return
+
+    setBaseHousePctInput(String(selectedBaseProfile.house_pct ?? 0))
+    setBaseJackpotPctInput(String(selectedBaseProfile.pool_pct ?? 0))
+    setBaseHappyPctInput(String(selectedBaseProfile.player_pct ?? 0))
+    setHappyHousePctInput(String(selectedHappyProfile.house_pct ?? 0))
+    setHappyJackpotPctInput(String(selectedHappyProfile.pool_pct ?? 0))
+    setHappyHappyPctInput(String(selectedHappyProfile.player_pct ?? 0))
+  }, [selectedBaseProfile, selectedHappyProfile, isRuntimeFormDirty])
 
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
   const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
@@ -128,15 +123,47 @@ export default function Settings() {
     const goalTimeHours = Math.max(0, Number(poolGoalTimeHours || 0))
     const goalTimeMinutes = Math.max(0, Number(poolGoalTimeMinutes || 0))
     const goalTimeSeconds = Math.max(60, goalTimeHours * 3600 + goalTimeMinutes * 60)
-    const jackpotPctApplied = Math.min(Math.max(0, Number(jackpotContribPct || 0)), jackpotMaxAllowed)
+    const baseHouse = Math.max(0, Number(baseHousePctInput || 0))
+    const baseJackpot = Math.max(0, Number(baseJackpotPctInput || 0))
+    const baseHappy = Math.max(0, Number(baseHappyPctInput || 0))
+    const happyHouse = Math.max(0, Number(happyHousePctInput || 0))
+    const happyJackpot = Math.max(0, Number(happyJackpotPctInput || 0))
+    const happyHappy = Math.max(0, Number(happyHappyPctInput || 0))
 
     if (splitInvalid) {
       setSaving(false)
       setErrorMessage(
-        `Invalid split: jackpot % must be <= ${jackpotMaxAllowed.toFixed(
-          2,
-        )} so house+jackpot+happy always equals 100%.`,
+        'Invalid split: Base and Happy profile percentages must each total exactly 100%.',
       )
+      return
+    }
+
+    if (!baseProfileId || !happyProfileId) {
+      setSaving(false)
+      setErrorMessage('Select both Base and Happy profiles before saving.')
+      return
+    }
+
+    const updateBaseProfile = await updateProfile(baseProfileId, {
+      house_pct: baseHouse,
+      pool_pct: baseJackpot,
+      player_pct: baseHappy,
+    })
+    if (!updateBaseProfile.ok) {
+      setSaving(false)
+      setErrorMessage(updateBaseProfile.error?.message ?? 'Failed to save base profile split')
+      return
+    }
+
+    const updateHappyProfile = await updateProfile(happyProfileId, {
+      house_pct: happyHouse,
+      pool_pct: happyJackpot,
+      player_pct: happyHappy,
+      prize_pct: 0,
+    })
+    if (!updateHappyProfile.ok) {
+      setSaving(false)
+      setErrorMessage(updateHappyProfile.error?.message ?? 'Failed to save happy profile split')
       return
     }
 
@@ -148,7 +175,7 @@ export default function Settings() {
       prize_pool_balance: Math.max(0, Number(prizePoolBalance || 0)),
       jackpot_pool_goal: Math.max(0, Number(jackpotPoolGoal || 0)),
       jackpot_pool_balance: Math.max(0, Number(jackpotPoolBalance || 0)),
-      jackpot_contrib_pct: jackpotPctApplied,
+      jackpot_contrib_pct: baseJackpot,
       jackpot_min_winners: winnerMin,
       jackpot_max_winners: winnerMax,
       jackpot_delay_min_spins: delayMin,
@@ -295,10 +322,13 @@ export default function Settings() {
               value={baseProfileId}
               onChange={e => {
                 const nextBaseProfileId = e.target.value
+                const nextBaseProfile = baseProfiles.find(p => p.id === nextBaseProfileId) ?? null
                 setIsRuntimeFormDirty(true)
                 setBaseProfileId(nextBaseProfileId)
-                if (!jackpotContribManualOverride) {
-                  setJackpotContribPct(String(getSuggestedJackpotContribPct(nextBaseProfileId, happyProfileId)))
+                if (nextBaseProfile) {
+                  setBaseHousePctInput(String(nextBaseProfile.house_pct ?? 0))
+                  setBaseJackpotPctInput(String(nextBaseProfile.pool_pct ?? 0))
+                  setBaseHappyPctInput(String(nextBaseProfile.player_pct ?? 0))
                 }
               }}
             >
@@ -317,10 +347,13 @@ export default function Settings() {
               value={happyProfileId}
               onChange={e => {
                 const nextHappyProfileId = e.target.value
+                const nextHappyProfile = happyProfiles.find(p => p.id === nextHappyProfileId) ?? null
                 setIsRuntimeFormDirty(true)
                 setHappyProfileId(nextHappyProfileId)
-                if (!jackpotContribManualOverride) {
-                  setJackpotContribPct(String(getSuggestedJackpotContribPct(baseProfileId, nextHappyProfileId)))
+                if (nextHappyProfile) {
+                  setHappyHousePctInput(String(nextHappyProfile.house_pct ?? 0))
+                  setHappyJackpotPctInput(String(nextHappyProfile.pool_pct ?? 0))
+                  setHappyHappyPctInput(String(nextHappyProfile.player_pct ?? 0))
                 }
               }}
             >
@@ -360,31 +393,96 @@ export default function Settings() {
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-slate-300">Jackpot Contribution % (of bet)</span>
-            <input
-              className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
-              type="number"
-              min={0}
-              value={jackpotContribPct}
-              onChange={e => {
-                setIsRuntimeFormDirty(true)
-                setJackpotContribManualOverride(true)
-                setJackpotContribPct(e.target.value)
-              }}
-            />
-            <span className={`text-xs ${splitInvalid ? 'text-red-300' : 'text-slate-500'}`}>
-              Max allowed for strict 100% split: {jackpotMaxAllowed.toFixed(2)}%
+          <div className="flex flex-col gap-2 text-sm">
+            <span className="text-slate-300">Base Profile Split %</span>
+            <div className="grid grid-cols-3 gap-2">
+              <input
+                className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+                type="number"
+                min={0}
+                value={baseHousePctInput}
+                onChange={e => {
+                  setIsRuntimeFormDirty(true)
+                  setBaseHousePctInput(e.target.value)
+                }}
+                placeholder="House %"
+              />
+              <input
+                className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+                type="number"
+                min={0}
+                value={baseJackpotPctInput}
+                onChange={e => {
+                  setIsRuntimeFormDirty(true)
+                  setBaseJackpotPctInput(e.target.value)
+                }}
+                placeholder="Jackpot %"
+              />
+              <input
+                className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+                type="number"
+                min={0}
+                value={baseHappyPctInput}
+                onChange={e => {
+                  setIsRuntimeFormDirty(true)
+                  setBaseHappyPctInput(e.target.value)
+                }}
+                placeholder="Happy %"
+              />
+            </div>
+            <span className={`text-xs ${Math.abs(baseSplitTotal - 100) > 0.0001 ? 'text-red-300' : 'text-slate-500'}`}>
+              Base Split: House {baseHousePct.toFixed(2)}% / Jackpot {baseJackpotPct.toFixed(2)}% / Happy{' '}
+              {baseHappyPct.toFixed(2)}% (Total {baseSplitTotal.toFixed(2)}%)
             </span>
-            <span className={`text-xs ${baseHappyRemainder < 0 ? 'text-red-300' : 'text-slate-500'}`}>
-              Base Split: House {baseHousePct.toFixed(2)}% / Jackpot {jackpotContribValue.toFixed(2)}% / Happy{' '}
-              {Math.max(baseHappyRemainder, 0).toFixed(2)}%
+          </div>
+
+          <div className="flex flex-col gap-2 text-sm">
+            <span className="text-slate-300">Happy Profile Split %</span>
+            <div className="grid grid-cols-3 gap-2">
+              <input
+                className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+                type="number"
+                min={0}
+                value={happyHousePctInput}
+                onChange={e => {
+                  setIsRuntimeFormDirty(true)
+                  setHappyHousePctInput(e.target.value)
+                }}
+                placeholder="House %"
+              />
+              <input
+                className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+                type="number"
+                min={0}
+                value={happyJackpotPctInput}
+                onChange={e => {
+                  setIsRuntimeFormDirty(true)
+                  setHappyJackpotPctInput(e.target.value)
+                }}
+                placeholder="Jackpot %"
+              />
+              <input
+                className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+                type="number"
+                min={0}
+                value={happyHappyPctInput}
+                onChange={e => {
+                  setIsRuntimeFormDirty(true)
+                  setHappyHappyPctInput(e.target.value)
+                }}
+                placeholder="Happy %"
+              />
+            </div>
+            <span className={`text-xs ${Math.abs(happySplitTotal - 100) > 0.0001 ? 'text-red-300' : 'text-slate-500'}`}>
+              Happy Split: House {happyHousePct.toFixed(2)}% / Jackpot {happyJackpotPct.toFixed(2)}% / Happy{' '}
+              {happyHappyPct.toFixed(2)}% (Total {happySplitTotal.toFixed(2)}%)
             </span>
-            <span className={`text-xs ${happyHappyRemainder < 0 ? 'text-red-300' : 'text-slate-500'}`}>
-              Happy Split: House {happyHousePct.toFixed(2)}% / Jackpot {jackpotContribValue.toFixed(2)}% / Happy{' '}
-              {Math.max(happyHappyRemainder, 0).toFixed(2)}%
-            </span>
-          </label>
+            {splitInvalid && (
+              <span className="text-xs text-red-300">
+                Base and Happy profile splits must each total exactly 100%.
+              </span>
+            )}
+          </div>
 
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-slate-300">Jackpot Winners (Min)</span>

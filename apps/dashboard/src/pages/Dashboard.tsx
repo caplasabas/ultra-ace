@@ -107,8 +107,8 @@ export default function Dashboard() {
     runtime?.active_mode === 'HAPPY' ? runtime?.happy_profile_id : runtime?.base_profile_id
   const activeProfile = profiles.find(p => p.id === activeProfileId)
   const activeHousePct = asNumber(activeProfile?.house_pct)
-  const activeJackpotPct = Math.max(0, asNumber(runtime?.jackpot_contrib_pct))
-  const activeHappyPct = Math.max(0, 100 - activeHousePct - activeJackpotPct)
+  const activeJackpotPct = Math.max(0, asNumber(activeProfile?.pool_pct))
+  const activeHappyPct = Math.max(0, asNumber(activeProfile?.player_pct))
   const activeTargetRtpPct = asNumber(runtime?.active_target_rtp_pct ?? activeProfile?.player_pct)
 
   const getSortValue = (device: DeviceRow, field: SortField): number | string => {

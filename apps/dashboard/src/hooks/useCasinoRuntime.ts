@@ -15,6 +15,10 @@ export type RtpProfile = {
   sort_order: number
 }
 
+export type UpdateRtpProfilePatch = Partial<
+  Pick<RtpProfile, 'name' | 'house_pct' | 'pool_pct' | 'player_pct' | 'prize_pct' | 'enabled' | 'sort_order'>
+>
+
 export type CasinoRuntime = {
   id: boolean
   active_mode: RuntimeMode
@@ -109,6 +113,15 @@ export function useCasinoRuntime() {
     return { ok: true }
   }
 
+  async function updateProfile(profileId: string, patch: UpdateRtpProfilePatch) {
+    const { error } = await supabase.from('rtp_profiles').update(patch).eq('id', profileId)
+    if (error) return { ok: false, error }
+
+    await fetchProfiles()
+    await fetchRuntime()
+    return { ok: true }
+  }
+
   async function setHappyHour(enabled: boolean) {
     const { error } = await supabase.rpc('set_happy_hour_enabled', { p_enabled: enabled })
     if (error) return { ok: false, error }
@@ -132,6 +145,7 @@ export function useCasinoRuntime() {
     runtime,
     profiles,
     updateRuntime,
+    updateProfile,
     setHappyHour,
     demoReset,
   }
