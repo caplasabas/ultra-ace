@@ -721,8 +721,8 @@ export function useEngine() {
 
   function settleSpinVisuals() {
     spinLockRef.current = false
-    if (isFreeGameRef.current) return
     releaseRealtimeBalance()
+    void syncBalanceFromDb()
   }
 
   /* -----------------------------

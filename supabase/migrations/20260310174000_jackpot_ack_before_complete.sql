@@ -85,6 +85,7 @@ declare
   v_base_chunk numeric := 0;
   v_jitter numeric := 0;
   v_payout numeric := 0;
+  v_next_spins_until_start integer := 0;
   v_cap_total numeric := null;
   v_cap_remaining numeric := null;
   v_paid_so_far numeric := 0;
@@ -111,13 +112,17 @@ begin
   end if;
 
   if coalesce(v_row.spins_until_start, 0) > 0 then
+    v_next_spins_until_start := greatest(coalesce(v_row.spins_until_start, 0) - 1, 0);
+
     update public.jackpot_payout_queue
     set
-      spins_until_start = greatest(spins_until_start - 1, 0),
+      spins_until_start = v_next_spins_until_start,
       updated_at = now()
     where id = v_row.id;
 
-    return 0;
+    if v_next_spins_until_start > 0 then
+      return 0;
+    end if;
   end if;
 
   select * into v_runtime
