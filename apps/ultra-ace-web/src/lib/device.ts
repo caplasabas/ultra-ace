@@ -57,3 +57,17 @@ export async function ensureDeviceRegistered(name?: string) {
 
   return deviceId
 }
+
+export async function fetchDeviceLastBetAmount(deviceId: string): Promise<number | null> {
+  const { data, error } = await supabase
+    .from('devices')
+    .select('last_bet_amount')
+    .eq('device_id', deviceId)
+    .maybeSingle()
+
+  if (error) throw error
+
+  const value = Number(data?.last_bet_amount ?? 0)
+  if (!Number.isFinite(value) || value <= 0) return null
+  return value
+}

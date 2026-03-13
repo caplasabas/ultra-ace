@@ -11,7 +11,7 @@ import {
   startEngine,
 } from '@ultra-ace/engine'
 import { DebugSpinInfo } from 'src/debug/DebugHud'
-import { ensureDeviceRegistered } from '../lib/device'
+import { ensureDeviceRegistered, fetchDeviceLastBetAmount } from '../lib/device'
 import type { DeviceBalanceSnapshot } from '../lib/balance'
 import { fetchDeviceBalance, subscribeToDeviceBalance } from '../lib/balance'
 import {
@@ -405,8 +405,18 @@ export function useEngine() {
         console.error('[device-session] start failed', err)
       }
 
-      const initialBalance = await fetchDeviceBalance(id)
+      const [initialBalance, persistedBet] = await Promise.all([
+        fetchDeviceBalance(id),
+        fetchDeviceLastBetAmount(id).catch(() => null),
+      ])
       applyAuthoritativeBalance(initialBalance)
+      if (persistedBet && persistedBet > 0) {
+        const normalizedBet = Math.max(1, Number(persistedBet.toFixed(2)))
+        const balanceCap = Math.max(0, Number(initialBalance.balance ?? 0))
+        const startupBet = balanceCap > 0 ? Math.min(normalizedBet, balanceCap) : normalizedBet
+        setBet(startupBet)
+        setBuySpinBet(startupBet)
+      }
       const loadActiveJackpotQueue = async () => {
         try {
           const next = await fetchActiveJackpotQueue(id)

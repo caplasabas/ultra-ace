@@ -90,6 +90,11 @@ export default function Dashboard() {
 
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
   const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
+  const formatJackpotCurrency = (v: number | string | null | undefined) =>
+    `₱${asNumber(v).toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    })}`
   const formatPercent = (v: number | string | null | undefined) => `${asNumber(v).toFixed(2)}%`
 
   const globalBet = asNumber(stats?.total_bet_amount)
@@ -459,8 +464,8 @@ export default function Dashboard() {
                         <div className="mt-1 text-[10px] text-slate-300">{telemetryLabel}</div>
                         {d.jackpot_selected && (
                           <div className="mt-1 text-[10px] font-semibold text-amber-200">
-                            JACKPOT TARGET {formatCurrency(d.jackpot_target_amount)} • Remaining{' '}
-                            {formatCurrency(d.jackpot_remaining_amount)}
+                            JACKPOT TARGET {formatJackpotCurrency(d.jackpot_target_amount)} • Remaining{' '}
+                            {formatJackpotCurrency(d.jackpot_remaining_amount)}
                           </div>
                         )}
                         {jackpotStatus && <div className="mt-1 text-[10px] text-amber-300">{jackpotStatus}</div>}
@@ -625,8 +630,8 @@ export default function Dashboard() {
                         {jackpotStatus && <div className="text-amber-300">{jackpotStatus}</div>}
                         {d.jackpot_selected && (
                           <div className="text-amber-200/80">
-                            Target {formatCurrency(d.jackpot_target_amount)} • Remaining{' '}
-                            {formatCurrency(d.jackpot_remaining_amount)}
+                            Target {formatJackpotCurrency(d.jackpot_target_amount)} • Remaining{' '}
+                            {formatJackpotCurrency(d.jackpot_remaining_amount)}
                           </div>
                         )}
                       </td>

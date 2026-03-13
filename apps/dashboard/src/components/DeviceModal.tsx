@@ -8,8 +8,14 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [overrideBusy, setOverrideBusy] = useState(false)
+  const [powerActionBusy, setPowerActionBusy] = useState<'restart' | 'shutdown' | null>(null)
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
   const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
+  const formatJackpotCurrency = (v: number | string | null | undefined) =>
+    `₱${asNumber(v).toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    })}`
   const deviceRtp =
     asNumber(device.bet_total) > 0 ? (asNumber(device.win_total) / asNumber(device.bet_total)) * 100 : 0
   const deviceHouseWin = asNumber(device.house_take_total ?? (asNumber(device.bet_total) - asNumber(device.win_total)))
@@ -146,6 +152,34 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
     return true
   }
 
+  async function enqueuePowerCommand(command: 'restart' | 'shutdown') {
+    if (!device?.device_id) return
+    setPowerActionBusy(command)
+
+    const { data, error } = await supabase.rpc('enqueue_device_admin_command', {
+      p_device_id: device.device_id,
+      p_command: command,
+      p_reason: 'dashboard_device_modal',
+      p_requested_by: 'dashboard',
+    })
+
+    setPowerActionBusy(null)
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+
+    const deduped = Boolean((data as any)?.deduped)
+    const label = command === 'restart' ? 'Restart' : 'Shutdown'
+    setSuccessMessage(
+      deduped
+        ? `${label} already queued for ${device.device_id}`
+        : `${label} queued for ${device.device_id}`,
+    )
+    setErrorMessage(null)
+  }
+
   return (
     <div className="fixed inset-0   bg-black/85 z-50 overflow-y-auto">
       <div className="min-h-full flex items-start md:items-center justify-center p-4">
@@ -170,8 +204,8 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
                 </div>
                 {device.jackpot_selected && (
                   <div className="mt-1 text-xs font-semibold text-amber-200">
-                    JACKPOT TARGET {formatCurrency(device.jackpot_target_amount)} • Remaining{' '}
-                    {formatCurrency(device.jackpot_remaining_amount)}
+                    JACKPOT TARGET {formatJackpotCurrency(device.jackpot_target_amount)} • Remaining{' '}
+                    {formatJackpotCurrency(device.jackpot_remaining_amount)}
                   </div>
                 )}
                 {jackpotStatusLabel && <div className="mt-1 text-xs text-amber-300">{jackpotStatusLabel}</div>}
@@ -247,6 +281,31 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
 
           <div className="flex flex-col overflow-hidden">
             <div className="px-4">
+              <h4 className="text-sm font-semibold mb-2">Device Power Controls</h4>
+              <div className="rounded border border-slate-700 bg-slate-950/70 p-3 mb-4">
+                <div className="text-xs text-slate-400 mb-3">
+                  Sends command to this device only.
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="rounded border border-amber-600/80 bg-amber-900/30 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-800/40 disabled:opacity-50"
+                    disabled={powerActionBusy !== null || overrideBusy}
+                    onClick={() => void enqueuePowerCommand('restart')}
+                  >
+                    {powerActionBusy === 'restart' ? 'Queueing Restart...' : 'Restart Device'}
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded border border-red-600/80 bg-red-900/30 px-3 py-1.5 text-xs font-semibold text-red-200 hover:bg-red-800/40 disabled:opacity-50"
+                    disabled={powerActionBusy !== null || overrideBusy}
+                    onClick={() => void enqueuePowerCommand('shutdown')}
+                  >
+                    {powerActionBusy === 'shutdown' ? 'Queueing Shutdown...' : 'Shutdown Device'}
+                  </button>
+                </div>
+              </div>
+
               <h4 className="text-sm font-semibold mb-2">Manual Overrides (Demo)</h4>
               <div className="grid md:grid-cols-2 grid-cols-1 gap-3 mb-4">
                 <div className="rounded border border-slate-700 bg-slate-950/70 p-3">
