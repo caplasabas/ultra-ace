@@ -1,5 +1,6 @@
 export { spin } from './spin.js'
 export { createRNG } from './rng.js'
+export { composeTargetedFreeSpin } from './jackpotComposer.js'
 
 export { formatPeso } from './utils'
 

@@ -148,6 +148,13 @@ export default function Settings() {
 
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
   const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
+  const testJackpotAmountValue = Math.max(0, Number(testJackpotAmount || 0))
+  const testJackpotWinnersValue = Math.max(1, Math.floor(Number(testJackpotWinners || 1)))
+  const effectiveTestWinners = Math.max(
+    1,
+    Math.min(testJackpotWinnersValue, Math.max(1, selectedDevDeviceIds.length)),
+  )
+  const perWinnerTestAmount = effectiveTestWinners > 0 ? testJackpotAmountValue / effectiveTestWinners : 0
 
   async function saveRuntime() {
     setSaving(true)
@@ -860,6 +867,11 @@ export default function Settings() {
               onChange={e => setTestDelayMaxSpins(e.target.value)}
             />
           </label>
+        </div>
+
+        <div className="text-xs text-indigo-200/80">
+          Split preview: {formatCurrency(testJackpotAmountValue)} total / {effectiveTestWinners} winner(s) ={' '}
+          <strong>{formatCurrency(perWinnerTestAmount)}</strong> per winner.
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-xs">

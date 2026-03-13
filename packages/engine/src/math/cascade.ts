@@ -43,6 +43,9 @@ export function runCascades(
     if (multiplier >= cfg.limits.maxMultiplier) break
 
     const { wins } = evaluateColumnWindow(window, totalBet)
+    // Stop cascade chain as soon as there are no line wins.
+    // Keeping empty cascades causes UI timeline loops (notably on scatter tease).
+    if (wins.length === 0) break
 
     /* ----------------------------------------
        APPLY LINE WINS

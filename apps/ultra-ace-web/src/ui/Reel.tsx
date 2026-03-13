@@ -94,8 +94,10 @@ function ReelComponent({
   const initialRowDelay = speed === 10 ? 0 : INITIAL_ROW_DROP_DELAY / speed
   const cascadeRowDelay = speed === 10 ? 0 : CASCADE_ROW_DROP_DELAY / speed
   const cascadeColumnExtraDelay = speed === 10 ? 0 : CASCADE_COLUMN_EXTRA_DELAY / speed
-  const pausedInitialRowDelay =
-    PAUSED_INITIAL_ROW_DROP_DELAY / (speed && speed > 1 ? speed / 2 : speed)
+  const pausedTurboSpeed = speed && speed > 1 ? speed / 2 : speed
+  const pausedInitialRowDelay = PAUSED_INITIAL_ROW_DROP_DELAY / pausedTurboSpeed
+  const initialDealDuration = Math.max(70, 185 / pausedTurboSpeed)
+  const cascadeDealDuration = Math.max(60, 130 / Math.max(speed, 1))
   /* ----------------------------------------
      INITIAL REFILL CONTROL
   ---------------------------------------- */
@@ -224,7 +226,7 @@ function ReelComponent({
                 : initialRowDelay)
 
           const baseColumnDelay = isActivePausedColumn
-            ? reelIndex * (columnDealDelay + cascadeColumnExtraDelay) + 200
+            ? 0
             : isImmediateInitialDrop
               ? reelIndex * columnDealDelay
               : isCascadeDeal
@@ -280,6 +282,11 @@ function ReelComponent({
                   .join(' ')}
                 style={{
                   animationDelay: `${totalDelay}ms`,
+                  animationDuration: isImmediateInitialDrop || isStaggeredInitialDrop
+                    ? `${initialDealDuration}ms`
+                    : isCascadeDeal
+                      ? `${cascadeDealDuration}ms`
+                      : undefined,
                 }}
               >
                 <div

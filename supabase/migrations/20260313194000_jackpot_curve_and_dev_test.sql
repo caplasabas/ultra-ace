@@ -58,6 +58,227 @@ begin
 end;
 $$;
 
+create or replace function public.trigger_jackpot_payout_if_ready(
+  p_event_ts timestamptz default now()
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_runtime public.casino_runtime;
+  v_pot public.jackpot_pots;
+  v_pool numeric := 0;
+  v_min_winners integer := 1;
+  v_max_winners integer := 1;
+  v_requested integer := 1;
+  v_count integer := 0;
+  v_share numeric := 0;
+  v_remaining numeric := 0;
+  v_overflow numeric := 0;
+  v_assigned_total numeric := 0;
+  v_actual_winners integer := 0;
+  v_campaign_id uuid := gen_random_uuid();
+  v_device_ids text[] := '{}';
+  v_target_device_ids text[] := '{}';
+  v_device_id text;
+  v_delay integer := 0;
+  v_winner_index integer := 0;
+  v_planned numeric := 0;
+  v_device_cap numeric := null;
+  v_allocate numeric := 0;
+begin
+  select * into v_runtime
+  from public.casino_runtime
+  where id = true
+  for update;
+
+  if not found then
+    return jsonb_build_object('triggered', false, 'reason', 'runtime_missing');
+  end if;
+
+  if coalesce(v_runtime.jackpot_pending_payout, false) then
+    return jsonb_build_object('triggered', false, 'reason', 'pending_campaign');
+  end if;
+
+  select * into v_pot
+  from public.jackpot_pots
+  where status = 'queued'
+  order by created_at asc, id asc
+  limit 1
+  for update skip locked;
+
+  if not found then
+    return jsonb_build_object('triggered', false, 'reason', 'no_queued_pot');
+  end if;
+
+  v_pool := greatest(coalesce(v_pot.amount_remaining, 0), 0);
+  if v_pool <= 0 then
+    update public.jackpot_pots
+    set
+      status = 'completed',
+      amount_remaining = 0,
+      completed_at = now()
+    where id = v_pot.id;
+
+    return jsonb_build_object('triggered', false, 'reason', 'empty_queued_pot');
+  end if;
+
+  select array_agg(t.device_id), count(*)
+    into v_device_ids, v_count
+  from (
+    select d.device_id
+    from public.devices d
+    where d.device_status = 'playing'
+    order by random()
+  ) t;
+
+  if coalesce(v_count, 0) <= 0 then
+    return jsonb_build_object('triggered', false, 'reason', 'no_eligible_devices');
+  end if;
+
+  v_min_winners := greatest(coalesce(v_runtime.jackpot_min_winners, 1), 1);
+  v_max_winners := greatest(coalesce(v_runtime.jackpot_max_winners, v_min_winners), v_min_winners);
+  v_requested := floor(random() * (v_max_winners - v_min_winners + 1))::integer + v_min_winners;
+  v_requested := least(v_requested, v_count);
+
+  if v_requested <= 0 then
+    return jsonb_build_object('triggered', false, 'reason', 'winner_count_zero');
+  end if;
+
+  select coalesce(array_agg(t.device_id), '{}'::text[])
+    into v_target_device_ids
+  from (
+    select device_id
+    from unnest(v_device_ids) as d(device_id)
+    limit v_requested
+  ) t;
+
+  if coalesce(array_length(v_target_device_ids, 1), 0) <= 0 then
+    return jsonb_build_object('triggered', false, 'reason', 'winner_selection_failed');
+  end if;
+
+  v_share := round(v_pool / greatest(v_requested, 1), 4);
+  v_remaining := v_pool;
+
+  v_winner_index := 0;
+  foreach v_device_id in array v_target_device_ids loop
+    v_winner_index := v_winner_index + 1;
+    v_planned := case
+      when v_winner_index < v_requested then v_share
+      else greatest(v_remaining, 0)
+    end;
+
+    if coalesce(v_runtime.max_win_enabled, true) then
+      select public.compute_max_win_cap(d.last_bet_amount)
+        into v_device_cap
+      from public.devices d
+      where d.device_id = v_device_id;
+
+      v_allocate := least(v_planned, greatest(coalesce(v_device_cap, 0), 0));
+    else
+      v_allocate := v_planned;
+    end if;
+
+    if coalesce(v_allocate, 0) <= 0 then
+      continue;
+    end if;
+
+    v_delay := floor(
+      random() * (greatest(coalesce(v_runtime.jackpot_delay_max_spins, 3), coalesce(v_runtime.jackpot_delay_min_spins, 2))
+      - greatest(coalesce(v_runtime.jackpot_delay_min_spins, 2), 0) + 1)
+    )::integer + greatest(coalesce(v_runtime.jackpot_delay_min_spins, 2), 0);
+
+    insert into public.jackpot_payout_queue (
+      campaign_id,
+      jackpot_pot_id,
+      device_id,
+      target_amount,
+      remaining_amount,
+      spins_until_start,
+      payouts_left,
+      created_at,
+      updated_at
+    )
+    values (
+      v_campaign_id,
+      v_pot.id,
+      v_device_id,
+      v_allocate,
+      v_allocate,
+      v_delay,
+      10,
+      coalesce(p_event_ts, now()),
+      now()
+    );
+
+    v_actual_winners := v_actual_winners + 1;
+    v_assigned_total := v_assigned_total + v_allocate;
+    v_remaining := greatest(v_remaining - v_allocate, 0);
+  end loop;
+
+  if v_actual_winners <= 0 or v_assigned_total <= 0 then
+    return jsonb_build_object('triggered', false, 'reason', 'no_eligible_devices_for_cap');
+  end if;
+
+  v_overflow := greatest(v_remaining, 0);
+  if v_overflow > 0.0001 then
+    update public.jackpot_pots
+    set
+      amount_total = greatest(amount_total - v_overflow, 0),
+      amount_remaining = greatest(amount_remaining - v_overflow, 0)
+    where id = v_pot.id;
+
+    insert into public.jackpot_pots (
+      amount_total,
+      amount_remaining,
+      status,
+      goal_mode,
+      goal_snapshot,
+      created_at
+    )
+    values (
+      v_overflow,
+      v_overflow,
+      'queued',
+      'amount',
+      jsonb_build_object(
+        'reason', 'trigger_cap_overflow',
+        'sourcePotId', v_pot.id,
+        'sourceCampaign', v_campaign_id,
+        'createdAt', coalesce(p_event_ts, now())
+      ),
+      coalesce(p_event_ts, now())
+    );
+  end if;
+
+  update public.jackpot_pots
+  set
+    status = 'processing',
+    campaign_id = v_campaign_id,
+    activated_at = coalesce(activated_at, coalesce(p_event_ts, now()))
+  where id = v_pot.id;
+
+  update public.casino_runtime
+  set
+    jackpot_pending_payout = true,
+    active_jackpot_pot_id = v_pot.id,
+    last_jackpot_triggered_at = coalesce(p_event_ts, now()),
+    updated_at = now()
+  where id = true;
+
+  return jsonb_build_object(
+    'triggered', true,
+    'campaign_id', v_campaign_id,
+    'pot_id', v_pot.id,
+    'winners', v_actual_winners,
+    'amount', v_assigned_total,
+    'overflow_requeued', v_overflow
+  );
+end;
+$$;
+
 create or replace function public.process_device_jackpot_payout(
   p_device_id text,
   p_event_ts timestamptz default now()
@@ -81,6 +302,7 @@ declare
   v_overflow numeric := 0;
   v_unallocated numeric := 0;
   v_device_is_free_game boolean := false;
+  v_is_dev_test boolean := false;
   v_curve text := 'center';
   v_total_steps integer := 10;
   v_steps_left integer := 1;
@@ -143,7 +365,14 @@ begin
     v_curve := 'center';
   end if;
 
-  if coalesce(v_runtime.max_win_enabled, true) then
+  if v_row.jackpot_pot_id is not null then
+    select coalesce(jp.goal_snapshot ->> 'source', '') = 'dev_test'
+      into v_is_dev_test
+    from public.jackpot_pots jp
+    where jp.id = v_row.jackpot_pot_id;
+  end if;
+
+  if coalesce(v_runtime.max_win_enabled, true) and not coalesce(v_is_dev_test, false) then
     select public.compute_max_win_cap(d.last_bet_amount)
       into v_cap_total
     from public.devices d
@@ -480,7 +709,6 @@ select
   r.jackpot_chunk_min,
   r.jackpot_chunk_max,
   r.jackpot_win_variance,
-  r.jackpot_payout_curve,
   r.jackpot_pending_payout,
   r.last_jackpot_triggered_at,
   r.active_happy_pot_id,
@@ -512,7 +740,8 @@ select
   case
     when r.active_mode = 'HAPPY' then hp.player_pct + hp.prize_pct
     else bp.player_pct
-  end as active_target_rtp_pct
+  end as active_target_rtp_pct,
+  r.jackpot_payout_curve
 from public.casino_runtime r
 left join public.rtp_profiles bp on bp.id = r.base_profile_id
 left join public.rtp_profiles hp on hp.id = r.happy_profile_id;

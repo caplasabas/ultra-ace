@@ -398,7 +398,7 @@ export default function App() {
     if (!isIdle) return
     if (!autoSpin && !isFreeGame) return
     if (showFreeSpinIntro || isFreeSpinPreview || showScatterWinBanner || showBuySpinModal) return
-    if (pauseColumn && !isFreeGame && pendingFreeSpins > 0) return
+    if (pauseColumn !== null && !isFreeGame && pendingFreeSpins > 0) return
 
     if (!isFreeGame && balance < bet) {
       setAutoSpin(false)
@@ -447,6 +447,8 @@ export default function App() {
   }
 
   const activeMultiplierIndex = getMultiplierIndex(cascadeIndex)
+  const freeSpinDisplayCount = isFreeGame ? freeSpinsLeft : pendingFreeSpins
+  const showFreeSpinModeUi = (isFreeGame || isFreeSpinPreview) && freeSpinDisplayCount > 0
 
   function triggerFreeSpinStart() {
     if (!gameStateRef.current.showFreeSpinIntro) return
@@ -827,44 +829,30 @@ export default function App() {
                 onClick={() => setShowBuySpinModal(true)}
               />
 
-              <div
-                className={`free-spin-banner ${(isFreeGame || isFreeSpinPreview) && freeSpinsLeft >= 0 ? 'free' : ''}`}
-              >
-                <div
-                  className={`free-spin-text font-plasma ${
-                    !(isFreeGame || isFreeSpinPreview) || freeSpinsLeft < 0 ? 'base' : ''
-                  }`}
-                >
+              <div className={`free-spin-banner ${showFreeSpinModeUi ? 'free' : ''}`}>
+                <div className={`free-spin-text font-plasma ${!showFreeSpinModeUi ? 'base' : ''}`}>
                   <span className="free-spin-base superace-base">
-                    {(isFreeGame || isFreeSpinPreview) && freeSpinsLeft >= 0
-                      ? 'FREE SPINS'
-                      : 'UltraAce'}{' '}
+                    {showFreeSpinModeUi ? 'FREE SPINS' : 'UltraAce'}{' '}
                   </span>
 
                   <span className="free-spin-face superace-face">
-                    {(isFreeGame || isFreeSpinPreview) && freeSpinsLeft >= 0
-                      ? 'FREE SPINS'
-                      : 'UltraAce'}{' '}
+                    {showFreeSpinModeUi ? 'FREE SPINS' : 'UltraAce'}{' '}
                   </span>
                 </div>
 
                 <span className="free-spin-count">
-                  {(isFreeGame || isFreeSpinPreview) &&
-                    freeSpinsLeft >= 0 &&
-                    (isFreeGame ? freeSpinsLeft : pendingFreeSpins)}
+                  {showFreeSpinModeUi ? freeSpinDisplayCount : ''}
                 </span>
               </div>
 
-              <div
-                className={`multiplier-strip ${(isFreeGame || isFreeSpinPreview) && freeSpinsLeft >= 0 ? 'free' : ''}`}
-              >
+              <div className={`multiplier-strip ${showFreeSpinModeUi ? 'free' : ''}`}>
                 {ladder.map((m, i) => (
                   <div
                     key={m}
                     className={[
                       'multiplier-chip',
                       i === activeMultiplierIndex && 'current',
-                      (isFreeGame || isFreeSpinPreview) && freeSpinsLeft >= 0 ? 'free' : '',
+                      showFreeSpinModeUi ? 'free' : '',
                     ]
                       .filter(Boolean)
                       .join(' ')}
@@ -1027,7 +1015,7 @@ export default function App() {
                             scatterTriggerType === 'buy'
                             ? (buySpinBet ?? 0)
                             : (bet ?? 0),
-                          true,
+                          false,
                           true,
                           2,
                           true,
@@ -1098,9 +1086,9 @@ export default function App() {
 
                   <div className="balance-display">
                     Balance <span className="balance-amount">{formatPeso(balance ?? 0)}</span>
-                    <button className="add-btn" onClick={() => addBalance('bypass', 2)}>
-                      +{formatPeso(2, true, true, 2)}
-                    </button>
+                    {/*<button className="add-btn" onClick={() => addBalance('bypass', 2)}>*/}
+                    {/*  +{formatPeso(2, true, true, 2)}*/}
+                    {/*</button>*/}
                   </div>
 
                   <div className="bottom-info-right" />

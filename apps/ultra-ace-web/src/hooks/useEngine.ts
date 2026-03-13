@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   CascadeStep,
+  composeTargetedFreeSpin,
   createRNG,
   DEFAULT_ENGINE_CONFIG,
   DEFAULT_ENGINE_HAPPY_HOUR,
@@ -21,13 +22,28 @@ import {
   updateDeviceGameState,
 } from '../lib/deviceGameSession'
 import {
+  type ActiveJackpotQueue,
   fetchActiveJackpotQueue,
   subscribeActiveJackpotQueue,
-  type ActiveJackpotQueue,
 } from '../lib/jackpotQueue'
 
 const BUY_FREE_SPIN_MULTIPLIER = 50
 const JACKPOT_FREE_SPIN_COUNT = 10
+const JACKPOT_COMPOSER_ATTEMPTS_PER_SCALE = Number(
+  import.meta.env.VITE_JACKPOT_COMPOSER_ATTEMPTS_PER_SCALE ?? 18,
+)
+const JACKPOT_COMPOSER_MAX_ATTEMPTS = Number(
+  import.meta.env.VITE_JACKPOT_COMPOSER_MAX_ATTEMPTS ?? 180,
+)
+const JACKPOT_COMPOSER_MIN_TOLERANCE = Number(
+  import.meta.env.VITE_JACKPOT_COMPOSER_MIN_TOLERANCE ?? 10,
+)
+const JACKPOT_COMPOSER_MAX_TOLERANCE = Number(
+  import.meta.env.VITE_JACKPOT_COMPOSER_MAX_TOLERANCE ?? 200,
+)
+const JACKPOT_COMPOSER_TOLERANCE_RATIO = Number(
+  import.meta.env.VITE_JACKPOT_COMPOSER_TOLERANCE_RATIO ?? 0.12,
+)
 
 const SCATTER_BANNER_DURATION = 5000
 const FREE_SPIN_SNAPSHOT_PREFIX = 'ultraace.free-spin-state'
@@ -45,6 +61,11 @@ type FreeSpinSnapshot = {
   freeSpinTotal: number
   showFreeSpinIntro: boolean
   scatterTriggerType: 'natural' | 'buy' | null
+}
+
+function roundMoney(value: number): number {
+  if (!Number.isFinite(value)) return 0
+  return Math.round(Math.max(0, value) * 10000) / 10000
 }
 
 function generateSeed(): string {
@@ -70,6 +91,8 @@ export function useEngine() {
   const [activeJackpotQueue, setActiveJackpotQueue] = useState<ActiveJackpotQueue | null>(null)
   const forceJackpotScatterRef = useRef(false)
   const activeJackpotQueueIdRef = useRef<number | null>(null)
+  const jackpotModeArmedRef = useRef(false)
+  const jackpotFreeSpinModeRef = useRef(false)
 
   /* -----------------------------
      Core spin state
@@ -86,6 +109,7 @@ export function useEngine() {
   const [bet, setBet] = useState(2)
   const [buySpinBet, setBuySpinBet] = useState(bet)
 
+  const [authoritativeBalance, setAuthoritativeBalance] = useState(0)
   const [balance, setBalance] = useState(0)
 
   const [totalWin, setTotalWin] = useState(0)
@@ -112,15 +136,23 @@ export function useEngine() {
   const maxWinEnabledRef = useRef(true)
   const currentSpinMaxWinRef = useRef<number | null>(null)
   const spinLockRef = useRef(false)
-  const suppressRealtimeBalanceRef = useRef(false)
   const balanceSyncInFlightRef = useRef(false)
   const balanceSyncRequestedRef = useRef(false)
-  const balanceSyncSeqRef = useRef(0)
   const lastAuthoritativeUpdatedAtRef = useRef(0)
+  const lastAuthoritativeRevisionRef = useRef(0)
   const lastAuthoritativeBalanceRef = useRef(0)
+  const displayBalanceFrozenRef = useRef(false)
+  const queuedDisplayBalanceRef = useRef<number | null>(null)
+  const baseSpinVisualBalanceLockRef = useRef(false)
+  const baseSpinQueuedAuthoritativeBalanceRef = useRef<number | null>(null)
+  const suppressBalanceDropUntilRef = useRef(0)
   const isFreeGameRef = useRef(false)
   const freeSpinsLeftRef = useRef(0)
   const freeSpinTotalRef = useRef(0)
+  const pendingFreeSpinsRef = useRef(0)
+  const showFreeSpinIntroRef = useRef(false)
+  const spinVisualTargetWinRef = useRef<number | null>(null)
+  const spinVisualCommittedWinRef = useRef(0)
 
   const snapshotKeyRef = useRef<string | null>(null)
 
@@ -148,27 +180,65 @@ export function useEngine() {
     window.localStorage.setItem(snapshotKeyRef.current, JSON.stringify(next))
   }
 
+  const freezeDisplayedBalance = useCallback(() => {
+    displayBalanceFrozenRef.current = true
+  }, [])
+
+  const releaseDisplayedBalance = useCallback(() => {
+    if (!displayBalanceFrozenRef.current) return
+    displayBalanceFrozenRef.current = false
+    const latest = queuedDisplayBalanceRef.current ?? lastAuthoritativeBalanceRef.current
+    queuedDisplayBalanceRef.current = null
+    setBalance(current => (current === latest ? current : latest))
+  }, [])
+
   const applyAuthoritativeBalance = useCallback((snapshot: DeviceBalanceSnapshot) => {
     const nextBalance = Number(snapshot.balance ?? 0)
     if (!Number.isFinite(nextBalance)) return
 
-    if (suppressRealtimeBalanceRef.current) return
-
     const updatedAtMs = snapshot.updatedAt ? Date.parse(snapshot.updatedAt) : NaN
+    const nextRevision = Number(snapshot.revision ?? 0)
+    const normalizedRevision = Number.isFinite(nextRevision) ? nextRevision : 0
+
     if (Number.isFinite(updatedAtMs) && updatedAtMs < lastAuthoritativeUpdatedAtRef.current) return
     if (
       Number.isFinite(updatedAtMs) &&
       updatedAtMs === lastAuthoritativeUpdatedAtRef.current &&
-      nextBalance < lastAuthoritativeBalanceRef.current
+      normalizedRevision < lastAuthoritativeRevisionRef.current
     ) {
       return
     }
+    if (
+      !Number.isFinite(updatedAtMs) &&
+      normalizedRevision < lastAuthoritativeRevisionRef.current
+    ) {
+      return
+    }
+
     if (Number.isFinite(updatedAtMs)) {
       lastAuthoritativeUpdatedAtRef.current = updatedAtMs
     }
+    lastAuthoritativeRevisionRef.current = normalizedRevision
     lastAuthoritativeBalanceRef.current = nextBalance
-
-    setBalance(current => (current === nextBalance ? current : nextBalance))
+    setAuthoritativeBalance(current => (current === nextBalance ? current : nextBalance))
+    if (baseSpinVisualBalanceLockRef.current) {
+      baseSpinQueuedAuthoritativeBalanceRef.current = nextBalance
+      return
+    }
+    if (displayBalanceFrozenRef.current) {
+      queuedDisplayBalanceRef.current = nextBalance
+      return
+    }
+    setBalance(current => {
+      if (
+        Date.now() < suppressBalanceDropUntilRef.current &&
+        nextBalance < current &&
+        !displayBalanceFrozenRef.current
+      ) {
+        return current
+      }
+      return current === nextBalance ? current : nextBalance
+    })
   }, [])
 
   const syncBalanceFromDb = useCallback(async () => {
@@ -179,14 +249,9 @@ export function useEngine() {
       return
     }
 
-    const requestSeq = ++balanceSyncSeqRef.current
-    const startedSuppressed = suppressRealtimeBalanceRef.current
-
     balanceSyncInFlightRef.current = true
     try {
       const snapshot = await fetchDeviceBalance(id)
-      if (startedSuppressed) return
-      if (requestSeq !== balanceSyncSeqRef.current) return
       applyAuthoritativeBalance(snapshot)
     } catch (error) {
       console.error('[engine] authoritative balance sync failed', error)
@@ -200,11 +265,6 @@ export function useEngine() {
       }
     }
   }, [applyAuthoritativeBalance])
-
-  const releaseRealtimeBalance = useCallback(() => {
-    // Lift suppression only; avoid immediate fetch to prevent stale REST read overwrites.
-    suppressRealtimeBalanceRef.current = false
-  }, [])
 
   /* -----------------------------
      Debug
@@ -225,7 +285,10 @@ export function useEngine() {
       version: 'ui-local-default',
     })
 
-    const applyRuntimeMode = (runtime: { active_mode: 'BASE' | 'HAPPY'; max_win_enabled?: boolean }) => {
+    const applyRuntimeMode = (runtime: {
+      active_mode: 'BASE' | 'HAPPY'
+      max_win_enabled?: boolean
+    }) => {
       const mode = runtime.active_mode === 'HAPPY' ? 'HAPPY' : 'BASE'
       const nextConfig = mode === 'HAPPY' ? DEFAULT_ENGINE_HAPPY_HOUR : DEFAULT_ENGINE_CONFIG
       maxWinEnabledRef.current = runtime.max_win_enabled ?? true
@@ -289,10 +352,7 @@ export function useEngine() {
             const age = Date.now() - Number(parsed.updatedAt ?? 0)
             if (age >= 0 && age <= FREE_SPIN_SNAPSHOT_MAX_AGE_MS) {
               const restoredFreeSpinsLeft = Math.max(0, Math.floor(parsed.freeSpinsLeft ?? 0))
-              const restoredPendingFreeSpins = Math.max(
-                0,
-                Math.floor(parsed.pendingFreeSpins ?? 0),
-              )
+              const restoredPendingFreeSpins = Math.max(0, Math.floor(parsed.pendingFreeSpins ?? 0))
               const restoredIsFreeGame = Boolean(parsed.isFreeGame) && restoredFreeSpinsLeft > 0
               const restoredShowIntro = !restoredIsFreeGame && restoredPendingFreeSpins > 0
 
@@ -444,8 +504,12 @@ export function useEngine() {
         version: `runtime-pre-spin-${mode}-${Date.now()}`,
       })
       setRuntimeMode(mode)
+      return { mode, config: nextConfig }
     } catch (err) {
       console.error('[runtime] pre-spin refresh failed', err)
+      const mode = runtimeMode === 'HAPPY' ? 'HAPPY' : 'BASE'
+      const fallbackConfig = mode === 'HAPPY' ? DEFAULT_ENGINE_HAPPY_HOUR : DEFAULT_ENGINE_CONFIG
+      return { mode, config: fallbackConfig }
     }
   }
 
@@ -468,6 +532,107 @@ export function useEngine() {
     return Math.min(nextValue, cap)
   }
 
+  function getJackpotSpinTolerance(targetWin: number): number {
+    const normalized = Math.max(0, Number(targetWin ?? 0))
+    if (normalized <= 0) return 0
+    const ratioTolerance = normalized * Math.max(0, JACKPOT_COMPOSER_TOLERANCE_RATIO)
+    const floor = Math.max(0, JACKPOT_COMPOSER_MIN_TOLERANCE)
+    const ceil = Math.max(floor, JACKPOT_COMPOSER_MAX_TOLERANCE)
+    return Math.min(ceil, Math.max(floor, ratioTolerance))
+  }
+
+  function normalizeJackpotOutcomeToTarget(outcome: SpinOutcome, targetWin: number): SpinOutcome {
+    const target = roundMoney(Math.max(0, Number(targetWin ?? 0)))
+    if (target <= 0) {
+      return {
+        ...outcome,
+        win: 0,
+        cascades: (outcome.cascades ?? []).map(step => ({
+          ...step,
+          win: 0,
+          lineWins: (step.lineWins ?? []).map(line => ({ ...line, payout: 0 })),
+        })),
+      }
+    }
+
+    const cascades = (outcome.cascades ?? []).map(step => ({
+      ...step,
+      lineWins: (step.lineWins ?? []).map(line => ({ ...line })),
+    }))
+
+    if (cascades.length === 0) {
+      return {
+        ...outcome,
+        win: target,
+      }
+    }
+
+    const positiveIndexes: number[] = []
+    for (let i = 0; i < cascades.length; i++) {
+      if (Number(cascades[i].win ?? 0) > 0.0001) {
+        positiveIndexes.push(i)
+      } else {
+        cascades[i].win = 0
+      }
+    }
+
+    if (positiveIndexes.length === 0 && cascades.length === 1) {
+      const base = cascades[0]
+      cascades.push({
+        ...base,
+        index: Number(base.index ?? 0) + 1,
+        win: 0,
+        multiplier: Math.max(1, Number(base.multiplier ?? 1)),
+        lineWins: [],
+        removedPositions: [],
+      })
+    }
+
+    const editableIndexes = positiveIndexes.length > 0 ? positiveIndexes : [cascades.length - 1]
+    const weightTotal = editableIndexes.reduce((sum, idx) => {
+      const weight = Math.max(Number(cascades[idx].win ?? 0), 1)
+      return sum + weight
+    }, 0)
+
+    let allocated = 0
+    for (let i = 0; i < editableIndexes.length; i++) {
+      const idx = editableIndexes[i]
+      const isLast = i === editableIndexes.length - 1
+      const nextWin = isLast
+        ? roundMoney(Math.max(0, target - allocated))
+        : roundMoney((target * Math.max(Number(cascades[idx].win ?? 0), 1)) / Math.max(weightTotal, 1))
+
+      cascades[idx].win = nextWin
+      allocated = roundMoney(allocated + nextWin)
+
+      const lines = cascades[idx].lineWins ?? []
+      if (lines.length === 0) continue
+
+      const lineSum = lines.reduce((sum, line) => sum + Math.max(0, Number(line.payout ?? 0)), 0)
+      if (lineSum <= 0.0001) {
+        lines[0].payout = nextWin
+        for (let j = 1; j < lines.length; j++) lines[j].payout = 0
+        continue
+      }
+
+      let lineAllocated = 0
+      for (let j = 0; j < lines.length; j++) {
+        const isLastLine = j === lines.length - 1
+        const payout = isLastLine
+          ? roundMoney(Math.max(0, nextWin - lineAllocated))
+          : roundMoney((nextWin * Math.max(0, Number(lines[j].payout ?? 0))) / lineSum)
+        lines[j].payout = payout
+        lineAllocated = roundMoney(lineAllocated + payout)
+      }
+    }
+
+    return {
+      ...outcome,
+      win: target,
+      cascades,
+    }
+  }
+
   function inferJackpotPayoutFromQueue(
     before: ActiveJackpotQueue | null,
     after: ActiveJackpotQueue | null,
@@ -475,8 +640,26 @@ export function useEngine() {
     if (!before) return 0
     if (before.remaining_amount <= 0 || before.payouts_left <= 0) return 0
 
-    if (!after || after.id !== before.id) {
-      return Math.max(0, Number(before.remaining_amount ?? 0))
+    if (!after) {
+      // Queue disappeared: only trust full remaining as payout if this was the final payout row.
+      if (before.payouts_left <= 1) {
+        return Math.max(0, Number(before.remaining_amount ?? 0))
+      }
+      return 0
+    }
+
+    if (after.id !== before.id) {
+      // Campaign changed; do not infer payout from a different queue row.
+      return 0
+    }
+
+    const payoutsDelta = Number(before.payouts_left ?? 0) - Number(after.payouts_left ?? 0)
+    if (payoutsDelta !== 1) {
+      return 0
+    }
+
+    if (Number(after.remaining_amount ?? 0) > Number(before.remaining_amount ?? 0) + 0.0001) {
+      return 0
     }
 
     const paid = Number(before.remaining_amount ?? 0) - Number(after.remaining_amount ?? 0)
@@ -484,86 +667,30 @@ export function useEngine() {
     return paid
   }
 
-  function applyJackpotPresentation(outcome: SpinOutcome, jackpotPayout: number): SpinOutcome {
-    const bonus = Number(jackpotPayout ?? 0)
-    if (!Number.isFinite(bonus) || bonus <= 0) return outcome
-
-    const cascades = outcome.cascades ?? []
-    if (cascades.length === 0) {
-      return {
-        ...outcome,
-        win: outcome.win + bonus,
-      }
-    }
-
-    const nextCascades = cascades.map(step => ({ ...step }))
-    const payableCascadeIndexes = cascades
-      .map((step, index) => ({
-        step,
-        index,
-      }))
-      .filter(item => item.index > 0 && (item.step.lineWins?.length ?? 0) > 0)
-      .map(item => item.index)
-    const fallbackIndexes =
-      payableCascadeIndexes.length > 0
-        ? payableCascadeIndexes
-        : cascades.map((_, index) => index).filter(index => index > 0)
-    const targetIndexes =
-      fallbackIndexes.length > 0 ? fallbackIndexes : cascades.map((_, index) => index)
-    const weights = targetIndexes.map(index => Math.max(Number(cascades[index]?.multiplier ?? 1), 1))
-    const totalWeight = weights.reduce((sum, value) => sum + value, 0)
-    let remaining = bonus
-
-    for (let i = 0; i < targetIndexes.length; i++) {
-      const cascadeIndex = targetIndexes[i]
-      const isLast = i === targetIndexes.length - 1
-      const rawShare = isLast ? remaining : (bonus * weights[i]) / Math.max(totalWeight, 1)
-      const share = Math.max(0, Math.round(rawShare * 100) / 100)
-      const currentCascade = nextCascades[cascadeIndex]
-      currentCascade.win = Math.max(0, Number(currentCascade.win ?? 0) + share)
-
-      const lineWins = currentCascade.lineWins ?? []
-      if (lineWins.length > 0 && share > 0) {
-        const lineWeights = lineWins.map(line => Math.max(Number(line.payout ?? 0), 1))
-        const totalLineWeight = lineWeights.reduce((sum, value) => sum + value, 0)
-        let lineRemaining = share
-
-        currentCascade.lineWins = lineWins.map((lineWin, lineIndex) => {
-          const isLastLine = lineIndex === lineWins.length - 1
-          const rawLineShare = isLastLine
-            ? lineRemaining
-            : (share * lineWeights[lineIndex]) / Math.max(totalLineWeight, 1)
-          const lineShare = Math.max(0, Math.round(rawLineShare * 100) / 100)
-          lineRemaining = Math.max(0, lineRemaining - lineShare)
-
-          return {
-            ...lineWin,
-            payout: Math.max(0, Number(lineWin.payout ?? 0) + lineShare),
-          }
-        })
-      }
-
-      remaining = Math.max(0, remaining - share)
-    }
-
-    return {
-      ...outcome,
-      win: Number(outcome.win ?? 0) + bonus,
-      cascades: nextCascades,
-    }
-  }
-
   useEffect(() => {
     deviceIdRef.current = deviceId
     if (deviceId) {
       lastAuthoritativeUpdatedAtRef.current = 0
+      lastAuthoritativeRevisionRef.current = 0
       lastAuthoritativeBalanceRef.current = 0
+      queuedDisplayBalanceRef.current = null
+      displayBalanceFrozenRef.current = false
+      baseSpinVisualBalanceLockRef.current = false
+      baseSpinQueuedAuthoritativeBalanceRef.current = null
+      suppressBalanceDropUntilRef.current = 0
     }
   }, [deviceId])
 
   useEffect(() => {
     isFreeGameRef.current = isFreeGame
   }, [isFreeGame])
+
+  useEffect(() => {
+    if (!isFreeGame) return
+    if (!activeJackpotQueue) return
+    if (activeJackpotQueue.remaining_amount <= 0 && activeJackpotQueue.payouts_left <= 0) return
+    jackpotFreeSpinModeRef.current = true
+  }, [isFreeGame, activeJackpotQueue])
 
   useEffect(() => {
     if (!activeJackpotQueue) {
@@ -602,6 +729,33 @@ export function useEngine() {
   }, [freeSpinTotal])
 
   useEffect(() => {
+    pendingFreeSpinsRef.current = pendingFreeSpins
+  }, [pendingFreeSpins])
+
+  useEffect(() => {
+    showFreeSpinIntroRef.current = showFreeSpinIntro
+  }, [showFreeSpinIntro])
+
+  useEffect(() => {
+    const shouldHoldDisplay =
+      isFreeGame || pendingFreeSpins > 0 || showFreeSpinIntro || showScatterWinBanner
+
+    if (shouldHoldDisplay) {
+      freezeDisplayedBalance()
+      return
+    }
+
+    releaseDisplayedBalance()
+  }, [
+    isFreeGame,
+    pendingFreeSpins,
+    showFreeSpinIntro,
+    showScatterWinBanner,
+    freezeDisplayedBalance,
+    releaseDisplayedBalance,
+  ])
+
+  useEffect(() => {
     persistFreeSpinSnapshot({
       updatedAt: Date.now(),
       isFreeGame,
@@ -625,12 +779,15 @@ export function useEngine() {
     if (pendingFreeSpins <= 0) return false
 
     // Sync refs immediately so first free-spin launch cannot be dropped by stale-ref guards.
+    jackpotFreeSpinModeRef.current = jackpotModeArmedRef.current
     isFreeGameRef.current = true
     freeSpinsLeftRef.current = pendingFreeSpins
     setIsFreeGame(true)
     setFreeSpinsLeft(pendingFreeSpins)
     setShowFreeSpinIntro(false)
     setPendingFreeSpins(0)
+    spinVisualTargetWinRef.current = null
+    spinVisualCommittedWinRef.current = 0
     return true
   }
 
@@ -645,7 +802,7 @@ export function useEngine() {
     // Free-spin intro/manual path should explicitly enter free spins first.
     if (!isFreeGame && pendingFreeSpins > 0) return
 
-    if (!isFreeGame && balance < bet) return
+    if (!isFreeGame && authoritativeBalance < bet) return
     if (isFreeGame && freeSpinsLeftRef.current <= 0) return
 
     const forceJackpotScatter = !isFreeGame && forceJackpotScatterRef.current
@@ -654,34 +811,47 @@ export function useEngine() {
     }
 
     spinLockRef.current = true
-    // Invalidate any in-flight authoritative sync started before this spin.
-    balanceSyncSeqRef.current += 1
-    suppressRealtimeBalanceRef.current = true
     setSpinning(true)
-    await refreshRuntimeMode()
+    const runtimeSnapshot = await refreshRuntimeMode()
+
+    const spinAmount = isFreeGame && scatterTriggerType === 'buy' ? buySpinBet : bet
 
     if (!isFreeGame) {
+      baseSpinVisualBalanceLockRef.current = true
+      baseSpinQueuedAuthoritativeBalanceRef.current = null
+      setBalance(current => Math.max(0, current - spinAmount))
       setTotalWin(0)
-      setBalance(b => Math.max(0, b - bet))
       setFreeSpinTotal(0)
     } else {
       setTotalWin(0)
-      // One decrement per started free spin.
-      setFreeSpinsLeft(v => Math.max(v - 1, 0))
     }
 
-    const spinAmount = isFreeGame && scatterTriggerType === 'buy' ? buySpinBet : bet
-    const queueBeforeSpin = isFreeGame ? activeJackpotQueue : null
+    let queueBeforeSpin = isFreeGame ? activeJackpotQueue : null
+    const isJackpotFreeSpin = isFreeGame && jackpotFreeSpinModeRef.current
+
+    if (isJackpotFreeSpin && deviceIdRef.current) {
+      try {
+        const freshQueue = await fetchActiveJackpotQueue(deviceIdRef.current)
+        queueBeforeSpin = freshQueue
+        setActiveJackpotQueue(freshQueue)
+      } catch {
+        // no-op: fallback uses best-known state
+      }
+    }
+
+    const engineBetPerSpin = spinAmount
 
     const outcome: SpinOutcome = spin(rngRef.current, {
-      betPerSpin: spinAmount,
+      betPerSpin: engineBetPerSpin,
       lines: 5,
       isFreeGame,
       forceScatter: forceJackpotScatter,
       freeSpinSource: isFreeGame ? (scatterTriggerType === 'buy' ? 'buy' : 'natural') : undefined,
     })
     const rawTotalWin = Number.isFinite(Number(outcome.win)) ? Number(outcome.win) : 0
-    currentSpinMaxWinRef.current = getMaxWinCapForBet(isFreeGame ? bet : spinAmount)
+    currentSpinMaxWinRef.current = isJackpotFreeSpin
+      ? null
+      : getMaxWinCapForBet(isFreeGame ? bet : spinAmount)
     const engineTotalWin = clampToCurrentSpinMax(rawTotalWin)
     const nextSpinId = spinCounterRef.current + 1
     spinCounterRef.current = nextSpinId
@@ -695,9 +865,9 @@ export function useEngine() {
           spinId: nextSpinId,
           isFreeGame,
           betAmount: isFreeGame ? 0 : spinAmount,
-          totalWin: engineTotalWin,
-          freeSpinsAwarded: outcome.freeSpinsAwarded ?? 0,
-          cascades: outcome.cascades?.length ?? 0,
+          totalWin: isJackpotFreeSpin ? 0 : engineTotalWin,
+          freeSpinsAwarded: isJackpotFreeSpin ? 0 : (outcome.freeSpinsAwarded ?? 0),
+          cascades: isJackpotFreeSpin ? 0 : (outcome.cascades?.length ?? 0),
           triggerType: scatterTriggerType ?? null,
         })
         jackpotPayoutForSpin = Number(accounting?.jackpotPayout ?? 0)
@@ -720,21 +890,87 @@ export function useEngine() {
           forceJackpotScatterRef.current = true
         }
         if (!isFreeGame) {
-          setBalance(b => b + spinAmount)
+          baseSpinVisualBalanceLockRef.current = false
+          baseSpinQueuedAuthoritativeBalanceRef.current = null
+          suppressBalanceDropUntilRef.current = 0
+          const fallbackBalance = lastAuthoritativeBalanceRef.current
+          if (displayBalanceFrozenRef.current) {
+            queuedDisplayBalanceRef.current = fallbackBalance
+          } else {
+            setBalance(current => (current === fallbackBalance ? current : fallbackBalance))
+          }
           setFreeSpinTotal(0)
-        } else {
-          setFreeSpinsLeft(v => v + 1)
         }
-        releaseRealtimeBalance()
         spinLockRef.current = false
         setSpinning(false)
+        spinVisualTargetWinRef.current = null
+        spinVisualCommittedWinRef.current = 0
         return
       }
     }
 
-    const presentedOutcome =
-      jackpotPayoutForSpin > 0 ? applyJackpotPresentation(outcome, jackpotPayoutForSpin) : outcome
+    let presentedOutcome = outcome
+    if (isJackpotFreeSpin) {
+      const targetWin = clampToCurrentSpinMax(Math.max(0, Number(jackpotPayoutForSpin ?? 0)))
+      const tolerance = getJackpotSpinTolerance(targetWin)
+      const composeSeed = `${seedRef.current ?? 'seed'}:jackpot:${activeJackpotQueueIdRef.current ?? 0}:${nextSpinId}:${Math.round(targetWin * 100)}`
+      let forcedHappyRuntime = false
+      if (runtimeSnapshot.mode !== 'HAPPY') {
+        hotUpdateEngine({
+          config: DEFAULT_ENGINE_HAPPY_HOUR,
+          version: `runtime-jackpot-compose-HAPPY-${Date.now()}`,
+        })
+        forcedHappyRuntime = true
+      }
+
+      const composed = (() => {
+        try {
+          return composeTargetedFreeSpin(createRNG(composeSeed), {
+            betPerSpin: engineBetPerSpin,
+            lines: 5,
+            targetWin,
+            tolerance,
+            freeSpinSource: scatterTriggerType === 'buy' ? 'buy' : 'natural',
+            attemptsPerScale: JACKPOT_COMPOSER_ATTEMPTS_PER_SCALE,
+            maxTotalAttempts: JACKPOT_COMPOSER_MAX_ATTEMPTS,
+          })
+        } finally {
+          if (forcedHappyRuntime) {
+            hotUpdateEngine({
+              config: runtimeSnapshot.config,
+              version: `runtime-jackpot-compose-restore-${runtimeSnapshot.mode}-${Date.now()}`,
+            })
+          }
+        }
+      })()
+      presentedOutcome = normalizeJackpotOutcomeToTarget(composed.outcome, targetWin)
+
+      if (!composed.withinTolerance) {
+        console.warn('[engine] jackpot composer outside tolerance', {
+          spinId: nextSpinId,
+          targetWin,
+          selectedWin: Number(composed.outcome.win ?? 0),
+          diff: composed.diff,
+          tolerance: composed.tolerance,
+          attemptCount: composed.attemptCount,
+        })
+      }
+    }
+
+    if (isJackpotFreeSpin && jackpotPayoutForSpin <= 0 && Number(presentedOutcome.win ?? 0) > 0) {
+      presentedOutcome = {
+        ...presentedOutcome,
+        win: 0,
+        cascades: (presentedOutcome.cascades ?? []).map(step => ({
+          ...step,
+          win: 0,
+          lineWins: [],
+        })),
+      }
+    }
     const presentedTotalWin = clampToCurrentSpinMax(Number(presentedOutcome.win ?? 0))
+    spinVisualTargetWinRef.current = roundMoney(Math.max(0, presentedTotalWin))
+    spinVisualCommittedWinRef.current = 0
 
     lastOutcomeRef.current = presentedOutcome
 
@@ -749,11 +985,15 @@ export function useEngine() {
     })
 
     if (!isFreeGame && forceJackpotScatter) {
+      jackpotModeArmedRef.current = true
       setScatterTriggerType('natural')
+      freezeDisplayedBalance()
       setPendingFreeSpins(JACKPOT_FREE_SPIN_COUNT)
     } else if (presentedOutcome.freeSpinsAwarded > 0) {
+      jackpotModeArmedRef.current = false
       if (!isFreeGame) {
         setScatterTriggerType('natural')
+        freezeDisplayedBalance()
         setPendingFreeSpins(presentedOutcome.freeSpinsAwarded)
       } else {
         // setFreeSpinsLeft(v => v + outcome.freeSpinsAwarded)
@@ -765,13 +1005,27 @@ export function useEngine() {
      Visual win accumulator
   ----------------------------- */
   function commitWin(amount: number) {
+    const target = spinVisualTargetWinRef.current
     setTotalWin(current => {
-      const next = clampToCurrentSpinMax(current + amount)
+      const rawAmount = Math.max(0, Number(amount ?? 0))
+      if (rawAmount <= 0) return current
+      const remainingBudget =
+        target === null
+          ? Number.POSITIVE_INFINITY
+          : Math.max(0, target - spinVisualCommittedWinRef.current)
+      const boundedAmount = roundMoney(Math.min(rawAmount, remainingBudget))
+      if (boundedAmount <= 0) return current
+
+      const next = clampToCurrentSpinMax(current + boundedAmount)
       const delta = Math.max(0, next - current)
-      if (delta > 0 && !isFreeGameRef.current) {
-        setBalance(v => v + delta)
-      } else if (delta > 0) {
+      if (delta <= 0) return current
+      spinVisualCommittedWinRef.current = roundMoney(spinVisualCommittedWinRef.current + delta)
+      const routeToFreeSpinTotal =
+        isFreeGameRef.current || pendingFreeSpinsRef.current > 0 || showFreeSpinIntroRef.current
+      if (routeToFreeSpinTotal) {
         setFreeSpinTotal(v => v + delta)
+      } else if (baseSpinVisualBalanceLockRef.current) {
+        setBalance(v => v + delta)
       }
       return next
     })
@@ -783,13 +1037,9 @@ export function useEngine() {
     if (!rngRef.current || !deviceIdRef.current) return
 
     const cost = betAmount * BUY_FREE_SPIN_MULTIPLIER
-    if (balance < cost) return
+    if (authoritativeBalance < cost) return
 
     spinLockRef.current = true
-    // Invalidate any in-flight authoritative sync started before this spin.
-    balanceSyncSeqRef.current += 1
-    setBalance(b => Math.max(0, b - cost))
-    suppressRealtimeBalanceRef.current = true
     setSpinning(true)
     setTotalWin(0)
     setFreeSpinTotal(0)
@@ -821,18 +1071,20 @@ export function useEngine() {
       })
     } catch (error) {
       console.error('[engine] buy spin accounting failed, skipping animation start', error)
-      setBalance(b => b + cost)
-      releaseRealtimeBalance()
       spinLockRef.current = false
       setSpinning(false)
       return
     }
 
     setScatterTriggerType('buy')
+    jackpotModeArmedRef.current = false
+    spinVisualTargetWinRef.current = roundMoney(Math.max(0, totalWin))
+    spinVisualCommittedWinRef.current = 0
     setPendingCascades(outcome.cascades ?? [])
     setSpinId(v => v + 1)
 
     if (outcome.freeSpinsAwarded > 0) {
+      freezeDisplayedBalance()
       setPendingFreeSpins(outcome.freeSpinsAwarded)
     }
   }
@@ -868,21 +1120,18 @@ export function useEngine() {
     if (loss > 0) {
       // const contribution = Math.floor(loss * 0.05)
     }
-
-    // End free game only after the last free spin has fully settled.
-    if (isFreeGameRef.current && freeSpinsLeftRef.current === 0) {
-      endFreeSpin()
-    }
   }
 
   const endFreeSpin = () => {
     setTimeout(() => {
+      jackpotModeArmedRef.current = false
+      jackpotFreeSpinModeRef.current = false
       setIsFreeGame(false)
       setFreezeUI(true)
       setShowScatterWinBanner(true)
-      releaseRealtimeBalance()
 
       setTimeout(() => {
+        releaseDisplayedBalance()
         setFreeSpinTotal(0)
         setTotalWin(0)
 
@@ -896,13 +1145,37 @@ export function useEngine() {
 
   function settleSpinVisuals() {
     spinLockRef.current = false
+    spinVisualTargetWinRef.current = null
+    spinVisualCommittedWinRef.current = 0
 
-    // Keep UI balance suppressed during free spins so jackpot is felt via spin wins first.
+    // Consume free spin only after full timeline settles (including final cascade/highlight/win).
     if (isFreeGameRef.current) {
-      return
+      const nextFreeSpinsLeft = Math.max(0, freeSpinsLeftRef.current - 1)
+      freeSpinsLeftRef.current = nextFreeSpinsLeft
+      setFreeSpinsLeft(nextFreeSpinsLeft)
+
+      if (nextFreeSpinsLeft === 0) {
+        endFreeSpin()
+      }
     }
 
-    releaseRealtimeBalance()
+    if (baseSpinVisualBalanceLockRef.current) {
+      baseSpinVisualBalanceLockRef.current = false
+      suppressBalanceDropUntilRef.current = Date.now() + 1800
+      const queuedBalance = baseSpinQueuedAuthoritativeBalanceRef.current
+      baseSpinQueuedAuthoritativeBalanceRef.current = null
+
+      if (queuedBalance === null) {
+        void syncBalanceFromDb()
+        return
+      }
+
+      if (displayBalanceFrozenRef.current) {
+        queuedDisplayBalanceRef.current = queuedBalance
+      } else {
+        setBalance(current => (queuedBalance > current ? queuedBalance : current))
+      }
+    }
     void syncBalanceFromDb()
   }
 
@@ -919,7 +1192,6 @@ export function useEngine() {
 
     deviceId: deviceIdRef.current,
     balance,
-    setBalance,
     bet,
     setBet,
     totalWin,

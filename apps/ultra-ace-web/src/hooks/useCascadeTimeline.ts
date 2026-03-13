@@ -180,17 +180,32 @@ export function useCascadeTimeline(
     }
   }, [spinCompleted, spinId])
 
+  function getPauseTurboSpeed() {
+    const raw = turboMultiplier > 1 ? turboMultiplier / 2 : turboMultiplier
+    return Math.max(1, raw)
+  }
+
+  function getPauseTiming() {
+    const speed = getPauseTurboSpeed()
+    return {
+      pauseLeadMs: INITIAL_REFILL_PAUSE_MS / speed,
+      pausedInitialRowDelayMs: PAUSED_INITIAL_ROW_DROP_DELAY / speed,
+      initialDealDurationMs: Math.max(70, 185 / speed),
+    }
+  }
+
   function scaled(ms: number) {
     return (
       ms /
-      (pauseColumn
+      (pauseColumn !== null
         ? (turboMultiplier > 1 ? turboMultiplier / 2 : turboMultiplier) * 1.7
         : turboMultiplier)
     )
   }
 
   function scaledWithFloor(ms: number, floorMs: number) {
-    return Math.max(scaled(ms), floorMs)
+    const turboFloor = turboMultiplier > 1 ? Math.max(20, floorMs / turboMultiplier) : floorMs
+    return Math.max(scaled(ms), turboFloor)
   }
 
   /* -----------------------------
@@ -212,14 +227,12 @@ export function useCascadeTimeline(
     if (pauseLockedRef.current) return
     if (isFreeGame) return
 
-    // const pauseColumn = 1 // TEMP
-
     if (pauseColumn !== null) {
       pauseLockedRef.current = true
       pauseOriginRef.current = pauseColumn
       dispatch({ type: 'SET_REFILL_COLUMN', column: pauseColumn })
     }
-  }, [state.phase, activeCascade])
+  }, [state.phase, activeCascade, isFreeGame, pauseColumn])
 
   /* -----------------------------
    INITIAL REFILL TIMELINE (SOLE AUTHORITY)
@@ -230,7 +243,8 @@ export function useCascadeTimeline(
     const timers: number[] = []
 
     const pauseOrigin = pauseOriginRef.current
-    const hasNextLineWin = Boolean(nextCascade?.lineWins?.length)
+    const hasNextLineWin =
+      Boolean(nextCascade?.lineWins?.length) || Number(nextCascade?.win ?? 0) > 0.0001
     // ---------------------------------
     // 🟢 NO PAUSE COLUMN → NORMAL FLOW
     // ---------------------------------
@@ -256,8 +270,10 @@ export function useCascadeTimeline(
     // 🔴 PAUSE COLUMN FLOW
     // ---------------------------------
     const cardsPerColumn = activeCascade?.window?.[0]?.length ?? 4
-    const columnDuration = cardsPerColumn * PAUSED_INITIAL_ROW_DROP_DELAY
-    const columnStep = columnDuration * 0.6
+    const { pauseLeadMs, pausedInitialRowDelayMs, initialDealDurationMs } = getPauseTiming()
+    const pausedRowStep = pausedInitialRowDelayMs * 0.4
+    const maxRowDelay = Math.max(0, cardsPerColumn - 1) * pausedRowStep
+    const columnStep = cardsPerColumn * pausedInitialRowDelayMs * 0.6
 
     for (let col = pauseOrigin + 1; col < TOTAL_REELS; col++) {
       const offset = col - (pauseOrigin + 1)
@@ -267,7 +283,7 @@ export function useCascadeTimeline(
           () => {
             dispatch({ type: 'SET_ACTIVE_PAUSED_COLUMN', column: col })
           },
-          scaled(INITIAL_REFILL_PAUSE_MS + offset * columnStep),
+          pauseLeadMs + offset * columnStep,
         ),
       )
     }
@@ -276,9 +292,11 @@ export function useCascadeTimeline(
 
     const pausedColumns = TOTAL_REELS - (pauseOrigin + 1)
     const totalDuration =
-      INITIAL_REFILL_PAUSE_MS +
+      pauseLeadMs +
       Math.max(0, pausedColumns - 1) * columnStep +
-      columnDuration
+      maxRowDelay +
+      initialDealDurationMs +
+      40
 
     timers.push(
       window.setTimeout(() => {
@@ -291,11 +309,11 @@ export function useCascadeTimeline(
         } else {
           dispatch({ type: 'NEXT', phase: 'settle' })
         }
-      }, scaled(totalDuration)),
+      }, totalDuration),
     )
 
     return () => timers.forEach(clearTimeout)
-  }, [state.phase, activeCascade, cascades, nextCascade])
+  }, [state.phase, activeCascade, cascades, nextCascade, turboMultiplier])
 
   /* -----------------------------
      Auto-unpause (visual only)
@@ -304,12 +322,13 @@ export function useCascadeTimeline(
     if (state.phase !== 'initialRefill') return
     if (state.initialRefillColumn === null) return
 
+    const { pauseLeadMs } = getPauseTiming()
     const t = window.setTimeout(() => {
       dispatch({ type: 'SET_REFILL_COLUMN', column: null })
-    }, scaled(INITIAL_REFILL_PAUSE_MS))
+    }, pauseLeadMs)
 
     return () => clearTimeout(t)
-  }, [state.phase, state.initialRefillColumn])
+  }, [state.phase, state.initialRefillColumn, turboMultiplier])
 
   /* -----------------------------
      GENERIC TIMELINE (NO initialRefill)
@@ -325,11 +344,12 @@ export function useCascadeTimeline(
         }),
       ) ?? false
 
-    const hasNextLineWin = Boolean(nextCascade?.lineWins?.length)
+    const hasNextLineWin =
+      Boolean(nextCascade?.lineWins?.length) || Number(nextCascade?.win ?? 0) > 0.0001
     const hasRemovals = Boolean(activeCascade?.removedPositions?.length)
 
-    const hasNextLineScatter =
-      nextCascade && nextCascade.window?.flat().filter(s => s.kind === 'SCATTER').length
+    const nextScatterCount = nextCascade?.window?.flat().filter(s => s.kind === 'SCATTER').length ?? 0
+    const hasNextLineScatter = nextScatterCount >= 3
 
     const hasScatterWin =
       activeCascade?.window?.flat().filter(s => s.kind === 'SCATTER').length >= 3
@@ -345,17 +365,21 @@ export function useCascadeTimeline(
       case 'highlight':
         t = window.setTimeout(() => {
           dispatch({ type: 'NEXT', phase: 'pop' })
-        }, scaledWithFloor(1200, 900))
+        }, scaledWithFloor(820, 420))
         break
 
       case 'pop':
         t = window.setTimeout(() => {
           if (hasRemovals) {
             dispatch({ type: 'NEXT', phase: 'cascadeRefill' })
+          } else if (hasNextLineWin) {
+            dispatch({ type: 'ADVANCE', cascades })
           } else if (hasNextLineScatter) {
+            dispatch({ type: 'ADVANCE_SCATTER', cascades })
+          } else {
             dispatch({ type: 'NEXT', phase: 'settle' })
           }
-        }, scaledWithFloor(800, 420))
+        }, scaledWithFloor(520, 240))
         break
 
       case 'cascadeRefill':
@@ -367,7 +391,7 @@ export function useCascadeTimeline(
           } else {
             dispatch({ type: 'NEXT', phase: 'settle' })
           }
-        }, scaledWithFloor(1050, 220))
+        }, scaledWithFloor(760, 180))
         break
 
       case 'postGoldTransform':
@@ -377,7 +401,7 @@ export function useCascadeTimeline(
           } else {
             dispatch({ type: 'NEXT', phase: 'settle' })
           }
-        }, scaledWithFloor(900, 260))
+        }, scaledWithFloor(620, 180))
         break
 
       case 'settle':

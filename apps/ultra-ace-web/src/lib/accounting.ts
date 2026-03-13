@@ -24,8 +24,8 @@ function sleep(ms: number) {
   })
 }
 
-async function fetchSpinJackpotPayout(deviceId: string, spinId: number): Promise<number> {
-  for (let attempt = 0; attempt < 12; attempt++) {
+async function fetchSpinJackpotPayout(deviceId: string, spinKey: string): Promise<number> {
+  for (let attempt = 0; attempt < 20; attempt++) {
     const { data, error } = await supabase
       .from('device_metric_events')
       .select('id,metadata,event_ts')
@@ -33,10 +33,10 @@ async function fetchSpinJackpotPayout(deviceId: string, spinId: number): Promise
       .eq('event_type', 'spin')
       .order('event_ts', { ascending: false })
       .order('id', { ascending: false })
-      .limit(12)
+      .limit(40)
 
     if (!error) {
-      const row = (data ?? []).find(item => Number((item as any)?.metadata?.spinId ?? -1) === spinId)
+      const row = (data ?? []).find(item => String((item as any)?.metadata?.spinKey ?? '') === spinKey)
       if (row) {
         const payout = Number(
           (row as any)?.metadata?.jackpotPayout ??
@@ -49,8 +49,8 @@ async function fetchSpinJackpotPayout(deviceId: string, spinId: number): Promise
       }
     }
 
-    if (attempt < 11) {
-      await sleep(150)
+    if (attempt < 19) {
+      await sleep(120)
     }
   }
 
@@ -83,8 +83,10 @@ export async function commitSpinAccounting({
   triggerType?: 'natural' | 'buy' | null
 }): Promise<{ jackpotPayout: number }> {
   const now = new Date().toISOString()
+  const spinKey = `${spinId}:${now}:${Math.random().toString(36).slice(2, 10)}`
   const baseMetadata = {
     spinId,
+    spinKey,
     isFreeGame,
     totalWin,
     freeSpinsAwarded,
@@ -123,7 +125,7 @@ export async function commitSpinAccounting({
   })
 
   await pushEvents(events)
-  const jackpotPayout = await fetchSpinJackpotPayout(deviceId, spinId)
+  const jackpotPayout = await fetchSpinJackpotPayout(deviceId, spinKey)
   return { jackpotPayout }
 }
 
