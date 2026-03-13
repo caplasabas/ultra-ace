@@ -14,13 +14,18 @@ import { DebugSpinInfo } from 'src/debug/DebugHud'
 import { ensureDeviceRegistered } from '../lib/device'
 import type { DeviceBalanceSnapshot } from '../lib/balance'
 import { fetchDeviceBalance, subscribeToDeviceBalance } from '../lib/balance'
-import { fetchCasinoRuntimeLive, subscribeCasinoRuntimeLive } from '../lib/runtime'
+import {
+  fetchCasinoRuntimeLive,
+  subscribeCasinoRuntimeLive,
+  type JackpotDeliveryMode,
+} from '../lib/runtime'
 import { commitSpinAccounting } from '../lib/accounting'
 import {
   endDeviceGameSession,
   startDeviceGameSession,
   updateDeviceGameState,
 } from '../lib/deviceGameSession'
+import { registerAuthenticJackpotPlan } from '../lib/jackpotPlan'
 import {
   type ActiveJackpotQueue,
   fetchActiveJackpotQueue,
@@ -44,6 +49,42 @@ const JACKPOT_COMPOSER_MAX_TOLERANCE = Number(
 const JACKPOT_COMPOSER_TOLERANCE_RATIO = Number(
   import.meta.env.VITE_JACKPOT_COMPOSER_TOLERANCE_RATIO ?? 0.12,
 )
+const JACKPOT_AUTHENTIC_PLAN_SET_ATTEMPTS = Math.max(
+  1,
+  Math.floor(Number(import.meta.env.VITE_JACKPOT_AUTH_PLAN_SET_ATTEMPTS ?? 180)),
+)
+const JACKPOT_AUTHENTIC_PLAN_TOLERANCE_RATIO = Math.max(
+  0,
+  Number(import.meta.env.VITE_JACKPOT_AUTH_PLAN_TOLERANCE_RATIO ?? 0.01),
+)
+const JACKPOT_AUTHENTIC_PLAN_MIN_TOLERANCE = Math.max(
+  0,
+  Number(import.meta.env.VITE_JACKPOT_AUTH_PLAN_MIN_TOLERANCE ?? 100),
+)
+const JACKPOT_AUTHENTIC_PLAN_MAX_TOLERANCE = Math.max(
+  JACKPOT_AUTHENTIC_PLAN_MIN_TOLERANCE,
+  Number(import.meta.env.VITE_JACKPOT_AUTH_PLAN_MAX_TOLERANCE ?? 500),
+)
+const JACKPOT_AUTHENTIC_PLAN_MIN_SCALE = Math.max(
+  0.1,
+  Number(import.meta.env.VITE_JACKPOT_AUTH_PLAN_MIN_SCALE ?? 0.5),
+)
+const JACKPOT_AUTHENTIC_PLAN_MAX_SCALE = Math.max(
+  JACKPOT_AUTHENTIC_PLAN_MIN_SCALE,
+  Number(import.meta.env.VITE_JACKPOT_AUTH_PLAN_MAX_SCALE ?? 1000000),
+)
+const JACKPOT_AUTHENTIC_POSITIVE_VARIANCE_MIN = Math.max(
+  0,
+  Number(import.meta.env.VITE_JACKPOT_AUTH_POS_VARIANCE_MIN ?? 0),
+)
+const JACKPOT_AUTHENTIC_POSITIVE_VARIANCE_MAX = Math.max(
+  JACKPOT_AUTHENTIC_POSITIVE_VARIANCE_MIN,
+  Number(import.meta.env.VITE_JACKPOT_AUTH_POS_VARIANCE_MAX ?? 200),
+)
+const JACKPOT_AUTHENTIC_POSITIVE_VARIANCE_STEP = Math.max(
+  0.01,
+  Number(import.meta.env.VITE_JACKPOT_AUTH_POS_VARIANCE_STEP ?? 0.1),
+)
 
 const SCATTER_BANNER_DURATION = 5000
 const FREE_SPIN_SNAPSHOT_PREFIX = 'ultraace.free-spin-state'
@@ -61,6 +102,34 @@ type FreeSpinSnapshot = {
   freeSpinTotal: number
   showFreeSpinIntro: boolean
   scatterTriggerType: 'natural' | 'buy' | null
+}
+
+type AuthPlanStep = {
+  outcome: SpinOutcome
+  expectedAmount: number
+}
+
+type AuthComposedPlan = {
+  steps: AuthPlanStep[]
+  total: number
+  tolerance: number
+  diff: number
+  withinTolerance: boolean
+}
+
+type ActiveAuthPlanState = {
+  queueId: number
+  campaignId: string
+  steps: AuthPlanStep[]
+  nextIndex: number
+  total: number
+  tolerance: number
+}
+
+type AuthPlanVarianceComposeResult = {
+  plan: AuthComposedPlan
+  bonus: number
+  varianceOk: boolean
 }
 
 function roundMoney(value: number): number {
@@ -93,6 +162,8 @@ export function useEngine() {
   const activeJackpotQueueIdRef = useRef<number | null>(null)
   const jackpotModeArmedRef = useRef(false)
   const jackpotFreeSpinModeRef = useRef(false)
+  const jackpotDeliveryModeRef = useRef<JackpotDeliveryMode>('TARGET_FIRST')
+  const activeAuthPlanRef = useRef<ActiveAuthPlanState | null>(null)
 
   /* -----------------------------
      Core spin state
@@ -288,10 +359,12 @@ export function useEngine() {
     const applyRuntimeMode = (runtime: {
       active_mode: 'BASE' | 'HAPPY'
       max_win_enabled?: boolean
+      jackpot_delivery_mode?: JackpotDeliveryMode
     }) => {
       const mode = runtime.active_mode === 'HAPPY' ? 'HAPPY' : 'BASE'
       const nextConfig = mode === 'HAPPY' ? DEFAULT_ENGINE_HAPPY_HOUR : DEFAULT_ENGINE_CONFIG
       maxWinEnabledRef.current = runtime.max_win_enabled ?? true
+      jackpotDeliveryModeRef.current = runtime.jackpot_delivery_mode ?? 'TARGET_FIRST'
 
       hotUpdateEngine({
         config: nextConfig,
@@ -499,17 +572,23 @@ export function useEngine() {
       const mode = runtime.active_mode === 'HAPPY' ? 'HAPPY' : 'BASE'
       const nextConfig = mode === 'HAPPY' ? DEFAULT_ENGINE_HAPPY_HOUR : DEFAULT_ENGINE_CONFIG
       maxWinEnabledRef.current = runtime.max_win_enabled ?? true
+      const deliveryMode = runtime.jackpot_delivery_mode ?? 'TARGET_FIRST'
+      jackpotDeliveryModeRef.current = deliveryMode
       hotUpdateEngine({
         config: nextConfig,
         version: `runtime-pre-spin-${mode}-${Date.now()}`,
       })
       setRuntimeMode(mode)
-      return { mode, config: nextConfig }
+      return { mode, config: nextConfig, deliveryMode }
     } catch (err) {
       console.error('[runtime] pre-spin refresh failed', err)
       const mode = runtimeMode === 'HAPPY' ? 'HAPPY' : 'BASE'
       const fallbackConfig = mode === 'HAPPY' ? DEFAULT_ENGINE_HAPPY_HOUR : DEFAULT_ENGINE_CONFIG
-      return { mode, config: fallbackConfig }
+      return {
+        mode,
+        config: fallbackConfig,
+        deliveryMode: jackpotDeliveryModeRef.current,
+      }
     }
   }
 
@@ -539,6 +618,202 @@ export function useEngine() {
     const floor = Math.max(0, JACKPOT_COMPOSER_MIN_TOLERANCE)
     const ceil = Math.max(floor, JACKPOT_COMPOSER_MAX_TOLERANCE)
     return Math.min(ceil, Math.max(floor, ratioTolerance))
+  }
+
+  function getJackpotPlanTolerance(targetWin: number): number {
+    const normalized = Math.max(0, Number(targetWin ?? 0))
+    if (normalized <= 0) return 0
+    const ratioTolerance = normalized * JACKPOT_AUTHENTIC_PLAN_TOLERANCE_RATIO
+    return Math.min(
+      JACKPOT_AUTHENTIC_PLAN_MAX_TOLERANCE,
+      Math.max(JACKPOT_AUTHENTIC_PLAN_MIN_TOLERANCE, ratioTolerance),
+    )
+  }
+
+  function buildAuthenticPlanBetScales(targetWinPerSpin: number, baseBet: number): number[] {
+    const safeBaseBet = Math.max(0.01, Number(baseBet || 0))
+    const targetScale = Math.max(1, targetWinPerSpin / safeBaseBet)
+    const scaleBands = [0.42, 0.58, 0.75, 0.9, 1, 1.12, 1.28, 1.45, 1.7, 2.05]
+    const rawScales = scaleBands
+      .map(multiplier => targetScale * multiplier)
+      .concat([1, 1.35, 1.8, 2.4, 3.2, 4.2, 5.5, 7.2, 9.5, 12, 16, 24, 36, 54, 80, 120, 180, 260])
+    const unique = new Set<number>()
+    for (const value of rawScales) {
+      const clamped = Math.min(
+        JACKPOT_AUTHENTIC_PLAN_MAX_SCALE,
+        Math.max(JACKPOT_AUTHENTIC_PLAN_MIN_SCALE, Number(value)),
+      )
+      const rounded = Math.round(clamped * 100) / 100
+      if (Number.isFinite(rounded) && rounded > 0) {
+        unique.add(rounded)
+      }
+    }
+    return Array.from(unique)
+  }
+
+  function composeAuthenticPlanSet({
+    seed,
+    targetWin,
+    spinCount,
+    betPerSpin,
+    freeSpinSource,
+  }: {
+    seed: string
+    targetWin: number
+    spinCount: number
+    betPerSpin: number
+    freeSpinSource: 'natural' | 'buy'
+  }): AuthComposedPlan {
+    const target = roundMoney(Math.max(0, Number(targetWin ?? 0)))
+    const stepsToCompose = Math.max(1, Math.floor(Number(spinCount ?? 0)))
+    const tolerance = getJackpotPlanTolerance(target)
+    const perSpinTolerance = Math.max(10, tolerance / Math.max(stepsToCompose, 1))
+    let bestPlan: AuthComposedPlan | null = null
+
+    for (let attempt = 0; attempt < JACKPOT_AUTHENTIC_PLAN_SET_ATTEMPTS; attempt++) {
+      const attemptRng = createRNG(`${seed}:set:${attempt + 1}`)
+      const steps: AuthPlanStep[] = []
+      let total = 0
+
+      for (let stepIndex = 0; stepIndex < stepsToCompose; stepIndex++) {
+        const stepsLeft = stepsToCompose - stepIndex
+        const remainingTarget = Math.max(0, target - total)
+        const targetForSpin = remainingTarget / Math.max(stepsLeft, 1)
+        const betScales = buildAuthenticPlanBetScales(targetForSpin, betPerSpin)
+        const composed = composeTargetedFreeSpin(attemptRng, {
+          betPerSpin: Math.max(0.01, betPerSpin),
+          lines: 5,
+          targetWin: targetForSpin,
+          tolerance: perSpinTolerance,
+          freeSpinSource,
+          betScales,
+          attemptsPerScale: JACKPOT_COMPOSER_ATTEMPTS_PER_SCALE,
+          maxTotalAttempts: JACKPOT_COMPOSER_MAX_ATTEMPTS,
+        })
+        const expectedAmount = roundMoney(Math.max(0, Number(composed.outcome.win ?? 0)))
+        const outcome: SpinOutcome = {
+          ...composed.outcome,
+          win: expectedAmount,
+        }
+
+        steps.push({
+          outcome,
+          expectedAmount,
+        })
+        total = roundMoney(total + expectedAmount)
+      }
+
+      const diff = roundMoney(Math.abs(target - total))
+      const withinTolerance = total <= target + 0.0001 && diff <= tolerance + 0.0001
+      const candidate: AuthComposedPlan = {
+        steps,
+        total,
+        tolerance,
+        diff,
+        withinTolerance,
+      }
+      const currentScore = candidate.diff + (candidate.total > target ? (candidate.total - target) * 1000 : 0)
+      const bestScore =
+        (bestPlan?.diff ?? Number.POSITIVE_INFINITY) +
+        ((bestPlan?.total ?? 0) > target ? ((bestPlan?.total ?? 0) - target) * 1000 : 0)
+
+      if (!bestPlan || currentScore < bestScore) {
+        bestPlan = candidate
+      }
+
+      if (withinTolerance) {
+        return candidate
+      }
+    }
+
+    if (bestPlan) return bestPlan
+
+    return {
+      steps: [],
+      total: 0,
+      tolerance,
+      diff: target,
+      withinTolerance: false,
+    }
+  }
+
+  function roundToStep(value: number, step: number): number {
+    if (!Number.isFinite(value)) return 0
+    const safeStep = Math.max(0.0001, step)
+    return roundMoney(Math.round(value / safeStep) * safeStep)
+  }
+
+  function composeAuthenticPlanWithVariance({
+    baseTarget,
+    composeSeed,
+    spinCount,
+    betPerSpin,
+    freeSpinSource,
+  }: {
+    baseTarget: number
+    composeSeed: string
+    spinCount: number
+    betPerSpin: number
+    freeSpinSource: 'natural' | 'buy'
+  }): AuthPlanVarianceComposeResult {
+    const normalizedBaseTarget = roundMoney(Math.max(0, Number(baseTarget ?? 0)))
+    const maxBonus = Math.max(0, JACKPOT_AUTHENTIC_POSITIVE_VARIANCE_MAX)
+    const minBonus = Math.min(maxBonus, Math.max(0, JACKPOT_AUTHENTIC_POSITIVE_VARIANCE_MIN))
+    const step = Math.max(0.0001, JACKPOT_AUTHENTIC_POSITIVE_VARIANCE_STEP)
+    const rng = createRNG(`${composeSeed}:variance`)
+
+    let best: AuthPlanVarianceComposeResult | null = null
+    let bestPenalty = Number.POSITIVE_INFINITY
+
+    for (let i = 0; i < 12; i++) {
+      const rawBonus = minBonus + (maxBonus - minBonus) * rng()
+      const bonus = roundToStep(rawBonus, step)
+      const adjustedTarget = roundMoney(normalizedBaseTarget + bonus)
+      const candidate = composeAuthenticPlanSet({
+        seed: `${composeSeed}:candidate:${i + 1}`,
+        targetWin: adjustedTarget,
+        spinCount,
+        betPerSpin,
+        freeSpinSource,
+      })
+      const total = roundMoney(candidate.total)
+      const varianceOk =
+        total >= normalizedBaseTarget - 0.0001 &&
+        total <= normalizedBaseTarget + maxBonus + 0.0001
+      const penalty =
+        varianceOk ? candidate.diff : Math.max(0, normalizedBaseTarget - total) + Math.max(0, total - (normalizedBaseTarget + maxBonus)) * 5 + candidate.diff
+
+      if (!best || penalty < bestPenalty) {
+        best = {
+          plan: candidate,
+          bonus,
+          varianceOk,
+        }
+        bestPenalty = penalty
+      }
+
+      if (varianceOk && candidate.withinTolerance) {
+        return {
+          plan: candidate,
+          bonus,
+          varianceOk: true,
+        }
+      }
+    }
+
+    if (best) return best
+
+    return {
+      plan: composeAuthenticPlanSet({
+        seed: `${composeSeed}:fallback`,
+        targetWin: normalizedBaseTarget,
+        spinCount,
+        betPerSpin,
+        freeSpinSource,
+      }),
+      bonus: 0,
+      varianceOk: false,
+    }
   }
 
   function normalizeJackpotOutcomeToTarget(outcome: SpinOutcome, targetWin: number): SpinOutcome {
@@ -678,6 +953,7 @@ export function useEngine() {
       baseSpinVisualBalanceLockRef.current = false
       baseSpinQueuedAuthoritativeBalanceRef.current = null
       suppressBalanceDropUntilRef.current = 0
+      activeAuthPlanRef.current = null
     }
   }, [deviceId])
 
@@ -696,12 +972,21 @@ export function useEngine() {
     if (!activeJackpotQueue) {
       forceJackpotScatterRef.current = false
       activeJackpotQueueIdRef.current = null
+      activeAuthPlanRef.current = null
       return
     }
 
     if (activeJackpotQueueIdRef.current !== activeJackpotQueue.id) {
       activeJackpotQueueIdRef.current = activeJackpotQueue.id
       forceJackpotScatterRef.current = false
+      activeAuthPlanRef.current = null
+    }
+
+    if (
+      activeAuthPlanRef.current &&
+      activeAuthPlanRef.current.campaignId !== activeJackpotQueue.campaign_id
+    ) {
+      activeAuthPlanRef.current = null
     }
 
     if (
@@ -791,6 +1076,12 @@ export function useEngine() {
     return true
   }
 
+  function consumeFreeSpinOnSpinStart() {
+    const nextFreeSpinsLeft = Math.max(0, freeSpinsLeftRef.current - 1)
+    freeSpinsLeftRef.current = nextFreeSpinsLeft
+    setFreeSpinsLeft(nextFreeSpinsLeft)
+  }
+
   /* -----------------------------
      Spin execution
   ----------------------------- */
@@ -840,20 +1131,112 @@ export function useEngine() {
     }
 
     const engineBetPerSpin = spinAmount
+    const freeSpinSource = scatterTriggerType === 'buy' ? 'buy' : 'natural'
+    const useAuthenticPaytableMode =
+      isJackpotFreeSpin && runtimeSnapshot.deliveryMode === 'AUTHENTIC_PAYTABLE'
+    const nextSpinId = spinCounterRef.current + 1
 
-    const outcome: SpinOutcome = spin(rngRef.current, {
-      betPerSpin: engineBetPerSpin,
-      lines: 5,
-      isFreeGame,
-      forceScatter: forceJackpotScatter,
-      freeSpinSource: isFreeGame ? (scatterTriggerType === 'buy' ? 'buy' : 'natural') : undefined,
-    })
+    let authPlanState: ActiveAuthPlanState | null = null
+    let authPlanStep: AuthPlanStep | null = null
+
+    if (useAuthenticPaytableMode && queueBeforeSpin && deviceIdRef.current && queueBeforeSpin.campaign_id) {
+      const existingPlan = activeAuthPlanRef.current
+      const canReuseExistingPlan =
+        existingPlan &&
+        existingPlan.queueId === queueBeforeSpin.id &&
+        existingPlan.campaignId === queueBeforeSpin.campaign_id &&
+        existingPlan.nextIndex < existingPlan.steps.length
+
+      if (canReuseExistingPlan) {
+        authPlanState = existingPlan
+        authPlanStep = existingPlan.steps[existingPlan.nextIndex] ?? null
+      } else {
+        const composeSeed = `${seedRef.current ?? 'seed'}:auth-jackpot:${queueBeforeSpin.id}:${queueBeforeSpin.campaign_id}:${nextSpinId}:${Math.round(queueBeforeSpin.remaining_amount * 100)}`
+        const targetAmount = Math.max(0, Number(queueBeforeSpin.remaining_amount ?? 0))
+        const payoutsLeft = Math.max(1, Math.floor(Number(queueBeforeSpin.payouts_left ?? 1)))
+        let forcedHappyRuntime = false
+        if (runtimeSnapshot.mode !== 'HAPPY') {
+          hotUpdateEngine({
+            config: DEFAULT_ENGINE_HAPPY_HOUR,
+            version: `runtime-auth-jackpot-compose-HAPPY-${Date.now()}`,
+          })
+          forcedHappyRuntime = true
+        }
+
+        try {
+          const composed = composeAuthenticPlanWithVariance({
+            baseTarget: targetAmount,
+            composeSeed,
+            spinCount: payoutsLeft,
+            betPerSpin: engineBetPerSpin,
+            freeSpinSource,
+          })
+          const composedPlan = composed.plan
+
+          if (composedPlan.withinTolerance && composed.varianceOk && composedPlan.steps.length === payoutsLeft) {
+            const expectedAmounts = composedPlan.steps.map(step => roundMoney(step.expectedAmount))
+            await registerAuthenticJackpotPlan({
+              deviceId: deviceIdRef.current,
+              queueId: queueBeforeSpin.id,
+              campaignId: queueBeforeSpin.campaign_id,
+              expectedAmounts,
+              tolerance: composedPlan.tolerance,
+            })
+
+            const nextPlan: ActiveAuthPlanState = {
+              queueId: queueBeforeSpin.id,
+              campaignId: queueBeforeSpin.campaign_id,
+              steps: composedPlan.steps,
+              nextIndex: 0,
+              total: composedPlan.total,
+              tolerance: composedPlan.tolerance,
+            }
+            activeAuthPlanRef.current = nextPlan
+            authPlanState = nextPlan
+            authPlanStep = nextPlan.steps[0] ?? null
+          } else {
+            activeAuthPlanRef.current = null
+            console.warn('[engine] authentic jackpot plan composition fell back to TARGET_FIRST', {
+              queueId: queueBeforeSpin.id,
+              campaignId: queueBeforeSpin.campaign_id,
+              targetAmount,
+              bonus: composed.bonus,
+              selectedTotal: composedPlan.total,
+              diff: composedPlan.diff,
+              tolerance: composedPlan.tolerance,
+              varianceOk: composed.varianceOk,
+              stepsComposed: composedPlan.steps.length,
+              payoutsLeft,
+            })
+          }
+        } catch (error) {
+          activeAuthPlanRef.current = null
+          console.warn('[engine] authentic jackpot plan registration failed; fallback active', error)
+        } finally {
+          if (forcedHappyRuntime) {
+            hotUpdateEngine({
+              config: runtimeSnapshot.config,
+              version: `runtime-auth-jackpot-compose-restore-${runtimeSnapshot.mode}-${Date.now()}`,
+            })
+          }
+        }
+      }
+    }
+
+    const outcome: SpinOutcome =
+      authPlanStep?.outcome ??
+      spin(rngRef.current, {
+        betPerSpin: engineBetPerSpin,
+        lines: 5,
+        isFreeGame,
+        forceScatter: forceJackpotScatter,
+        freeSpinSource: isFreeGame ? freeSpinSource : undefined,
+      })
     const rawTotalWin = Number.isFinite(Number(outcome.win)) ? Number(outcome.win) : 0
     currentSpinMaxWinRef.current = isJackpotFreeSpin
       ? null
       : getMaxWinCapForBet(isFreeGame ? bet : spinAmount)
     const engineTotalWin = clampToCurrentSpinMax(rawTotalWin)
-    const nextSpinId = spinCounterRef.current + 1
     spinCounterRef.current = nextSpinId
 
     let jackpotPayoutForSpin = 0
@@ -884,6 +1267,24 @@ export function useEngine() {
             // no-op
           }
         }
+
+        if (authPlanState && authPlanStep) {
+          authPlanState.nextIndex = Math.min(authPlanState.nextIndex + 1, authPlanState.steps.length)
+          if (authPlanState.nextIndex >= authPlanState.steps.length) {
+            activeAuthPlanRef.current = null
+          }
+
+          if (Math.abs(jackpotPayoutForSpin - authPlanStep.expectedAmount) > 0.01) {
+            console.warn('[engine] authentic jackpot payout mismatch', {
+              queueId: authPlanState.queueId,
+              campaignId: authPlanState.campaignId,
+              expected: authPlanStep.expectedAmount,
+              actual: jackpotPayoutForSpin,
+              planTotal: authPlanState.total,
+              tolerance: authPlanState.tolerance,
+            })
+          }
+        }
       } catch (error) {
         console.error('[engine] spin accounting failed, skipping animation start', error)
         if (forceJackpotScatter) {
@@ -910,7 +1311,7 @@ export function useEngine() {
     }
 
     let presentedOutcome = outcome
-    if (isJackpotFreeSpin) {
+    if (isJackpotFreeSpin && !authPlanStep) {
       const targetWin = clampToCurrentSpinMax(Math.max(0, Number(jackpotPayoutForSpin ?? 0)))
       const tolerance = getJackpotSpinTolerance(targetWin)
       const composeSeed = `${seedRef.current ?? 'seed'}:jackpot:${activeJackpotQueueIdRef.current ?? 0}:${nextSpinId}:${Math.round(targetWin * 100)}`
@@ -973,6 +1374,10 @@ export function useEngine() {
     spinVisualCommittedWinRef.current = 0
 
     lastOutcomeRef.current = presentedOutcome
+    if (isFreeGame) {
+      // Consume on actual spin start so counter drops together with reel sweep.
+      consumeFreeSpinOnSpinStart()
+    }
 
     setPendingCascades(presentedOutcome.cascades ?? [])
     setSpinId(v => v + 1)
@@ -1126,6 +1531,7 @@ export function useEngine() {
     setTimeout(() => {
       jackpotModeArmedRef.current = false
       jackpotFreeSpinModeRef.current = false
+      activeAuthPlanRef.current = null
       setIsFreeGame(false)
       setFreezeUI(true)
       setShowScatterWinBanner(true)
@@ -1148,13 +1554,9 @@ export function useEngine() {
     spinVisualTargetWinRef.current = null
     spinVisualCommittedWinRef.current = 0
 
-    // Consume free spin only after full timeline settles (including final cascade/highlight/win).
+    // End only after full timeline settles so last spin still completes even when counter hit 0 on spin start.
     if (isFreeGameRef.current) {
-      const nextFreeSpinsLeft = Math.max(0, freeSpinsLeftRef.current - 1)
-      freeSpinsLeftRef.current = nextFreeSpinsLeft
-      setFreeSpinsLeft(nextFreeSpinsLeft)
-
-      if (nextFreeSpinsLeft === 0) {
+      if (freeSpinsLeftRef.current === 0) {
         endFreeSpin()
       }
     }

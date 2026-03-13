@@ -55,6 +55,7 @@ const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kin
 export default function App() {
   const gameStateRef = useRef({
     isReady: true,
+    canExitViaMenu: false,
     spinning: false,
     autoSpin: false,
     isFreeGame: false,
@@ -69,6 +70,7 @@ export default function App() {
     isWithdrawing: false,
     showBuySpinModal: false,
     showWithdrawModal: false,
+    audioOn: false,
   })
 
   const [autoSpin, setAutoSpin] = useState(false)
@@ -291,6 +293,8 @@ export default function App() {
   const addBalanceRef = useRef(addBalance)
   const minusBalanceRef = useRef(minusBalance)
 
+  const setAudioOnRef = useRef(setAudioOn)
+
   const {
     phase,
     activeCascade,
@@ -391,8 +395,33 @@ export default function App() {
   // }, [adaptedWindow])
 
   const [isFreeSpinPreview, setIsFreeSpinPreview] = useState(false)
+  const [heldWindowForIntro, setHeldWindowForIntro] = useState<NonNullable<
+    typeof adaptedWindow
+  > | null>(null)
+
+  useEffect(() => {
+    if (!adaptedWindow) return
+    if (phase === 'reelSweepOut') return
+    setHeldWindowForIntro(adaptedWindow)
+  }, [adaptedWindow, phase])
+
+  const renderedWindow = adaptedWindow ?? heldWindowForIntro
 
   const isReady = (isIdle && !spinning) || (showFreeSpinIntro && !freezeUI)
+  const canExitViaMenu =
+    isReady &&
+    !spinning &&
+    !autoSpin &&
+    !freezeUI &&
+    !showFreeSpinIntro &&
+    !showScatterWinBanner &&
+    !isFreeGame &&
+    !isFreeSpinPreview &&
+    pendingFreeSpins <= 0 &&
+    freeSpinsLeft <= 0 &&
+    pauseColumn === null &&
+    !showWithdrawModal &&
+    !showBuySpinModal
 
   useEffect(() => {
     if (!isIdle) return
@@ -448,7 +477,9 @@ export default function App() {
 
   const activeMultiplierIndex = getMultiplierIndex(cascadeIndex)
   const freeSpinDisplayCount = isFreeGame ? freeSpinsLeft : pendingFreeSpins
-  const showFreeSpinModeUi = (isFreeGame || isFreeSpinPreview) && freeSpinDisplayCount > 0
+  const showFreeSpinModeUi = isFreeGame || isFreeSpinPreview || showScatterWinBanner || freezeUI
+  const showFreeSpinCount =
+    (isFreeGame || isFreeSpinPreview || pendingFreeSpins > 0) && freeSpinDisplayCount > 0
 
   function triggerFreeSpinStart() {
     if (!gameStateRef.current.showFreeSpinIntro) return
@@ -533,6 +564,7 @@ export default function App() {
   useEffect(() => {
     gameStateRef.current = {
       isReady,
+      canExitViaMenu,
       spinning,
       autoSpin,
       isFreeGame,
@@ -547,9 +579,11 @@ export default function App() {
       isWithdrawing,
       withdrawAmount,
       showWithdrawModal,
+      audioOn,
     }
   }, [
     isReady,
+    canExitViaMenu,
     spinning,
     autoSpin,
     isFreeGame,
@@ -564,7 +598,19 @@ export default function App() {
     isWithdrawing,
     withdrawAmount,
     showWithdrawModal,
+    audioOn,
   ])
+
+  useEffect(() => {
+    if (window.parent === window) return
+    window.parent.postMessage(
+      {
+        type: 'ULTRAACE_MENU_EXIT_STATE',
+        canExit: canExitViaMenu,
+      },
+      '*',
+    )
+  }, [canExitViaMenu])
 
   useEffect(() => {
     spinRef.current = spin
@@ -575,6 +621,7 @@ export default function App() {
     addBetRef.current = addBet
     minusBetRef.current = minusBet
     setTurboStageRef.current = setTurboStage
+    setAudioOnRef.current = setAudioOn
     setShowFreeSpinIntroRef.current = setShowFreeSpinIntro
     setShowWithdrawModalRef.current = setShowWithdrawModal
     setIsWithdrawingRef.current = setIsWithdrawing
@@ -772,6 +819,11 @@ export default function App() {
           }
           break
         }
+
+        case 'AUDIO': {
+          setAudioOnRef.current(!s.audioOn)
+          break
+        }
       }
     }
 
@@ -786,7 +838,7 @@ export default function App() {
       <div className={`game-root mode-${runtimeMode.toLowerCase()}`}>
         <div className="game-frame">
           <div className="frame-bg">
-            <div className={`bg-inner ${isFreeGame || isFreeSpinPreview ? 'free-spin' : ''}`}>
+            <div className={`bg-inner ${showFreeSpinModeUi ? 'free-spin' : ''}`}>
               <div className="frame-inner-shadow" />
             </div>
             <div className="bg-frame" />
@@ -841,7 +893,7 @@ export default function App() {
                 </div>
 
                 <span className="free-spin-count">
-                  {showFreeSpinModeUi ? freeSpinDisplayCount : ''}
+                  {showFreeSpinCount ? freeSpinDisplayCount : ''}
                 </span>
               </div>
 
@@ -946,7 +998,7 @@ export default function App() {
                         />
                       ))}
 
-                    {adaptedWindow &&
+                    {renderedWindow &&
                       [
                         'initialRefill',
                         'cascadeRefill',
@@ -956,7 +1008,7 @@ export default function App() {
                         'settle',
                         'idle',
                       ].includes(phase) &&
-                      adaptedWindow.map((col, i) => (
+                      renderedWindow.map((col, i) => (
                         <Reel
                           key={`new-${cascadeIndex}-${i}`}
                           symbols={col}

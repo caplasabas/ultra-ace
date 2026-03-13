@@ -357,8 +357,8 @@ export function useCascadeTimeline(
     switch (state.phase) {
       case 'reelSweepOut':
         t = window.setTimeout(() => {
-          dispatch({ type: 'NEXT', phase: 'initialRefill' })
           onCommit?.()
+          dispatch({ type: 'NEXT', phase: 'initialRefill' })
         }, scaledWithFloor(120, 380))
         break
 
