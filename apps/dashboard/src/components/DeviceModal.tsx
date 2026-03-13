@@ -15,6 +15,32 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
   const deviceHouseWin = asNumber(device.house_take_total ?? (asNumber(device.bet_total) - asNumber(device.win_total)))
   const hopperAlertThreshold = asNumber((device as any)?.hopper_alert_threshold ?? 500)
   const hopperLow = asNumber(device.hopper_balance) <= hopperAlertThreshold
+  const gameTypeRaw = String(device.game_type ?? (device.session_metadata as any)?.gameType ?? '')
+    .trim()
+    .toLowerCase()
+  const gameType: 'arcade' | 'casino' =
+    gameTypeRaw === 'arcade' || gameTypeRaw === 'casino'
+      ? (gameTypeRaw as 'arcade' | 'casino')
+      : (device.runtime_mode || device.is_free_game || device.jackpot_selected ? 'casino' : 'arcade')
+  const gameName = String(device.current_game_name ?? device.current_game_id ?? 'No Game')
+  const modeLabel = device.is_free_game
+    ? `FREE SPIN (${asNumber(device.free_spins_left)} left)`
+    : String(device.runtime_mode ?? 'BASE').toUpperCase()
+  const telemetryLabel =
+    gameType === 'casino'
+      ? `CASINO / ${gameName} / ${modeLabel}`
+      : `ARCADE / ${gameName}`
+  const jackpotStatusLabel = (() => {
+    if (!device.jackpot_selected) return null
+    if (device.is_free_game && asNumber(device.free_spins_left) > 0) {
+      return `JACKPOT LIVE • FREE SPINS ${asNumber(device.free_spins_left)} left`
+    }
+    const delaySpins = Math.max(0, asNumber(device.jackpot_spins_until_start))
+    if (delaySpins > 0) {
+      return `JACKPOT ARMED • ${delaySpins} spin${delaySpins === 1 ? '' : 's'} until trigger`
+    }
+    return 'JACKPOT ARMED • trigger spin next'
+  })()
   const [balanceAmount, setBalanceAmount] = useState('0')
   const [balanceKind, setBalanceKind] = useState<'debit' | 'credit'>('credit')
   const [balanceAccountName, setBalanceAccountName] = useState('Manual Accounting Override')
@@ -140,10 +166,7 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
                   Device: {device.device_id ?? 'Unnamed Device'}
                 </h3>
                 <div className="mt-1 text-xs text-slate-400">
-                  Status: {(device.device_status ?? 'idle').toUpperCase()} • Game:{' '}
-                  {device.current_game_name ?? device.current_game_id ?? '—'} • Mode:{' '}
-                  {device.runtime_mode ?? 'BASE'}
-                  {device.is_free_game ? ` • Free Spins Left: ${asNumber(device.free_spins_left)}` : ''}
+                  Status: {(device.device_status ?? 'idle').toUpperCase()} • {telemetryLabel}
                 </div>
                 {device.jackpot_selected && (
                   <div className="mt-1 text-xs font-semibold text-amber-200">
@@ -151,6 +174,7 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
                     {formatCurrency(device.jackpot_remaining_amount)}
                   </div>
                 )}
+                {jackpotStatusLabel && <div className="mt-1 text-xs text-amber-300">{jackpotStatusLabel}</div>}
               </div>
 
               <div className="text-base md:text-lg font-mono font-bold text-green-400">

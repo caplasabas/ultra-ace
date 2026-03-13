@@ -18,6 +18,45 @@ async function pushEvents(events: MetricEventPayload[]) {
   if (error) throw error
 }
 
+function sleep(ms: number) {
+  return new Promise(resolve => {
+    window.setTimeout(resolve, ms)
+  })
+}
+
+async function fetchSpinJackpotPayout(deviceId: string, spinId: number): Promise<number> {
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const { data, error } = await supabase
+      .from('device_metric_events')
+      .select('id,metadata,event_ts')
+      .eq('device_id', deviceId)
+      .eq('event_type', 'spin')
+      .order('event_ts', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(12)
+
+    if (!error) {
+      const row = (data ?? []).find(item => Number((item as any)?.metadata?.spinId ?? -1) === spinId)
+      if (row) {
+        const payout = Number(
+          (row as any)?.metadata?.jackpotPayout ??
+            (row as any)?.metadata?.jackpot_payout ??
+            (row as any)?.metadata?.jackpotAmount ??
+            0,
+        )
+        if (Number.isFinite(payout) && payout > 0) return payout
+        return 0
+      }
+    }
+
+    if (attempt < 11) {
+      await sleep(150)
+    }
+  }
+
+  return 0
+}
+
 // Kept for compatibility with existing imports; intentionally no-op.
 export function installAccountingRetryHooks() {}
 
@@ -42,7 +81,7 @@ export async function commitSpinAccounting({
   freeSpinsAwarded: number
   cascades: number
   triggerType?: 'natural' | 'buy' | null
-}) {
+}): Promise<{ jackpotPayout: number }> {
   const now = new Date().toISOString()
   const baseMetadata = {
     spinId,
@@ -84,6 +123,8 @@ export async function commitSpinAccounting({
   })
 
   await pushEvents(events)
+  const jackpotPayout = await fetchSpinJackpotPayout(deviceId, spinId)
+  return { jackpotPayout }
 }
 
 export async function logLedgerEvent({

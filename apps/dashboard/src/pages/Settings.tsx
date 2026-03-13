@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useCasinoRuntime } from '../hooks/useCasinoRuntime'
+import { useDevices } from '../hooks/useDevices'
 import { getGame, toggleGame, useGames } from '../hooks/useGames'
 import { prepareGamePackage, purgeGamePackages, removeGamePackage } from '../lib/arcadeAdmin'
 
 export default function Settings() {
   const games = useGames()
-  const { runtime, profiles, updateRuntime, updateProfile, setHappyHour, demoReset } = useCasinoRuntime()
+  const devices = useDevices()
+  const { runtime, profiles, updateRuntime, updateProfile, setHappyHour, demoReset, enqueueDevJackpotTest } =
+    useCasinoRuntime()
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -28,6 +31,9 @@ export default function Settings() {
   const [jackpotDelayMinSpins, setJackpotDelayMinSpins] = useState('2')
   const [jackpotDelayMaxSpins, setJackpotDelayMaxSpins] = useState('3')
   const [jackpotWinVariance, setJackpotWinVariance] = useState('90')
+  const [jackpotPayoutCurve, setJackpotPayoutCurve] = useState<'flat' | 'front' | 'center' | 'back'>(
+    'center',
+  )
   const [poolGoalMode, setPoolGoalMode] = useState<'amount' | 'spins' | 'time'>('amount')
   const [poolGoalSpins, setPoolGoalSpins] = useState('1000')
   const [poolGoalTimeHours, setPoolGoalTimeHours] = useState('0')
@@ -37,6 +43,13 @@ export default function Settings() {
   const [autoHappy, setAutoHappy] = useState(true)
   const [keepDeviceIdsText, setKeepDeviceIdsText] = useState('')
   const [resetConfirm, setResetConfirm] = useState('')
+  const [testJackpotAmount, setTestJackpotAmount] = useState('5000')
+  const [testJackpotWinners, setTestJackpotWinners] = useState('1')
+  const [testDelayMinSpins, setTestDelayMinSpins] = useState('2')
+  const [testDelayMaxSpins, setTestDelayMaxSpins] = useState('3')
+  const [selectedDevDeviceIds, setSelectedDevDeviceIds] = useState<string[]>([])
+  const [testSubmitting, setTestSubmitting] = useState(false)
+  const [testResultMessage, setTestResultMessage] = useState<string | null>(null)
 
   function applyRuntimeToForm() {
     if (!runtime) return
@@ -51,6 +64,9 @@ export default function Settings() {
     setJackpotDelayMinSpins(String(runtime.jackpot_delay_min_spins ?? 2))
     setJackpotDelayMaxSpins(String(runtime.jackpot_delay_max_spins ?? 3))
     setJackpotWinVariance(String(runtime.jackpot_win_variance ?? 90))
+    setJackpotPayoutCurve(
+      (runtime.jackpot_payout_curve ?? 'center') as 'flat' | 'front' | 'center' | 'back',
+    )
     setPoolGoalMode((runtime.pool_goal_mode ?? 'amount') as 'amount' | 'spins' | 'time')
     setPoolGoalSpins(String(runtime.pool_goal_spins ?? 1000))
     const totalMinutes = Math.max(1, Math.round((runtime.pool_goal_time_seconds ?? 1800) / 60))
@@ -73,8 +89,22 @@ export default function Settings() {
     return () => clearTimeout(t)
   }, [errorMessage])
 
+  useEffect(() => {
+    if (!testResultMessage) return
+    const t = setTimeout(() => setTestResultMessage(null), 5000)
+    return () => clearTimeout(t)
+  }, [testResultMessage])
+
   const baseProfiles = useMemo(() => profiles.filter(p => p.mode === 'BASE'), [profiles])
   const happyProfiles = useMemo(() => profiles.filter(p => p.mode === 'HAPPY'), [profiles])
+  const devDevices = useMemo(
+    () => devices.filter(device => (device.device_id ?? '').startsWith('dev-')),
+    [devices],
+  )
+  const playingDevDeviceIds = useMemo(
+    () => devDevices.filter(device => device.device_status === 'playing').map(device => device.device_id),
+    [devDevices],
+  )
   const selectedBaseProfile = useMemo(
     () => baseProfiles.find(p => p.id === baseProfileId) ?? null,
     [baseProfiles, baseProfileId],
@@ -109,6 +139,12 @@ export default function Settings() {
     setHappyJackpotPctInput(String(selectedHappyProfile.pool_pct ?? 0))
     setHappyHappyPctInput(String(selectedHappyProfile.player_pct ?? 0))
   }, [selectedBaseProfile, selectedHappyProfile, isRuntimeFormDirty])
+
+  useEffect(() => {
+    setSelectedDevDeviceIds(current =>
+      current.filter(deviceId => devDevices.some(device => device.device_id === deviceId)),
+    )
+  }, [devDevices])
 
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
   const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
@@ -181,6 +217,7 @@ export default function Settings() {
       jackpot_delay_min_spins: delayMin,
       jackpot_delay_max_spins: delayMax,
       jackpot_win_variance: Math.max(0, Number(jackpotWinVariance || 0)),
+      jackpot_payout_curve: jackpotPayoutCurve,
       pool_goal_mode: poolGoalMode,
       pool_goal_spins: Math.max(1, Number(poolGoalSpins || 1000)),
       pool_goal_time_seconds: goalTimeSeconds,
@@ -196,6 +233,49 @@ export default function Settings() {
     }
 
     setIsRuntimeFormDirty(false)
+  }
+
+  async function runDevJackpotTest() {
+    const amount = Math.max(0, Number(testJackpotAmount || 0))
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setErrorMessage('DEV test jackpot amount must be greater than 0')
+      return
+    }
+
+    if (selectedDevDeviceIds.length <= 0) {
+      setErrorMessage('Select at least one DEV device (device_id starts with dev-)')
+      return
+    }
+
+    const winners = Math.max(1, Number(testJackpotWinners || 1))
+    const delayMin = Math.max(0, Number(testDelayMinSpins || 0))
+    const delayMax = Math.max(delayMin, Number(testDelayMaxSpins || delayMin))
+
+    setTestSubmitting(true)
+    const result = await enqueueDevJackpotTest({
+      amount,
+      deviceIds: selectedDevDeviceIds,
+      winners: Math.min(winners, selectedDevDeviceIds.length),
+      delayMin,
+      delayMax,
+    })
+    setTestSubmitting(false)
+
+    if (!result.ok) {
+      setErrorMessage(result.error?.message ?? 'Failed to queue DEV jackpot test')
+      return
+    }
+
+    const payload = (result as any)?.data ?? {}
+    const winnerDeviceIds = Array.isArray(payload?.winner_device_ids)
+      ? payload.winner_device_ids.join(', ')
+      : ''
+    setTestResultMessage(
+      `DEV jackpot queued: ₱${amount.toLocaleString()} for ${Math.min(winners, selectedDevDeviceIds.length)} winner(s)${
+        winnerDeviceIds ? ` • ${winnerDeviceIds}` : ''
+      }`,
+    )
+    setErrorMessage(null)
   }
 
   async function toggleHappyHour(enable: boolean) {
@@ -555,6 +635,23 @@ export default function Settings() {
           </label>
 
           <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-300">Jackpot Payout Curve</span>
+            <select
+              className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+              value={jackpotPayoutCurve}
+              onChange={e => {
+                setIsRuntimeFormDirty(true)
+                setJackpotPayoutCurve(e.target.value as 'flat' | 'front' | 'center' | 'back')
+              }}
+            >
+              <option value="flat">Flat (even)</option>
+              <option value="front">Front-loaded</option>
+              <option value="center">Center-loaded</option>
+              <option value="back">Back-loaded</option>
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
             <span className="text-slate-300">Hopper Alert Threshold</span>
             <input
               className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
@@ -702,6 +799,145 @@ export default function Settings() {
             className="px-4 py-2 rounded bg-blue-700/30 border border-blue-600 text-blue-300 disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Save Settings'}
+          </button>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-indigo-800/70 bg-indigo-950/20 p-4 space-y-4">
+        <h2 className="text-lg font-semibold text-indigo-200">DEV Jackpot Test</h2>
+        <p className="text-xs text-indigo-200/80">
+          DEV-only manual jackpot trigger. DB will only accept selected devices with <code>dev-</code>{' '}
+          prefix.
+        </p>
+
+        {testResultMessage && (
+          <div className="p-3 bg-green-900/30 border border-green-700 text-green-300 text-sm rounded">
+            {testResultMessage}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-indigo-200">Jackpot Amount</span>
+            <input
+              className="bg-slate-950 border border-indigo-800/60 rounded px-3 py-2"
+              type="number"
+              min={1}
+              value={testJackpotAmount}
+              onChange={e => setTestJackpotAmount(e.target.value)}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-indigo-200">Winner Count</span>
+            <input
+              className="bg-slate-950 border border-indigo-800/60 rounded px-3 py-2"
+              type="number"
+              min={1}
+              value={testJackpotWinners}
+              onChange={e => setTestJackpotWinners(e.target.value)}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-indigo-200">Delay Min Spins</span>
+            <input
+              className="bg-slate-950 border border-indigo-800/60 rounded px-3 py-2"
+              type="number"
+              min={0}
+              value={testDelayMinSpins}
+              onChange={e => setTestDelayMinSpins(e.target.value)}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-indigo-200">Delay Max Spins</span>
+            <input
+              className="bg-slate-950 border border-indigo-800/60 rounded px-3 py-2"
+              type="number"
+              min={0}
+              value={testDelayMaxSpins}
+              onChange={e => setTestDelayMaxSpins(e.target.value)}
+            />
+          </label>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <button
+            type="button"
+            onClick={() => setSelectedDevDeviceIds(playingDevDeviceIds)}
+            className="px-2.5 py-1.5 rounded border border-indigo-600 text-indigo-200 bg-indigo-700/20"
+          >
+            Select Playing DEV Devices ({playingDevDeviceIds.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedDevDeviceIds(devDevices.map(device => device.device_id))}
+            className="px-2.5 py-1.5 rounded border border-indigo-600 text-indigo-200 bg-indigo-700/20"
+          >
+            Select All DEV Devices ({devDevices.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedDevDeviceIds([])}
+            className="px-2.5 py-1.5 rounded border border-slate-600 text-slate-300 bg-slate-800/30"
+          >
+            Clear Selection
+          </button>
+          <span className="text-indigo-200/80">
+            Selected: <strong>{selectedDevDeviceIds.length}</strong>
+          </span>
+        </div>
+
+        <div className="max-h-44 overflow-auto rounded border border-indigo-900/70 bg-slate-950/60 p-2">
+          {devDevices.length === 0 && (
+            <div className="text-xs text-indigo-200/70 p-2">No DEV devices detected.</div>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {devDevices.map(device => {
+              const checked = selectedDevDeviceIds.includes(device.device_id)
+              const status = (device.device_status ?? 'idle').toUpperCase()
+              return (
+                <label
+                  key={device.device_id}
+                  className="flex items-center justify-between gap-2 rounded border border-indigo-900/70 bg-slate-900/60 px-2 py-1.5 text-xs"
+                >
+                  <span className="truncate">
+                    <input
+                      type="checkbox"
+                      className="mr-2 align-middle"
+                      checked={checked}
+                      onChange={e => {
+                        if (e.target.checked) {
+                          setSelectedDevDeviceIds(current =>
+                            current.includes(device.device_id)
+                              ? current
+                              : [...current, device.device_id],
+                          )
+                        } else {
+                          setSelectedDevDeviceIds(current =>
+                            current.filter(deviceId => deviceId !== device.device_id),
+                          )
+                        }
+                      }}
+                    />
+                    {device.device_id}
+                  </span>
+                  <span className="text-indigo-200/80">{status}</span>
+                </label>
+              )
+            })}
+          </div>
+        </div>
+
+        <div>
+          <button
+            type="button"
+            onClick={runDevJackpotTest}
+            disabled={testSubmitting}
+            className="px-4 py-2 rounded bg-indigo-700/30 border border-indigo-600 text-indigo-200 disabled:opacity-50"
+          >
+            {testSubmitting ? 'Queueing DEV Jackpot…' : 'Queue DEV Test Jackpot'}
           </button>
         </div>
       </section>

@@ -1,0 +1,66 @@
+import { supabase } from './supabase'
+
+export type ActiveJackpotQueue = {
+  id: number
+  spins_until_start: number
+  payouts_left: number
+  remaining_amount: number
+  target_amount: number
+}
+
+function toQueueRow(raw: any): ActiveJackpotQueue {
+  return {
+    id: Number(raw?.id ?? 0),
+    spins_until_start: Number(raw?.spins_until_start ?? 0),
+    payouts_left: Number(raw?.payouts_left ?? 0),
+    remaining_amount: Number(raw?.remaining_amount ?? 0),
+    target_amount: Number(raw?.target_amount ?? 0),
+  }
+}
+
+export async function fetchActiveJackpotQueue(deviceId: string): Promise<ActiveJackpotQueue | null> {
+  const { data, error } = await supabase
+    .from('jackpot_payout_queue')
+    .select('id,spins_until_start,payouts_left,remaining_amount,target_amount')
+    .eq('device_id', deviceId)
+    .is('completed_at', null)
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true })
+    .limit(1)
+
+  if (error) throw error
+  const first = (data ?? [])[0]
+  return first ? toQueueRow(first) : null
+}
+
+export function subscribeActiveJackpotQueue(
+  deviceId: string,
+  onChange: (next: ActiveJackpotQueue | null) => void,
+) {
+  const channel = supabase
+    .channel(`device-jackpot-queue-${deviceId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'jackpot_payout_queue',
+        filter: `device_id=eq.${deviceId}`,
+      },
+      async () => {
+        try {
+          const next = await fetchActiveJackpotQueue(deviceId)
+          onChange(next)
+        } catch {
+          // no-op
+        }
+      },
+    )
+    .subscribe()
+
+  return {
+    unsubscribe: () => {
+      void supabase.removeChannel(channel)
+    },
+  }
+}

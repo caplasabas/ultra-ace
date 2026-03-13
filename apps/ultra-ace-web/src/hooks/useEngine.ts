@@ -20,15 +20,22 @@ import {
   startDeviceGameSession,
   updateDeviceGameState,
 } from '../lib/deviceGameSession'
+import {
+  fetchActiveJackpotQueue,
+  subscribeActiveJackpotQueue,
+  type ActiveJackpotQueue,
+} from '../lib/jackpotQueue'
 
 const BUY_FREE_SPIN_MULTIPLIER = 50
+const JACKPOT_FREE_SPIN_COUNT = 10
 
 const SCATTER_BANNER_DURATION = 5000
 const FREE_SPIN_SNAPSHOT_PREFIX = 'ultraace.free-spin-state'
 const FREE_SPIN_SNAPSHOT_MAX_AGE_MS = 1000 * 60 * 60 * 6
 const DEVICE_STATE_HEARTBEAT_MS = 5000
-const ENABLE_DEVICE_STATE_SYNC = false
+const ENABLE_DEVICE_STATE_SYNC = true
 const BALANCE_FALLBACK_SYNC_MS = 15000
+const JACKPOT_QUEUE_FALLBACK_SYNC_MS = 2000
 
 type FreeSpinSnapshot = {
   updatedAt: number
@@ -60,6 +67,9 @@ export function useEngine() {
 
   const [sessionReady, setSessionReady] = useState(false)
   const [runtimeMode, setRuntimeMode] = useState<'BASE' | 'HAPPY'>('BASE')
+  const [activeJackpotQueue, setActiveJackpotQueue] = useState<ActiveJackpotQueue | null>(null)
+  const forceJackpotScatterRef = useRef(false)
+  const activeJackpotQueueIdRef = useRef<number | null>(null)
 
   /* -----------------------------
      Core spin state
@@ -206,7 +216,9 @@ export function useEngine() {
 
     let unsubscribe: (() => void) | null = null
     let runtimeChannel: { unsubscribe: () => void } | null = null
+    let jackpotQueueChannel: { unsubscribe: () => void } | null = null
     let balancePollTimer: number | null = null
+    let jackpotQueuePollTimer: number | null = null
 
     startEngine({
       config: DEFAULT_ENGINE_CONFIG,
@@ -259,6 +271,15 @@ export function useEngine() {
 
       const initialBalance = await fetchDeviceBalance(id)
       applyAuthoritativeBalance(initialBalance)
+      const loadActiveJackpotQueue = async () => {
+        try {
+          const next = await fetchActiveJackpotQueue(id)
+          if (mounted) setActiveJackpotQueue(next)
+        } catch {
+          // no-op
+        }
+      }
+      await loadActiveJackpotQueue()
 
       if (typeof window !== 'undefined' && snapshotKeyRef.current) {
         try {
@@ -293,10 +314,16 @@ export function useEngine() {
       unsubscribe = subscribeToDeviceBalance(id, _snapshot => {
         applyAuthoritativeBalance(_snapshot)
       })
+      jackpotQueueChannel = subscribeActiveJackpotQueue(id, next => {
+        setActiveJackpotQueue(next)
+      })
 
       balancePollTimer = window.setInterval(() => {
         void syncBalanceFromDb()
       }, BALANCE_FALLBACK_SYNC_MS)
+      jackpotQueuePollTimer = window.setInterval(() => {
+        void loadActiveJackpotQueue()
+      }, JACKPOT_QUEUE_FALLBACK_SYNC_MS)
 
       setSessionReady(true)
 
@@ -322,7 +349,9 @@ export function useEngine() {
       mounted = false
       if (unsubscribe) unsubscribe()
       if (runtimeChannel) runtimeChannel.unsubscribe()
+      if (jackpotQueueChannel) jackpotQueueChannel.unsubscribe()
       if (balancePollTimer !== null) clearInterval(balancePollTimer)
+      if (jackpotQueuePollTimer !== null) clearInterval(jackpotQueuePollTimer)
       if (deviceIdRef.current) {
         void endDeviceGameSession({
           deviceId: deviceIdRef.current,
@@ -439,6 +468,91 @@ export function useEngine() {
     return Math.min(nextValue, cap)
   }
 
+  function inferJackpotPayoutFromQueue(
+    before: ActiveJackpotQueue | null,
+    after: ActiveJackpotQueue | null,
+  ): number {
+    if (!before) return 0
+    if (before.remaining_amount <= 0 || before.payouts_left <= 0) return 0
+
+    if (!after || after.id !== before.id) {
+      return Math.max(0, Number(before.remaining_amount ?? 0))
+    }
+
+    const paid = Number(before.remaining_amount ?? 0) - Number(after.remaining_amount ?? 0)
+    if (!Number.isFinite(paid) || paid <= 0) return 0
+    return paid
+  }
+
+  function applyJackpotPresentation(outcome: SpinOutcome, jackpotPayout: number): SpinOutcome {
+    const bonus = Number(jackpotPayout ?? 0)
+    if (!Number.isFinite(bonus) || bonus <= 0) return outcome
+
+    const cascades = outcome.cascades ?? []
+    if (cascades.length === 0) {
+      return {
+        ...outcome,
+        win: outcome.win + bonus,
+      }
+    }
+
+    const nextCascades = cascades.map(step => ({ ...step }))
+    const payableCascadeIndexes = cascades
+      .map((step, index) => ({
+        step,
+        index,
+      }))
+      .filter(item => item.index > 0 && (item.step.lineWins?.length ?? 0) > 0)
+      .map(item => item.index)
+    const fallbackIndexes =
+      payableCascadeIndexes.length > 0
+        ? payableCascadeIndexes
+        : cascades.map((_, index) => index).filter(index => index > 0)
+    const targetIndexes =
+      fallbackIndexes.length > 0 ? fallbackIndexes : cascades.map((_, index) => index)
+    const weights = targetIndexes.map(index => Math.max(Number(cascades[index]?.multiplier ?? 1), 1))
+    const totalWeight = weights.reduce((sum, value) => sum + value, 0)
+    let remaining = bonus
+
+    for (let i = 0; i < targetIndexes.length; i++) {
+      const cascadeIndex = targetIndexes[i]
+      const isLast = i === targetIndexes.length - 1
+      const rawShare = isLast ? remaining : (bonus * weights[i]) / Math.max(totalWeight, 1)
+      const share = Math.max(0, Math.round(rawShare * 100) / 100)
+      const currentCascade = nextCascades[cascadeIndex]
+      currentCascade.win = Math.max(0, Number(currentCascade.win ?? 0) + share)
+
+      const lineWins = currentCascade.lineWins ?? []
+      if (lineWins.length > 0 && share > 0) {
+        const lineWeights = lineWins.map(line => Math.max(Number(line.payout ?? 0), 1))
+        const totalLineWeight = lineWeights.reduce((sum, value) => sum + value, 0)
+        let lineRemaining = share
+
+        currentCascade.lineWins = lineWins.map((lineWin, lineIndex) => {
+          const isLastLine = lineIndex === lineWins.length - 1
+          const rawLineShare = isLastLine
+            ? lineRemaining
+            : (share * lineWeights[lineIndex]) / Math.max(totalLineWeight, 1)
+          const lineShare = Math.max(0, Math.round(rawLineShare * 100) / 100)
+          lineRemaining = Math.max(0, lineRemaining - lineShare)
+
+          return {
+            ...lineWin,
+            payout: Math.max(0, Number(lineWin.payout ?? 0) + lineShare),
+          }
+        })
+      }
+
+      remaining = Math.max(0, remaining - share)
+    }
+
+    return {
+      ...outcome,
+      win: Number(outcome.win ?? 0) + bonus,
+      cascades: nextCascades,
+    }
+  }
+
   useEffect(() => {
     deviceIdRef.current = deviceId
     if (deviceId) {
@@ -450,6 +564,34 @@ export function useEngine() {
   useEffect(() => {
     isFreeGameRef.current = isFreeGame
   }, [isFreeGame])
+
+  useEffect(() => {
+    if (!activeJackpotQueue) {
+      forceJackpotScatterRef.current = false
+      activeJackpotQueueIdRef.current = null
+      return
+    }
+
+    if (activeJackpotQueueIdRef.current !== activeJackpotQueue.id) {
+      activeJackpotQueueIdRef.current = activeJackpotQueue.id
+      forceJackpotScatterRef.current = false
+    }
+
+    if (
+      activeJackpotQueue.remaining_amount <= 0 ||
+      activeJackpotQueue.payouts_left <= 0 ||
+      isFreeGame ||
+      pendingFreeSpins > 0 ||
+      showFreeSpinIntro ||
+      spinning
+    ) {
+      return
+    }
+
+    if (activeJackpotQueue.spins_until_start <= 1) {
+      forceJackpotScatterRef.current = true
+    }
+  }, [activeJackpotQueue, isFreeGame, pendingFreeSpins, showFreeSpinIntro, spinning])
 
   useEffect(() => {
     freeSpinsLeftRef.current = freeSpinsLeft
@@ -506,6 +648,11 @@ export function useEngine() {
     if (!isFreeGame && balance < bet) return
     if (isFreeGame && freeSpinsLeftRef.current <= 0) return
 
+    const forceJackpotScatter = !isFreeGame && forceJackpotScatterRef.current
+    if (forceJackpotScatter) {
+      forceJackpotScatterRef.current = false
+    }
+
     spinLockRef.current = true
     // Invalidate any in-flight authoritative sync started before this spin.
     balanceSyncSeqRef.current += 1
@@ -524,33 +671,54 @@ export function useEngine() {
     }
 
     const spinAmount = isFreeGame && scatterTriggerType === 'buy' ? buySpinBet : bet
+    const queueBeforeSpin = isFreeGame ? activeJackpotQueue : null
 
     const outcome: SpinOutcome = spin(rngRef.current, {
       betPerSpin: spinAmount,
       lines: 5,
       isFreeGame,
+      forceScatter: forceJackpotScatter,
       freeSpinSource: isFreeGame ? (scatterTriggerType === 'buy' ? 'buy' : 'natural') : undefined,
     })
     const rawTotalWin = Number.isFinite(Number(outcome.win)) ? Number(outcome.win) : 0
     currentSpinMaxWinRef.current = getMaxWinCapForBet(isFreeGame ? bet : spinAmount)
-    const totalWin = clampToCurrentSpinMax(rawTotalWin)
+    const engineTotalWin = clampToCurrentSpinMax(rawTotalWin)
     const nextSpinId = spinCounterRef.current + 1
     spinCounterRef.current = nextSpinId
 
+    let jackpotPayoutForSpin = 0
+
     if (deviceIdRef.current) {
       try {
-        await commitSpinAccounting({
+        const accounting = await commitSpinAccounting({
           deviceId: deviceIdRef.current,
           spinId: nextSpinId,
           isFreeGame,
           betAmount: isFreeGame ? 0 : spinAmount,
-          totalWin,
+          totalWin: engineTotalWin,
           freeSpinsAwarded: outcome.freeSpinsAwarded ?? 0,
           cascades: outcome.cascades?.length ?? 0,
           triggerType: scatterTriggerType ?? null,
         })
+        jackpotPayoutForSpin = Number(accounting?.jackpotPayout ?? 0)
+
+        if (jackpotPayoutForSpin <= 0 && queueBeforeSpin) {
+          try {
+            const queueAfterSpin = await fetchActiveJackpotQueue(deviceIdRef.current)
+            const inferred = inferJackpotPayoutFromQueue(queueBeforeSpin, queueAfterSpin)
+            if (inferred > 0) {
+              jackpotPayoutForSpin = inferred
+            }
+            setActiveJackpotQueue(queueAfterSpin)
+          } catch {
+            // no-op
+          }
+        }
       } catch (error) {
         console.error('[engine] spin accounting failed, skipping animation start', error)
+        if (forceJackpotScatter) {
+          forceJackpotScatterRef.current = true
+        }
         if (!isFreeGame) {
           setBalance(b => b + spinAmount)
           setFreeSpinTotal(0)
@@ -564,22 +732,29 @@ export function useEngine() {
       }
     }
 
-    lastOutcomeRef.current = outcome
+    const presentedOutcome =
+      jackpotPayoutForSpin > 0 ? applyJackpotPresentation(outcome, jackpotPayoutForSpin) : outcome
+    const presentedTotalWin = clampToCurrentSpinMax(Number(presentedOutcome.win ?? 0))
 
-    setPendingCascades(outcome.cascades ?? [])
+    lastOutcomeRef.current = presentedOutcome
+
+    setPendingCascades(presentedOutcome.cascades ?? [])
     setSpinId(v => v + 1)
 
     setDebugInfo({
       seed: seedRef?.current ?? undefined,
       bet,
-      win: totalWin,
-      cascadeWins: (outcome.cascades ?? []).map(c => c.win ?? 0),
+      win: presentedTotalWin,
+      cascadeWins: (presentedOutcome.cascades ?? []).map(c => c.win ?? 0),
     })
 
-    if (outcome.freeSpinsAwarded > 0) {
+    if (!isFreeGame && forceJackpotScatter) {
+      setScatterTriggerType('natural')
+      setPendingFreeSpins(JACKPOT_FREE_SPIN_COUNT)
+    } else if (presentedOutcome.freeSpinsAwarded > 0) {
       if (!isFreeGame) {
         setScatterTriggerType('natural')
-        setPendingFreeSpins(outcome.freeSpinsAwarded)
+        setPendingFreeSpins(presentedOutcome.freeSpinsAwarded)
       } else {
         // setFreeSpinsLeft(v => v + outcome.freeSpinsAwarded)
       }
@@ -721,6 +896,12 @@ export function useEngine() {
 
   function settleSpinVisuals() {
     spinLockRef.current = false
+
+    // Keep UI balance suppressed during free spins so jackpot is felt via spin wins first.
+    if (isFreeGameRef.current) {
+      return
+    }
+
     releaseRealtimeBalance()
     void syncBalanceFromDb()
   }

@@ -39,6 +39,7 @@ export type CasinoRuntime = {
   jackpot_chunk_min: number
   jackpot_chunk_max: number
   jackpot_win_variance: number
+  jackpot_payout_curve: 'flat' | 'front' | 'center' | 'back'
   jackpot_pending_payout: boolean
   last_jackpot_triggered_at: string | null
   active_happy_pot_id: number | null
@@ -141,6 +142,32 @@ export function useCasinoRuntime() {
     return { ok: true }
   }
 
+  async function enqueueDevJackpotTest({
+    amount,
+    deviceIds,
+    winners,
+    delayMin,
+    delayMax,
+  }: {
+    amount: number
+    deviceIds: string[]
+    winners: number
+    delayMin: number
+    delayMax: number
+  }) {
+    const { data, error } = await supabase.rpc('enqueue_dev_jackpot_test', {
+      p_amount: amount,
+      p_device_ids: deviceIds,
+      p_winners: winners,
+      p_delay_min: delayMin,
+      p_delay_max: delayMax,
+    })
+    if (error) return { ok: false, error }
+
+    await fetchRuntime()
+    return { ok: true, data }
+  }
+
   return {
     runtime,
     profiles,
@@ -148,5 +175,6 @@ export function useCasinoRuntime() {
     updateProfile,
     setHappyHour,
     demoReset,
+    enqueueDevJackpotTest,
   }
 }

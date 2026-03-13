@@ -3,6 +3,7 @@ import { useDevices } from '../hooks/useDevices'
 import { DeviceModal } from '../components/DeviceModal'
 import { useGlobalStats } from '../hooks/useGlobalStats'
 import { useCasinoRuntime } from '../hooks/useCasinoRuntime'
+import { useGames } from '../hooks/useGames'
 import moment from 'moment'
 import type { DeviceRow } from '../hooks/useDevices'
 import { supabase } from '../lib/supabase'
@@ -36,6 +37,7 @@ const SORT_OPTIONS: { field: SortField; label: string }[] = [
 
 export default function Dashboard() {
   const devices = useDevices()
+  const games = useGames()
   const stats = useGlobalStats()
   const { runtime, profiles } = useCasinoRuntime()
 
@@ -110,6 +112,75 @@ export default function Dashboard() {
   const activeJackpotPct = Math.max(0, asNumber(activeProfile?.pool_pct))
   const activeHappyPct = Math.max(0, asNumber(activeProfile?.player_pct))
   const activeTargetRtpPct = asNumber(runtime?.active_target_rtp_pct ?? activeProfile?.player_pct)
+  const gameTypeById = useMemo(() => {
+    const index = new Map<string, string>()
+    for (const game of games) {
+      const id = String(game?.id ?? '').trim()
+      const type = String(game?.type ?? '').trim().toLowerCase()
+      if (!id) continue
+      if (type === 'arcade' || type === 'casino') {
+        index.set(id, type)
+      }
+    }
+    return index
+  }, [games])
+
+  const getDeviceGameType = (device: DeviceRow): 'arcade' | 'casino' => {
+    const sessionType = String((device.session_metadata as any)?.gameType ?? '')
+      .trim()
+      .toLowerCase()
+    if (sessionType === 'arcade' || sessionType === 'casino') return sessionType
+
+    const mappedType = gameTypeById.get(String(device.current_game_id ?? '').trim())
+    if (mappedType === 'arcade' || mappedType === 'casino') return mappedType
+
+    if (
+      device.runtime_mode ||
+      Boolean(device.is_free_game) ||
+      asNumber(device.pending_free_spins) > 0 ||
+      Boolean(device.jackpot_selected)
+    ) {
+      return 'casino'
+    }
+
+    return 'arcade'
+  }
+
+  const getDeviceModeLabel = (device: DeviceRow): string => {
+    if (device.is_free_game) {
+      return `FREE SPIN (${asNumber(device.free_spins_left)} left)`
+    }
+
+    if (asNumber(device.pending_free_spins) > 0) {
+      return `FREE SPIN PENDING (${asNumber(device.pending_free_spins)})`
+    }
+
+    return String(device.runtime_mode ?? 'BASE').toUpperCase()
+  }
+
+  const getDeviceTelemetryLabel = (device: DeviceRow): string => {
+    const gameType = getDeviceGameType(device)
+    const gameName = String(device.current_game_name ?? device.current_game_id ?? 'No Game')
+    if (gameType === 'casino') {
+      return `CASINO / ${gameName} / ${getDeviceModeLabel(device)}`
+    }
+    return `ARCADE / ${gameName}`
+  }
+
+  const getDeviceJackpotStatus = (device: DeviceRow): string | null => {
+    if (!device.jackpot_selected) return null
+
+    if (device.is_free_game && asNumber(device.free_spins_left) > 0) {
+      return `JACKPOT LIVE • FREE SPINS ${asNumber(device.free_spins_left)} left`
+    }
+
+    const delaySpins = Math.max(0, asNumber(device.jackpot_spins_until_start))
+    if (delaySpins > 0) {
+      return `JACKPOT ARMED • ${delaySpins} spin${delaySpins === 1 ? '' : 's'} until trigger`
+    }
+
+    return 'JACKPOT ARMED • trigger spin next'
+  }
 
   const getSortValue = (device: DeviceRow, field: SortField): number | string => {
     if (field === 'device_id') return (device.device_id ?? '').toLowerCase()
@@ -345,6 +416,9 @@ export default function Dashboard() {
                     : 0
                 const deviceHouseWin = asNumber(d.house_take_total ?? (asNumber(d.bet_total) - asNumber(d.win_total)))
                 const hopperLow = asNumber(d.hopper_balance) <= hopperAlertThreshold
+                const gameType = getDeviceGameType(d)
+                const telemetryLabel = getDeviceTelemetryLabel(d)
+                const jackpotStatus = getDeviceJackpotStatus(d)
 
                 return (
                   <button
@@ -355,7 +429,12 @@ export default function Dashboard() {
                         ? 'border-amber-300/70 bg-gradient-to-br from-amber-900/30 via-slate-900/80 to-slate-900/90 shadow-[0_0_20px_rgba(251,191,36,0.18)]'
                         : 'border-slate-800 bg-slate-900/60'
                     }`}
-                    onClick={() => setSelectedDevice(d)}
+                    onClick={() =>
+                      setSelectedDevice({
+                        ...d,
+                        game_type: gameType,
+                      })
+                    }
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -373,21 +452,18 @@ export default function Dashboard() {
                           >
                             {(d.device_status ?? 'idle').toUpperCase()}
                           </span>
-                          <span className="text-slate-500">
-                            {d.current_game_name ?? d.current_game_id ?? 'No Game'}
+                          <span className="rounded border border-slate-700 bg-slate-800/60 px-1.5 py-0.5 text-[10px] text-slate-300">
+                            {gameType.toUpperCase()}
                           </span>
                         </div>
-                        {d.is_free_game && (
-                          <div className="mt-1 text-[10px] text-fuchsia-300">
-                            Free Spins: {asNumber(d.free_spins_left)} left
-                          </div>
-                        )}
+                        <div className="mt-1 text-[10px] text-slate-300">{telemetryLabel}</div>
                         {d.jackpot_selected && (
                           <div className="mt-1 text-[10px] font-semibold text-amber-200">
                             JACKPOT TARGET {formatCurrency(d.jackpot_target_amount)} • Remaining{' '}
                             {formatCurrency(d.jackpot_remaining_amount)}
                           </div>
                         )}
+                        {jackpotStatus && <div className="mt-1 text-[10px] text-amber-300">{jackpotStatus}</div>}
                       </div>
                       <div className="text-right">
                         <div className="text-[10px] text-slate-500">Last Seen</div>
@@ -502,6 +578,9 @@ export default function Dashboard() {
                       : 0
                   const deviceHouseWin = asNumber(d.house_take_total ?? (asNumber(d.bet_total) - asNumber(d.win_total)))
                   const hopperLow = asNumber(d.hopper_balance) <= hopperAlertThreshold
+                  const telemetryLabel = getDeviceTelemetryLabel(d)
+                  const jackpotStatus = getDeviceJackpotStatus(d)
+                  const gameType = getDeviceGameType(d)
 
                   return (
                     <tr
@@ -511,7 +590,12 @@ export default function Dashboard() {
                           ? 'bg-amber-950/25 hover:bg-amber-900/30 ring-1 ring-inset ring-amber-400/40'
                           : 'hover:bg-slate-900/50'
                       }`}
-                      onClick={() => setSelectedDevice(d)}
+                      onClick={() =>
+                        setSelectedDevice({
+                          ...d,
+                          game_type: gameType,
+                        })
+                      }
                     >
                       <td className="px-4 py-2">
                         <div className="flex items-center gap-2">
@@ -537,11 +621,14 @@ export default function Dashboard() {
                         </span>
                       </td>
                       <td className="px-4 py-2 text-xs">
-                        <div className="text-slate-200">{d.current_game_name ?? d.current_game_id ?? '—'}</div>
-                        <div className="text-slate-500">
-                          {d.runtime_mode ?? 'BASE'}
-                          {d.is_free_game ? ` • FS ${asNumber(d.free_spins_left)} left` : ''}
-                        </div>
+                        <div className="text-slate-200">{telemetryLabel}</div>
+                        {jackpotStatus && <div className="text-amber-300">{jackpotStatus}</div>}
+                        {d.jackpot_selected && (
+                          <div className="text-amber-200/80">
+                            Target {formatCurrency(d.jackpot_target_amount)} • Remaining{' '}
+                            {formatCurrency(d.jackpot_remaining_amount)}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-2 text-right font-mono font-bold text-green-400">
                         {formatCurrency(d.balance)}
