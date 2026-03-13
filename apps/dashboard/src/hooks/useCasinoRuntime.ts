@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 export type RuntimeMode = 'BASE' | 'HAPPY'
+export type JackpotDeliveryMode = 'TARGET_FIRST' | 'AUTHENTIC_PAYTABLE'
 
 export type RtpProfile = {
   id: string
@@ -40,6 +41,7 @@ export type CasinoRuntime = {
   jackpot_chunk_max: number
   jackpot_win_variance: number
   jackpot_payout_curve: 'flat' | 'front' | 'center' | 'back'
+  jackpot_delivery_mode: JackpotDeliveryMode
   jackpot_pending_payout: boolean
   last_jackpot_triggered_at: string | null
   active_happy_pot_id: number | null
@@ -148,12 +150,14 @@ export function useCasinoRuntime() {
     winners,
     delayMin,
     delayMax,
+    ignoreMaxWin,
   }: {
     amount: number
     deviceIds: string[]
     winners: number
     delayMin: number
     delayMax: number
+    ignoreMaxWin?: boolean
   }) {
     const { data, error } = await supabase.rpc('enqueue_dev_jackpot_test', {
       p_amount: amount,
@@ -161,6 +165,7 @@ export function useCasinoRuntime() {
       p_winners: winners,
       p_delay_min: delayMin,
       p_delay_max: delayMax,
+      p_ignore_max_win: Boolean(ignoreMaxWin),
     })
     if (error) return { ok: false, error }
 

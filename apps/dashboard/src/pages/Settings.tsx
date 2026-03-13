@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useCasinoRuntime } from '../hooks/useCasinoRuntime'
+import { type JackpotDeliveryMode, useCasinoRuntime } from '../hooks/useCasinoRuntime'
 import { useDevices } from '../hooks/useDevices'
 import { getGame, toggleGame, useGames } from '../hooks/useGames'
 import { prepareGamePackage, purgeGamePackages, removeGamePackage } from '../lib/arcadeAdmin'
@@ -34,6 +34,7 @@ export default function Settings() {
   const [jackpotPayoutCurve, setJackpotPayoutCurve] = useState<'flat' | 'front' | 'center' | 'back'>(
     'center',
   )
+  const [jackpotDeliveryMode, setJackpotDeliveryMode] = useState<JackpotDeliveryMode>('TARGET_FIRST')
   const [poolGoalMode, setPoolGoalMode] = useState<'amount' | 'spins' | 'time'>('amount')
   const [poolGoalSpins, setPoolGoalSpins] = useState('1000')
   const [poolGoalTimeHours, setPoolGoalTimeHours] = useState('0')
@@ -47,6 +48,7 @@ export default function Settings() {
   const [testJackpotWinners, setTestJackpotWinners] = useState('1')
   const [testDelayMinSpins, setTestDelayMinSpins] = useState('2')
   const [testDelayMaxSpins, setTestDelayMaxSpins] = useState('3')
+  const [testIgnoreMaxWinCap, setTestIgnoreMaxWinCap] = useState(false)
   const [selectedDevDeviceIds, setSelectedDevDeviceIds] = useState<string[]>([])
   const [testSubmitting, setTestSubmitting] = useState(false)
   const [testResultMessage, setTestResultMessage] = useState<string | null>(null)
@@ -66,6 +68,9 @@ export default function Settings() {
     setJackpotWinVariance(String(runtime.jackpot_win_variance ?? 90))
     setJackpotPayoutCurve(
       (runtime.jackpot_payout_curve ?? 'center') as 'flat' | 'front' | 'center' | 'back',
+    )
+    setJackpotDeliveryMode(
+      (runtime.jackpot_delivery_mode ?? 'TARGET_FIRST') as JackpotDeliveryMode,
     )
     setPoolGoalMode((runtime.pool_goal_mode ?? 'amount') as 'amount' | 'spins' | 'time')
     setPoolGoalSpins(String(runtime.pool_goal_spins ?? 1000))
@@ -225,6 +230,7 @@ export default function Settings() {
       jackpot_delay_max_spins: delayMax,
       jackpot_win_variance: Math.max(0, Number(jackpotWinVariance || 0)),
       jackpot_payout_curve: jackpotPayoutCurve,
+      jackpot_delivery_mode: jackpotDeliveryMode,
       pool_goal_mode: poolGoalMode,
       pool_goal_spins: Math.max(1, Number(poolGoalSpins || 1000)),
       pool_goal_time_seconds: goalTimeSeconds,
@@ -265,6 +271,7 @@ export default function Settings() {
       winners: Math.min(winners, selectedDevDeviceIds.length),
       delayMin,
       delayMax,
+      ignoreMaxWin: testIgnoreMaxWinCap,
     })
     setTestSubmitting(false)
 
@@ -280,7 +287,7 @@ export default function Settings() {
     setTestResultMessage(
       `DEV jackpot queued: ₱${amount.toLocaleString()} for ${Math.min(winners, selectedDevDeviceIds.length)} winner(s)${
         winnerDeviceIds ? ` • ${winnerDeviceIds}` : ''
-      }`,
+      }${testIgnoreMaxWinCap ? ' • override max-win cap: ON' : ''}`,
     )
     setErrorMessage(null)
   }
@@ -659,6 +666,21 @@ export default function Settings() {
           </label>
 
           <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-300">Jackpot Delivery Mode</span>
+            <select
+              className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+              value={jackpotDeliveryMode}
+              onChange={e => {
+                setIsRuntimeFormDirty(true)
+                setJackpotDeliveryMode(e.target.value as JackpotDeliveryMode)
+              }}
+            >
+              <option value="TARGET_FIRST">Target First (legacy)</option>
+              <option value="AUTHENTIC_PAYTABLE">Authentic Paytable</option>
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
             <span className="text-slate-300">Hopper Alert Threshold</span>
             <input
               className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
@@ -868,6 +890,15 @@ export default function Settings() {
             />
           </label>
         </div>
+
+        <label className="inline-flex items-center gap-2 text-sm text-indigo-200/90">
+          <input
+            type="checkbox"
+            checked={testIgnoreMaxWinCap}
+            onChange={e => setTestIgnoreMaxWinCap(e.target.checked)}
+          />
+          Ignore max-win cap for this DEV test only (override)
+        </label>
 
         <div className="text-xs text-indigo-200/80">
           Split preview: {formatCurrency(testJackpotAmountValue)} total / {effectiveTestWinners} winner(s) ={' '}
