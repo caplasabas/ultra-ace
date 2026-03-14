@@ -3999,3 +3999,13 @@ button:focus-visible {
     padding: 3px 6px;
     pointer-events: none;
 }
+
+.boot-splash-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    background-color: #000;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}

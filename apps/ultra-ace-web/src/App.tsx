@@ -16,6 +16,7 @@ import { ScatterWinBanner } from './ui/ScatterWinBanner'
 import { BuySpinModal } from './ui/BuySpinModal'
 import { installAccountingRetryHooks, logLedgerEvent } from './lib/accounting'
 import { WithdrawModal } from './ui/WithdrawModal'
+import splashStart from './assets/images/splash_start.png'
 
 const DEV = import.meta.env.DEV
 const GAME_BUILD_VERSION = import.meta.env.VITE_GAME_VERSION || 'dev'
@@ -56,6 +57,7 @@ export default function App() {
   const gameStateRef = useRef({
     isReady: true,
     canExitViaMenu: false,
+    bootSplashStage: 'start' as 'start' | null,
     spinning: false,
     autoSpin: false,
     isFreeGame: false,
@@ -268,6 +270,7 @@ export default function App() {
   }
 
   const [showBuySpinModal, setShowBuySpinModal] = useState(false)
+  const [hasPressedStart, setHasPressedStart] = useState(false)
   const [introCountdown, setIntroCountdown] = useState(10)
   const lastLoggedWinKeyRef = useRef<string>('')
   const pendingIntroStartRef = useRef(false)
@@ -292,6 +295,7 @@ export default function App() {
   const startFreeSpinsRef = useRef(startFreeSpins)
   const addBalanceRef = useRef(addBalance)
   const minusBalanceRef = useRef(minusBalance)
+  const setHasPressedStartRef = useRef(setHasPressedStart)
 
   const setAudioOnRef = useRef(setAudioOn)
 
@@ -406,22 +410,24 @@ export default function App() {
   }, [adaptedWindow, phase])
 
   const renderedWindow = adaptedWindow ?? heldWindowForIntro
+  const bootSplashStage: 'start' | null = sessionReady && !hasPressedStart ? 'start' : null
 
-  const isReady = (isIdle && !spinning) || (showFreeSpinIntro && !freezeUI)
+  const isReady = bootSplashStage === null && ((isIdle && !spinning) || (showFreeSpinIntro && !freezeUI))
   const canExitViaMenu =
-    isReady &&
-    !spinning &&
-    !autoSpin &&
-    !freezeUI &&
-    !showFreeSpinIntro &&
-    !showScatterWinBanner &&
-    !isFreeGame &&
-    !isFreeSpinPreview &&
-    pendingFreeSpins <= 0 &&
-    freeSpinsLeft <= 0 &&
-    pauseColumn === null &&
-    !showWithdrawModal &&
-    !showBuySpinModal
+    bootSplashStage !== null ||
+    (isReady &&
+      !spinning &&
+      !autoSpin &&
+      !freezeUI &&
+      !showFreeSpinIntro &&
+      !showScatterWinBanner &&
+      !isFreeGame &&
+      !isFreeSpinPreview &&
+      pendingFreeSpins <= 0 &&
+      freeSpinsLeft <= 0 &&
+      pauseColumn === null &&
+      !showWithdrawModal &&
+      !showBuySpinModal)
 
   useEffect(() => {
     if (!isIdle) return
@@ -565,6 +571,7 @@ export default function App() {
     gameStateRef.current = {
       isReady,
       canExitViaMenu,
+      bootSplashStage,
       spinning,
       autoSpin,
       isFreeGame,
@@ -584,6 +591,7 @@ export default function App() {
   }, [
     isReady,
     canExitViaMenu,
+    bootSplashStage,
     spinning,
     autoSpin,
     isFreeGame,
@@ -634,6 +642,7 @@ export default function App() {
     startFreeSpinsRef.current = startFreeSpins
     addBalanceRef.current = addBalance
     minusBalanceRef.current = minusBalance
+    setHasPressedStartRef.current = setHasPressedStart
   })
 
   useEffect(() => {
@@ -675,12 +684,30 @@ export default function App() {
 
       const isTurboPlayerEvent =
         payload.type === 'PLAYER' && payload.player === 'CASINO' && Number(payload.button) === 7
+      const isP1StartPlayerEvent =
+        payload.type === 'PLAYER' &&
+        payload.player === 'P1' &&
+        (Number(payload.button) === 9 || String(payload.button).toUpperCase() === 'START')
 
-      if (payload.type !== 'ACTION' && !isTurboPlayerEvent) return
+      if (payload.type !== 'ACTION' && !isTurboPlayerEvent && !isP1StartPlayerEvent) return
 
       const action = isTurboPlayerEvent ? 'TURBO' : payload.action
 
       const s = gameStateRef.current
+      if (s.bootSplashStage === 'start') {
+        if (action === 'MENU') {
+          // allow menu/exit while waiting on start gate
+        } else if (isP1StartPlayerEvent) {
+          setHasPressedStartRef.current(true)
+          return
+        } else if (action === 'SPIN' && (payload.player === undefined || payload.player === 'P1')) {
+          // keep compatibility with services that emit ACTION/SPIN for P1 START
+          setHasPressedStartRef.current(true)
+          return
+        } else {
+          return
+        }
+      }
 
       switch (action) {
         case 'SPIN': {
@@ -833,6 +860,20 @@ export default function App() {
   }, [])
 
   if (!sessionReady) return null
+
+  if (bootSplashStage !== null) {
+    return (
+      <div className="viewport">
+        <div
+          className="boot-splash-screen"
+          style={{
+            backgroundImage: `url(${splashStart})`,
+          }}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="viewport">
       <div className={`game-root mode-${runtimeMode.toLowerCase()}`}>
