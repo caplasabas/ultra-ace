@@ -640,25 +640,22 @@ export function useEngine() {
     )
   }
 
-  function buildAuthenticPlanBetScales(targetWinPerSpin: number, baseBet: number): number[] {
-    const safeBaseBet = Math.max(0.01, Number(baseBet || 0))
-    const targetScale = Math.max(1, targetWinPerSpin / safeBaseBet)
-    const scaleBands = [0.42, 0.58, 0.75, 0.9, 1, 1.12, 1.28, 1.45, 1.7, 2.05]
-    const rawScales = scaleBands
-      .map(multiplier => targetScale * multiplier)
-      .concat([1, 1.35, 1.8, 2.4, 3.2, 4.2, 5.5, 7.2, 9.5, 12, 16, 24, 36, 54, 80, 120, 180, 260])
-    const unique = new Set<number>()
-    for (const value of rawScales) {
-      const clamped = Math.min(
-        JACKPOT_AUTHENTIC_PLAN_MAX_SCALE,
-        Math.max(JACKPOT_AUTHENTIC_PLAN_MIN_SCALE, Number(value)),
-      )
-      const rounded = Math.round(clamped * 100) / 100
-      if (Number.isFinite(rounded) && rounded > 0) {
-        unique.add(rounded)
-      }
-    }
-    return Array.from(unique)
+  function getOutcomeExcitement(outcome: SpinOutcome): number {
+    const cascades = outcome.cascades ?? []
+    const paidCascades = cascades.filter(step => Number(step.win ?? 0) > 0.0001)
+    const paidCascadeDepth = paidCascades.length
+    const maxMultiplier = cascades.reduce(
+      (max, step) => Math.max(max, Number.isFinite(step.multiplier) ? Number(step.multiplier) : 1),
+      1,
+    )
+    const maxCascadeWin = cascades.reduce((max, step) => Math.max(max, Number(step.win ?? 0)), 0)
+    const scatterPresence = (outcome.scatterCount ?? 0) >= 2 ? 1 : 0
+    return (
+      paidCascadeDepth * 6 +
+      Math.max(0, maxMultiplier - 1) * 2.5 +
+      Math.log10(Math.max(1, maxCascadeWin) + 1) * 8 +
+      scatterPresence * 2
+    )
   }
 
   function composeAuthenticPlanSet({
@@ -677,34 +674,37 @@ export function useEngine() {
     const target = roundMoney(Math.max(0, Number(targetWin ?? 0)))
     const stepsToCompose = Math.max(1, Math.floor(Number(spinCount ?? 0)))
     const tolerance = getJackpotPlanTolerance(target)
-    const perSpinTolerance = Math.max(10, tolerance / Math.max(stepsToCompose, 1))
     let bestPlan: AuthComposedPlan | null = null
+    let bestScore = Number.POSITIVE_INFINITY
+    let bestExcitement = Number.NEGATIVE_INFINITY
 
     for (let attempt = 0; attempt < JACKPOT_AUTHENTIC_PLAN_SET_ATTEMPTS; attempt++) {
       const attemptRng = createRNG(`${seed}:set:${attempt + 1}`)
       const steps: AuthPlanStep[] = []
       let total = 0
+      let planExcitement = 0
+      let spinsWithMultiCascade = 0
 
       for (let stepIndex = 0; stepIndex < stepsToCompose; stepIndex++) {
-        const stepsLeft = stepsToCompose - stepIndex
-        const remainingTarget = Math.max(0, target - total)
-        const targetForSpin = remainingTarget / Math.max(stepsLeft, 1)
-        const betScales = buildAuthenticPlanBetScales(targetForSpin, betPerSpin)
-        const composed = composeTargetedFreeSpin(attemptRng, {
-          betPerSpin: Math.max(0.01, betPerSpin),
+        const composedOutcome = spin(attemptRng, {
+          betPerSpin: Math.min(
+            JACKPOT_AUTHENTIC_PLAN_MAX_SCALE,
+            Math.max(JACKPOT_AUTHENTIC_PLAN_MIN_SCALE, Number(betPerSpin ?? 0.01)),
+          ),
           lines: 5,
-          targetWin: targetForSpin,
-          tolerance: perSpinTolerance,
+          isFreeGame: true,
           freeSpinSource,
-          betScales,
-          attemptsPerScale: JACKPOT_COMPOSER_ATTEMPTS_PER_SCALE,
-          maxTotalAttempts: JACKPOT_COMPOSER_MAX_ATTEMPTS,
         })
-        const expectedAmount = roundMoney(Math.max(0, Number(composed.outcome.win ?? 0)))
+        const expectedAmount = roundMoney(Math.max(0, Number(composedOutcome.win ?? 0)))
         const outcome: SpinOutcome = {
-          ...composed.outcome,
+          ...composedOutcome,
           win: expectedAmount,
         }
+        const paidCascades = (outcome.cascades ?? []).filter(step => Number(step.win ?? 0) > 0.0001)
+        if (paidCascades.length >= 2) {
+          spinsWithMultiCascade += 1
+        }
+        planExcitement += getOutcomeExcitement(outcome)
 
         steps.push({
           outcome,
@@ -714,7 +714,11 @@ export function useEngine() {
       }
 
       const diff = roundMoney(Math.abs(target - total))
-      const withinTolerance = total <= target + 0.0001 && diff <= tolerance + 0.0001
+      const withinTolerance = diff <= tolerance + 0.0001
+      const dynamicsTarget = Math.min(3, Math.max(1, Math.floor(stepsToCompose / 3)))
+      const hasEnoughDynamics = spinsWithMultiCascade >= dynamicsTarget
+      const overshoot = Math.max(0, total - target)
+      const score = diff + overshoot * 6
       const candidate: AuthComposedPlan = {
         steps,
         total,
@@ -722,16 +726,18 @@ export function useEngine() {
         diff,
         withinTolerance,
       }
-      const currentScore = candidate.diff + (candidate.total > target ? (candidate.total - target) * 1000 : 0)
-      const bestScore =
-        (bestPlan?.diff ?? Number.POSITIVE_INFINITY) +
-        ((bestPlan?.total ?? 0) > target ? ((bestPlan?.total ?? 0) - target) * 1000 : 0)
 
-      if (!bestPlan || currentScore < bestScore) {
+      if (
+        !bestPlan ||
+        score < bestScore - 0.0001 ||
+        (Math.abs(score - bestScore) <= 0.0001 && planExcitement > bestExcitement + 0.0001)
+      ) {
         bestPlan = candidate
+        bestScore = score
+        bestExcitement = planExcitement
       }
 
-      if (withinTolerance) {
+      if (withinTolerance && hasEnoughDynamics) {
         return candidate
       }
     }

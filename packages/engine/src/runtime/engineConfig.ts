@@ -284,7 +284,7 @@ export const DEFAULT_ENGINE_HAPPY_HOUR: EngineConfig = {
   cascades: {
     ...DEFAULT_ENGINE_CONFIG.cascades,
     multiplierLadderBase: [1, 2, 3, 5],
-    multiplierLadderFree: [2, 4, 7, 12],
+    multiplierLadderFree: [2, 4, 6, 10],
   },
 
   scatter: {
