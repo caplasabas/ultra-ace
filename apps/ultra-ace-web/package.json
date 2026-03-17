@@ -1,6 +1,6 @@
 {
   "name": "ultra-ace-web",
-  "version": "0.9.66",
+  "version": "0.9.7-a",
   "type": "module",
   "scripts": {
     "dev": "vite",

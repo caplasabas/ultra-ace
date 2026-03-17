@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { formatPeso } from '@ultra-ace/engine'
 import { useBackgroundAudio } from './audio/useBackgroundAudio'
-import BGM from './assets/audio/bgm.mp3'
+import BGM from './assets/audio/bgm/casino-lottery-casino-gambling-music-406445.mp3'
 
 import { FreeSpinIntro } from './ui/FreeSpinIntro'
 import { ScatterWinBanner } from './ui/ScatterWinBanner'
@@ -412,7 +412,8 @@ export default function App() {
   const renderedWindow = adaptedWindow ?? heldWindowForIntro
   const bootSplashStage: 'start' | null = sessionReady && !hasPressedStart ? 'start' : null
 
-  const isReady = bootSplashStage === null && ((isIdle && !spinning) || (showFreeSpinIntro && !freezeUI))
+  const isReady =
+    bootSplashStage === null && ((isIdle && !spinning) || (showFreeSpinIntro && !freezeUI))
   const canExitViaMenu =
     bootSplashStage !== null ||
     (isReady &&
