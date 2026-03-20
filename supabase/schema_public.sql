@@ -2670,6 +2670,9 @@ GRANT ALL ON FUNCTION "public"."prevent_install_if_disabled"() TO "service_role"
 GRANT ALL ON FUNCTION "public"."process_device_jackpot_payout"("p_device_id" "text", "p_event_ts" timestamp with time zone) TO "anon";
 GRANT ALL ON FUNCTION "public"."process_device_jackpot_payout"("p_device_id" "text", "p_event_ts" timestamp with time zone) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."process_device_jackpot_payout"("p_device_id" "text", "p_event_ts" timestamp with time zone) TO "service_role";
+GRANT ALL ON FUNCTION "public"."finalize_device_jackpot_payouts"("p_device_id" "text", "p_event_ts" timestamp with time zone) TO "anon";
+GRANT ALL ON FUNCTION "public"."finalize_device_jackpot_payouts"("p_device_id" "text", "p_event_ts" timestamp with time zone) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."finalize_device_jackpot_payouts"("p_device_id" "text", "p_event_ts" timestamp with time zone) TO "service_role";
 
 
 

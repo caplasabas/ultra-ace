@@ -16,12 +16,26 @@ export function adaptWindow(
 
   return window.map((col, reelIndex) =>
     col.map((symbol, row) => {
+      const positionKey = `${reelIndex}-${row}`
       const prev = previousWindow?.[reelIndex]?.[row]
+      const wasGoldSource =
+        prev?.isGold === true || prev?.goldTTL !== undefined || prev?.isDecorativeGold === true
+      const becameWild = symbol.kind === 'WILD'
+      const isGoldToWildTransform = wasGoldSource && becameWild
+      const shouldHoldGoldFrame = isGoldToWildTransform && phase !== 'postGoldTransform'
+      const isRedWildPropagationTarget =
+        symbol.kind === 'WILD' &&
+        symbol.wildColor === 'red' &&
+        !symbol.fromGold &&
+        prev !== undefined &&
+        !(prev.kind === 'WILD' && prev.wildColor === 'red')
+      const shouldHoldIncomingRedWild =
+        isRedWildPropagationTarget && (phase === 'cascadeRefill' || phase === 'postGoldTransform')
 
       // 🔒 EMPTY IS TERMINAL VISUALLY
       if (symbol.kind === 'EMPTY') {
         return {
-          id: `${reelIndex}-${row}`,
+          id: positionKey,
           kind: 'EMPTY',
 
           isNew: false,
@@ -42,18 +56,21 @@ export function adaptWindow(
         }
       }
 
-      const wasGold = prev?.isGold === true
-      const becameWild = symbol.kind === 'WILD'
+      const wasGold = wasGoldSource
 
       const isFinalPhase = phase === 'settle' || phase === 'idle'
-      const isSettledWild = becameWild && (phase === 'postGoldTransform' || prev?.kind === 'WILD')
+      const isSettledWild =
+        becameWild &&
+        (phase === 'postGoldTransform' || phase === 'settle' || phase === 'idle' || prev?.kind === 'WILD')
 
-      const shouldFlip = wasGold && becameWild && phase === 'postGoldTransform'
+      const shouldFlip = isGoldToWildTransform && phase === 'postGoldTransform'
 
       const visualKind = isFinalPhase
         ? symbol.kind
-        : wasGold && becameWild && !isSettledWild && phase !== 'postGoldTransform'
-          ? 'BACK'
+        : shouldHoldGoldFrame
+          ? (prev?.kind ?? symbol.kind)
+          : shouldHoldIncomingRedWild
+            ? (prev?.kind ?? symbol.kind)
           : symbol.kind
 
       const symbolChanged =
@@ -68,22 +85,26 @@ export function adaptWindow(
       const isPersisted =
         prev !== undefined &&
         prev.kind !== 'EMPTY' &&
-        !removedSet.has(`${reelIndex}-${row}`) &&
-        !symbolChanged
+        (!removedSet.has(positionKey) || isGoldToWildTransform || isRedWildPropagationTarget) &&
+        (!symbolChanged || isGoldToWildTransform || isRedWildPropagationTarget)
 
-      const isNew = removedSet.has(`${reelIndex}-${row}`) || prev?.kind === 'EMPTY' || symbolChanged
+      const isNew =
+        !isGoldToWildTransform &&
+        !isRedWildPropagationTarget &&
+        (removedSet.has(positionKey) || prev?.kind === 'EMPTY' || symbolChanged)
 
       return {
-        id: `${reelIndex}-${row}`,
+        id: positionKey,
         kind: visualKind,
 
         isNew,
         isPersisted,
 
-        isGold: false,
-        goldTTL: symbol.goldTTL,
+        isGold: shouldHoldGoldFrame ? true : symbol.isGold,
+        goldTTL: shouldHoldGoldFrame ? prev?.goldTTL : symbol.goldTTL,
+        redWildIncoming: shouldHoldIncomingRedWild,
 
-        isDecorativeGold: symbol.isDecorativeGold,
+        isDecorativeGold: shouldHoldGoldFrame ? prev?.isDecorativeGold : symbol.isDecorativeGold,
 
         goldToWild: shouldFlip,
         wildColor: symbol.wildColor,

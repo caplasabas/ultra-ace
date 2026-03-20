@@ -28,6 +28,7 @@ import {
 import { registerAuthenticJackpotPlan } from '../lib/jackpotPlan'
 import {
   type ActiveJackpotQueue,
+  finalizeDeviceJackpotPayouts,
   fetchActiveJackpotQueue,
   subscribeActiveJackpotQueue,
 } from '../lib/jackpotQueue'
@@ -1544,6 +1545,19 @@ export function useEngine() {
   }
 
   const endFreeSpin = () => {
+    const finalizeJackpotQueue = async () => {
+      const currentDeviceId = deviceIdRef.current
+      if (!currentDeviceId) return
+
+      try {
+        await finalizeDeviceJackpotPayouts(currentDeviceId)
+        const nextQueue = await fetchActiveJackpotQueue(currentDeviceId)
+        setActiveJackpotQueue(nextQueue)
+      } catch (error) {
+        console.error('[engine] final jackpot queue finalize failed', error)
+      }
+    }
+
     setTimeout(() => {
       jackpotModeArmedRef.current = false
       jackpotFreeSpinModeRef.current = false
@@ -1553,6 +1567,7 @@ export function useEngine() {
       setShowScatterWinBanner(true)
 
       setTimeout(() => {
+        void finalizeJackpotQueue()
         releaseDisplayedBalance()
         setFreeSpinTotal(0)
         setTotalWin(0)

@@ -17,10 +17,18 @@ import { BuySpinModal } from './ui/BuySpinModal'
 import { installAccountingRetryHooks, logLedgerEvent } from './lib/accounting'
 import { WithdrawModal } from './ui/WithdrawModal'
 import splashStart from './assets/images/splash_start.png'
+import WILD_RED from './assets/symbols/WILD_RED.png'
 
 const DEV = import.meta.env.DEV
 const GAME_BUILD_VERSION = import.meta.env.VITE_GAME_VERSION || 'dev'
 const FREE_SPIN_PRESTART_DELAY_MS = 1500
+type RedWildPropagationPath = {
+  id: string
+  fromReel: number
+  fromRow: number
+  toReel: number
+  toRow: number
+}
 
 const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kind }))
 //
@@ -391,6 +399,58 @@ export default function App() {
       shouldUsePrevious ? previousCascade?.window : undefined,
       phase,
     )
+
+  const redWildPropagationPaths = useMemo<RedWildPropagationPath[]>(() => {
+    if (phase !== 'postGoldTransform' || !activeCascade?.window || !previousCascade?.window) return []
+
+    const sources: Array<{ reel: number; row: number }> = []
+    const targets: Array<{ reel: number; row: number }> = []
+
+    for (let reel = 0; reel < activeCascade.window.length; reel++) {
+      for (let row = 0; row < activeCascade.window[reel].length; row++) {
+        const next = activeCascade.window[reel][row]
+        const prev = previousCascade.window[reel]?.[row]
+
+        if (!next || !prev) continue
+
+        const wasGold =
+          prev.isGold === true || prev.goldTTL !== undefined || prev.isDecorativeGold === true
+
+        if (next.kind === 'WILD' && next.wildColor === 'red' && next.fromGold && wasGold) {
+          sources.push({ reel, row })
+          continue
+        }
+
+        if (
+          next.kind === 'WILD' &&
+          next.wildColor === 'red' &&
+          !next.fromGold &&
+          !(prev.kind === 'WILD' && prev.wildColor === 'red')
+        ) {
+          targets.push({ reel, row })
+        }
+      }
+    }
+
+    if (!sources.length || !targets.length) return []
+
+    return targets.map((target, index) => {
+      const source = sources.reduce((best, current) => {
+        const bestDistance = Math.abs(best.reel - target.reel) + Math.abs(best.row - target.row)
+        const currentDistance =
+          Math.abs(current.reel - target.reel) + Math.abs(current.row - target.row)
+        return currentDistance < bestDistance ? current : best
+      }, sources[index % sources.length])
+
+      return {
+        id: `${source.reel}-${source.row}-${target.reel}-${target.row}`,
+        fromReel: source.reel,
+        fromRow: source.row,
+        toReel: target.reel,
+        toRow: target.row,
+      }
+    })
+  }, [phase, activeCascade, previousCascade])
   //
   // useEffect(() => {
   //   if (adaptedWindow) {
@@ -477,12 +537,15 @@ export default function App() {
 
   const ladder = isFreeGame || isFreeSpinPreview ? FREE_MULTIPLIERS : BASE_MULTIPLIERS
 
-  function getMultiplierIndex(cascadeIndex: number) {
-    const popCount = Math.max(0, cascadeIndex - 1)
-    return Math.min(popCount, ladder.length - 1)
+  function getDisplayMultiplierIndex(phase: string, cascadeIndex: number) {
+    const isIdleLike = phase === 'idle' || phase === 'reelSweepOut' || phase === 'initialRefill'
+
+    if (isIdleLike) return 0
+
+    return Math.min(Math.max(0, cascadeIndex), ladder.length - 1)
   }
 
-  const activeMultiplierIndex = getMultiplierIndex(cascadeIndex)
+  const activeMultiplierIndex = getDisplayMultiplierIndex(phase, cascadeIndex)
   const freeSpinDisplayCount = isFreeGame ? freeSpinsLeft : pendingFreeSpins
   const showFreeSpinModeUi = isFreeGame || isFreeSpinPreview || showScatterWinBanner || freezeUI
   const showFreeSpinCount =
@@ -1064,6 +1127,22 @@ export default function App() {
                           isScatterHighlight={isScatterHighlight}
                         />
                       ))}
+                    {redWildPropagationPaths.map(path => (
+                      <div
+                        key={path.id}
+                        className="red-wild-propagation"
+                        style={
+                          {
+                            '--from-x': `calc(${path.fromReel} * (var(--reel-width) + var(--reel-gap)))`,
+                            '--from-y': `calc(${path.fromRow} * (var(--scaled-card-height) + var(--card-gap)) + var(--scaled-card-height) * 0.18)`,
+                            '--travel-x': `calc((${path.toReel} - ${path.fromReel}) * (var(--reel-width) + var(--reel-gap)))`,
+                            '--travel-y': `calc((${path.toRow} - ${path.fromRow}) * (var(--scaled-card-height) + var(--card-gap)))`,
+                          } as React.CSSProperties
+                        }
+                      >
+                        <img src={WILD_RED} className="red-wild-propagation-img" draggable={false} />
+                      </div>
+                    ))}
                   </div>
                 </div>
                 <WinOverlay

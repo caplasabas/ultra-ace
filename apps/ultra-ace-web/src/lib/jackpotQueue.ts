@@ -35,6 +35,14 @@ export async function fetchActiveJackpotQueue(deviceId: string): Promise<ActiveJ
   return first ? toQueueRow(first) : null
 }
 
+export async function finalizeDeviceJackpotPayouts(deviceId: string) {
+  const { error } = await supabase.rpc('finalize_device_jackpot_payouts', {
+    p_device_id: deviceId,
+  })
+
+  if (error) throw error
+}
+
 export function subscribeActiveJackpotQueue(
   deviceId: string,
   onChange: (next: ActiveJackpotQueue | null) => void,

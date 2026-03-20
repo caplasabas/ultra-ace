@@ -22,6 +22,7 @@ export interface UISymbol {
   isNew?: boolean
   isPersisted?: boolean
   isSettledWild?: boolean
+  redWildIncoming?: boolean
 
   isGold?: boolean
   goldTTL?: number
@@ -318,6 +319,13 @@ function ReelComponent({
                         .filter(Boolean)
                         .join(' ')}
                       style={{ backgroundImage: `url(${imgSrc})` }}
+                      draggable={false}
+                    />
+                  )}
+                  {symbol.redWildIncoming && phase === 'postGoldTransform' && (
+                    <img
+                      src={SYMBOL_MAP.WILD_RED.normal}
+                      className="symbol-img incoming-red-wild"
                       draggable={false}
                     />
                   )}

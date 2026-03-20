@@ -343,6 +343,19 @@ export function useCascadeTimeline(
           return prev?.isGold === true && s.kind === 'WILD'
         }),
       ) ?? false
+    const hasRedWildPropagation =
+      activeCascade?.window?.some((col, reel) =>
+        col.some((s, row) => {
+          const prev = previousCascade?.window?.[reel]?.[row]
+          return (
+            s.kind === 'WILD' &&
+            s.wildColor === 'red' &&
+            !s.fromGold &&
+            prev !== undefined &&
+            !(prev.kind === 'WILD' && prev.wildColor === 'red')
+          )
+        }),
+      ) ?? false
 
     const hasNextLineWin =
       Boolean(nextCascade?.lineWins?.length) || Number(nextCascade?.win ?? 0) > 0.0001
@@ -401,7 +414,7 @@ export function useCascadeTimeline(
           } else {
             dispatch({ type: 'NEXT', phase: 'settle' })
           }
-        }, scaledWithFloor(620, 180))
+        }, hasRedWildPropagation ? scaledWithFloor(2150, 1500) : scaledWithFloor(620, 180))
         break
 
       case 'settle':
