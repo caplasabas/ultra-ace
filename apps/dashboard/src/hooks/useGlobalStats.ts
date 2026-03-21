@@ -33,6 +33,9 @@ export function useGlobalStats() {
     const channel = supabase
       .channel('dashboard-global-stats')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'devices' }, () => fetchStats())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'casino_runtime' }, () => fetchStats())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'happy_hour_pots' }, () => fetchStats())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'jackpot_pots' }, () => fetchStats())
       .subscribe()
 
     return () => {

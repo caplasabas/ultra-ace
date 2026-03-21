@@ -286,17 +286,15 @@ export function useEngine() {
     const nextRevision = Number(snapshot.revision ?? 0)
     const normalizedRevision = Number.isFinite(nextRevision) ? nextRevision : 0
 
-    if (Number.isFinite(updatedAtMs) && updatedAtMs < lastAuthoritativeUpdatedAtRef.current) return
-    if (
-      Number.isFinite(updatedAtMs) &&
-      updatedAtMs === lastAuthoritativeUpdatedAtRef.current &&
-      normalizedRevision < lastAuthoritativeRevisionRef.current
-    ) {
+    // Accounting counters are monotonic; treat them as the primary ordering signal.
+    // `devices.updated_at` also changes for session heartbeats and other non-balance writes.
+    if (normalizedRevision < lastAuthoritativeRevisionRef.current) {
       return
     }
     if (
-      !Number.isFinite(updatedAtMs) &&
-      normalizedRevision < lastAuthoritativeRevisionRef.current
+      normalizedRevision === lastAuthoritativeRevisionRef.current &&
+      Number.isFinite(updatedAtMs) &&
+      updatedAtMs < lastAuthoritativeUpdatedAtRef.current
     ) {
       return
     }
