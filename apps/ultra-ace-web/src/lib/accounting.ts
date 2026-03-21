@@ -92,6 +92,9 @@ export async function commitSpinAccounting({
     freeSpinsAwarded,
     cascades,
     triggerType: triggerType ?? null,
+    clientApp: 'ultra-ace-web',
+    clientBuild: import.meta.env.VITE_APP_VERSION ?? import.meta.env.MODE ?? null,
+    clientUserAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
   }
 
   const events: MetricEventPayload[] = []

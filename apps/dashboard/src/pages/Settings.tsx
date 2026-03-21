@@ -5,6 +5,20 @@ import { getGame, toggleGame, useGames } from '../hooks/useGames'
 import { prepareGamePackage, purgeGamePackages, removeGamePackage } from '../lib/arcadeAdmin'
 import { supabase } from '../lib/supabase'
 
+type OverCapWinRow = {
+  id: number
+  device_id: string
+  device_name: string | null
+  event_ts: string
+  runtime_mode: 'BASE' | 'HAPPY'
+  funding_source: string
+  requested_amount: number
+  accepted_amount: number
+  funding_cap_amount: number
+  over_amount: number
+  metadata?: Record<string, any> | null
+}
+
 export default function Settings() {
   const games = useGames()
   const devices = useDevices()
@@ -64,6 +78,9 @@ export default function Settings() {
   const [globalHopperKind, setGlobalHopperKind] = useState<'debit' | 'credit'>('credit')
   const [globalHopperAccountName, setGlobalHopperAccountName] = useState('Global Manual Hopper Override')
   const [globalHopperNotes, setGlobalHopperNotes] = useState('')
+  const [overCapWins, setOverCapWins] = useState<OverCapWinRow[]>([])
+  const [overCapWinsLoading, setOverCapWinsLoading] = useState(false)
+  const [overCapWinsError, setOverCapWinsError] = useState<string | null>(null)
 
   function applyRuntimeToForm() {
     if (!runtime) return
@@ -117,6 +134,10 @@ export default function Settings() {
     const t = setTimeout(() => setTestResultMessage(null), 5000)
     return () => clearTimeout(t)
   }, [testResultMessage])
+
+  useEffect(() => {
+    void loadOverCapWins()
+  }, [])
 
   const baseProfiles = useMemo(() => profiles.filter(p => p.mode === 'BASE'), [profiles])
   const happyProfiles = useMemo(() => profiles.filter(p => p.mode === 'HAPPY'), [profiles])
@@ -175,6 +196,8 @@ export default function Settings() {
 
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
   const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
+  const formatDateTime = (value: string | null | undefined) =>
+    value ? new Date(value).toLocaleString() : 'Unknown'
   const testJackpotAmountValue = Math.max(0, Number(testJackpotAmount || 0))
   const testJackpotWinnersValue = Math.max(1, Math.floor(Number(testJackpotWinners || 1)))
   const effectiveTestWinners = Math.max(
@@ -408,6 +431,26 @@ export default function Settings() {
     }
   }
 
+  async function loadOverCapWins() {
+    setOverCapWinsLoading(true)
+    setOverCapWinsError(null)
+
+    const { data, error } = await supabase
+      .from('over_cap_win_events_live')
+      .select('*')
+      .order('event_ts', { ascending: false })
+      .limit(50)
+
+    setOverCapWinsLoading(false)
+
+    if (error) {
+      setOverCapWinsError(error.message)
+      return
+    }
+
+    setOverCapWins((data ?? []) as OverCapWinRow[])
+  }
+
   async function purgeRuntimeCache() {
     const result = await purgeGamePackages()
     if (!result.ok) {
@@ -602,6 +645,84 @@ export default function Settings() {
               Apply to All Devices
             </button>
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-rose-800/70 bg-rose-950/20 p-4 space-y-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-rose-200">Over-Cap Win Clients</h2>
+            <p className="text-xs text-rose-200/80">
+              Recent normal wins that the DB had to clamp. Use this to find stale or buggy clients.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void loadOverCapWins()}
+            disabled={overCapWinsLoading}
+            className="rounded border border-rose-700 bg-rose-900/30 px-3 py-1.5 text-xs font-semibold text-rose-200 disabled:opacity-50"
+          >
+            {overCapWinsLoading ? 'Refreshing…' : 'Refresh List'}
+          </button>
+        </div>
+
+        {overCapWinsError && (
+          <div className="rounded border border-red-700 bg-red-900/30 p-3 text-xs text-red-200">
+            {overCapWinsError}
+          </div>
+        )}
+
+        <div className="overflow-x-auto rounded border border-rose-900/60">
+          <table className="min-w-full divide-y divide-rose-900/60 text-sm">
+            <thead className="bg-slate-950/70 text-xs uppercase tracking-wide text-rose-200/80">
+              <tr>
+                <th className="px-3 py-2 text-left">Time</th>
+                <th className="px-3 py-2 text-left">Cabinet</th>
+                <th className="px-3 py-2 text-right">Requested</th>
+                <th className="px-3 py-2 text-right">Accepted</th>
+                <th className="px-3 py-2 text-right">Over</th>
+                <th className="px-3 py-2 text-left">Mode</th>
+                <th className="px-3 py-2 text-left">Client</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-rose-900/40 bg-slate-950/40">
+              {overCapWins.length === 0 && !overCapWinsLoading && (
+                <tr>
+                  <td colSpan={7} className="px-3 py-6 text-center text-xs text-slate-400">
+                    No over-cap wins logged.
+                  </td>
+                </tr>
+              )}
+              {overCapWins.map(row => {
+                const metadata = row.metadata ?? {}
+                const clientApp = String(metadata.clientApp ?? 'unknown')
+                const clientBuild = String(metadata.clientBuild ?? 'unknown')
+                const displayName = row.device_name?.trim() || 'Unnamed Cabinet'
+                return (
+                  <tr key={row.id} className="align-top">
+                    <td className="px-3 py-2 text-xs text-slate-300">{formatDateTime(row.event_ts)}</td>
+                    <td className="px-3 py-2">
+                      <div className="font-medium text-slate-100">{displayName}</div>
+                      <div className="text-[11px] text-slate-400">{row.device_id}</div>
+                    </td>
+                    <td className="px-3 py-2 text-right text-rose-100">{formatCurrency(row.requested_amount)}</td>
+                    <td className="px-3 py-2 text-right text-slate-200">{formatCurrency(row.accepted_amount)}</td>
+                    <td className="px-3 py-2 text-right font-medium text-rose-300">
+                      {formatCurrency(row.over_amount)}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-slate-300">
+                      <div>{row.runtime_mode}</div>
+                      <div className="text-[11px] text-slate-500">{row.funding_source}</div>
+                    </td>
+                    <td className="px-3 py-2 text-xs text-slate-300">
+                      <div>{clientApp}</div>
+                      <div className="text-[11px] text-slate-500">{clientBuild}</div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       </section>
 

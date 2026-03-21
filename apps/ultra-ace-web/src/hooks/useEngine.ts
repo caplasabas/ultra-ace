@@ -86,6 +86,10 @@ const JACKPOT_AUTHENTIC_POSITIVE_VARIANCE_STEP = Math.max(
   0.01,
   Number(import.meta.env.VITE_JACKPOT_AUTH_POS_VARIANCE_STEP ?? 0.1),
 )
+const NORMAL_WIN_CAP_REROLL_ATTEMPTS = Math.max(
+  1,
+  Math.floor(Number(import.meta.env.VITE_NORMAL_WIN_CAP_REROLL_ATTEMPTS ?? 64)),
+)
 
 const SCATTER_BANNER_DURATION = 5000
 const FREE_SPIN_SNAPSHOT_PREFIX = 'ultraace.free-spin-state'
@@ -131,6 +135,16 @@ type AuthPlanVarianceComposeResult = {
   plan: AuthComposedPlan
   bonus: number
   varianceOk: boolean
+}
+
+type RuntimeSpinSnapshot = {
+  mode: 'BASE' | 'HAPPY'
+  config: typeof DEFAULT_ENGINE_CONFIG
+  deliveryMode: JackpotDeliveryMode
+  prizePoolBalance: number
+  happyHourPrizeBalance: number
+  baseHousePct: number
+  happyHousePct: number
 }
 
 function roundMoney(value: number): number {
@@ -577,7 +591,7 @@ export function useEngine() {
     }
   }, [deviceId])
 
-  async function refreshRuntimeMode() {
+  async function refreshRuntimeMode(): Promise<RuntimeSpinSnapshot> {
     try {
       const runtime = await fetchCasinoRuntimeLive()
       const mode = runtime.active_mode === 'HAPPY' ? 'HAPPY' : 'BASE'
@@ -590,7 +604,15 @@ export function useEngine() {
         version: `runtime-pre-spin-${mode}-${Date.now()}`,
       })
       setRuntimeMode(mode)
-      return { mode, config: nextConfig, deliveryMode }
+      return {
+        mode,
+        config: nextConfig,
+        deliveryMode,
+        prizePoolBalance: Math.max(0, Number(runtime.prize_pool_balance ?? 0)),
+        happyHourPrizeBalance: Math.max(0, Number(runtime.happy_hour_prize_balance ?? 0)),
+        baseHousePct: Math.min(100, Math.max(0, Number(runtime.base_house_pct ?? 0))),
+        happyHousePct: Math.min(100, Math.max(0, Number(runtime.happy_house_pct ?? 0))),
+      } satisfies RuntimeSpinSnapshot
     } catch (err) {
       console.error('[runtime] pre-spin refresh failed', err)
       const mode = runtimeMode === 'HAPPY' ? 'HAPPY' : 'BASE'
@@ -599,6 +621,10 @@ export function useEngine() {
         mode,
         config: fallbackConfig,
         deliveryMode: jackpotDeliveryModeRef.current,
+        prizePoolBalance: 0,
+        happyHourPrizeBalance: 0,
+        baseHousePct: 20,
+        happyHousePct: 20,
       }
     }
   }
@@ -620,6 +646,86 @@ export function useEngine() {
     const cap = currentSpinMaxWinRef.current
     if (cap === null) return nextValue
     return Math.min(nextValue, cap)
+  }
+
+  function getFundableNormalWinCap(runtimeSnapshot: RuntimeSpinSnapshot, betAmount: number): number | null {
+    const normalizedBet = roundMoney(Math.max(0, Number(betAmount ?? 0)))
+    const reserveBalance =
+      runtimeSnapshot.mode === 'HAPPY'
+        ? Math.max(0, Number(runtimeSnapshot.happyHourPrizeBalance ?? 0))
+        : Math.max(0, Number(runtimeSnapshot.prizePoolBalance ?? 0))
+    const housePct =
+      runtimeSnapshot.mode === 'HAPPY'
+        ? Math.min(100, Math.max(0, Number(runtimeSnapshot.happyHousePct ?? 0)))
+        : Math.min(100, Math.max(0, Number(runtimeSnapshot.baseHousePct ?? 0)))
+    const postHouseBudget =
+      runtimeSnapshot.mode === 'HAPPY'
+        ? 0
+        : roundMoney(Math.max(0, normalizedBet - normalizedBet * (housePct / 100)))
+    return roundMoney(clampToCurrentSpinMax(Math.max(0, reserveBalance + postHouseBudget)))
+  }
+
+  function selectNormalOutcomeWithinCap({
+    initialOutcome,
+    winCap,
+    rng,
+    spinInput,
+  }: {
+    initialOutcome: SpinOutcome
+    winCap: number | null
+    rng: ReturnType<typeof createRNG>
+    spinInput: Parameters<typeof spin>[1]
+  }): { outcome: SpinOutcome; rerolled: boolean; attemptCount: number } {
+    if (winCap === null) {
+      return { outcome: initialOutcome, rerolled: false, attemptCount: 1 }
+    }
+
+    const cap = roundMoney(Math.max(0, Number(winCap ?? 0)))
+    const normalizeWin = (outcome: SpinOutcome) => roundMoney(Math.max(0, Number(outcome.win ?? 0)))
+    const isWithinCap = (outcome: SpinOutcome) => normalizeWin(outcome) <= cap + 0.0001
+    const scoreOutcome = (outcome: SpinOutcome) =>
+      normalizeWin(outcome) * 1000 + getOutcomeExcitement(outcome)
+
+    if (isWithinCap(initialOutcome)) {
+      return { outcome: initialOutcome, rerolled: false, attemptCount: 1 }
+    }
+
+    let bestOutcome: SpinOutcome | null = null
+    let bestScore = Number.NEGATIVE_INFINITY
+    let attemptCount = 1
+
+    for (let attempt = 0; attempt < NORMAL_WIN_CAP_REROLL_ATTEMPTS; attempt++) {
+      const candidate = spin(rng, spinInput)
+      attemptCount += 1
+
+      if (!isWithinCap(candidate)) {
+        continue
+      }
+
+      const candidateScore = scoreOutcome(candidate)
+      if (!bestOutcome || candidateScore > bestScore + 0.0001) {
+        bestOutcome = candidate
+        bestScore = candidateScore
+      }
+
+      if (normalizeWin(candidate) >= cap - 0.0001) {
+        break
+      }
+    }
+
+    if (bestOutcome) {
+      return {
+        outcome: bestOutcome,
+        rerolled: true,
+        attemptCount,
+      }
+    }
+
+    return {
+      outcome: normalizeJackpotOutcomeToTarget(initialOutcome, 0),
+      rerolled: true,
+      attemptCount,
+    }
   }
 
   function getJackpotSpinTolerance(targetWin: number): number {
@@ -1240,21 +1346,42 @@ export function useEngine() {
       }
     }
 
-    const outcome: SpinOutcome =
-      authPlanStep?.outcome ??
-      spin(rngRef.current, {
-        betPerSpin: engineBetPerSpin,
-        lines: 5,
-        isFreeGame,
-        forceScatter: forceJackpotScatter,
-        freeSpinSource: isFreeGame ? freeSpinSource : undefined,
-      })
-    const rawTotalWin = Number.isFinite(Number(outcome.win)) ? Number(outcome.win) : 0
+    const spinInput = {
+      betPerSpin: engineBetPerSpin,
+      lines: 5,
+      isFreeGame,
+      forceScatter: forceJackpotScatter,
+      freeSpinSource: isFreeGame ? freeSpinSource : undefined,
+    } satisfies Parameters<typeof spin>[1]
+    const seededOutcome: SpinOutcome = authPlanStep?.outcome ?? spin(rngRef.current, spinInput)
     currentSpinMaxWinRef.current = isJackpotFreeSpin
       ? null
       : getMaxWinCapForBet(isFreeGame ? bet : spinAmount)
+    const normalWinCap = isJackpotFreeSpin
+      ? null
+      : getFundableNormalWinCap(runtimeSnapshot, isFreeGame ? 0 : spinAmount)
+    const selectedNormalSpin = !isJackpotFreeSpin
+      ? selectNormalOutcomeWithinCap({
+          initialOutcome: seededOutcome,
+          winCap: normalWinCap,
+          rng: rngRef.current,
+          spinInput,
+        })
+      : null
+    const outcome = selectedNormalSpin?.outcome ?? seededOutcome
+    const rawTotalWin = Number.isFinite(Number(outcome.win)) ? Number(outcome.win) : 0
     const engineTotalWin = clampToCurrentSpinMax(rawTotalWin)
     spinCounterRef.current = nextSpinId
+
+    if (selectedNormalSpin?.rerolled && normalWinCap !== null) {
+      console.info('[engine] normal spin rerolled to stay within funding cap', {
+        spinId: nextSpinId,
+        cap: normalWinCap,
+        selectedWin: engineTotalWin,
+        attempts: selectedNormalSpin.attemptCount,
+        isFreeGame,
+      })
+    }
 
     let jackpotPayoutForSpin = 0
 
@@ -1465,20 +1592,36 @@ export function useEngine() {
     setSpinning(true)
     setTotalWin(0)
     setFreeSpinTotal(0)
-    await refreshRuntimeMode()
-
-    const outcome: SpinOutcome = spin(rngRef.current, {
+    const runtimeSnapshot = await refreshRuntimeMode()
+    const spinInput = {
       betPerSpin: betAmount,
       lines: 5,
       isFreeGame: false,
       forceScatter: true,
+    } satisfies Parameters<typeof spin>[1]
+    const seededOutcome: SpinOutcome = spin(rngRef.current, spinInput)
+    currentSpinMaxWinRef.current = getMaxWinCapForBet(cost)
+    const totalWinCap = getFundableNormalWinCap(runtimeSnapshot, cost)
+    const selectedOutcome = selectNormalOutcomeWithinCap({
+      initialOutcome: seededOutcome,
+      winCap: totalWinCap,
+      rng: rngRef.current,
+      spinInput,
     })
-
+    const outcome = selectedOutcome.outcome
     const rawTotalWin = Number.isFinite(Number(outcome.win)) ? Number(outcome.win) : 0
-    currentSpinMaxWinRef.current = getMaxWinCapForBet(betAmount)
     const totalWin = clampToCurrentSpinMax(rawTotalWin)
     const nextSpinId = spinCounterRef.current + 1
     spinCounterRef.current = nextSpinId
+
+    if (selectedOutcome.rerolled && totalWinCap !== null) {
+      console.info('[engine] buy spin rerolled to stay within funding cap', {
+        spinId: nextSpinId,
+        cap: totalWinCap,
+        selectedWin: totalWin,
+        attempts: selectedOutcome.attemptCount,
+      })
+    }
 
     try {
       await commitSpinAccounting({
