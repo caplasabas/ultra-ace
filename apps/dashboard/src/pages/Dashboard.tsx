@@ -83,7 +83,12 @@ export default function Dashboard() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'jackpot_pots' }, fetchPots)
       .subscribe()
 
+    const poll = window.setInterval(() => {
+      void fetchPots()
+    }, 1000)
+
     return () => {
+      window.clearInterval(poll)
       void supabase.removeChannel(channel)
     }
   }, [])

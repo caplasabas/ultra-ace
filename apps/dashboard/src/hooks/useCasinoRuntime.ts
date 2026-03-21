@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
+const RUNTIME_POLL_MS = 1000
+
 export type RuntimeMode = 'BASE' | 'HAPPY'
 export type JackpotDeliveryMode = 'TARGET_FIRST' | 'AUTHENTIC_PAYTABLE'
 
@@ -90,6 +92,8 @@ export function useCasinoRuntime() {
     const runtimeChannel = supabase
       .channel('dashboard-casino-runtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'casino_runtime' }, fetchRuntime)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'happy_hour_pots' }, fetchRuntime)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'jackpot_pots' }, fetchRuntime)
       .subscribe()
 
     const profilesChannel = supabase
@@ -98,7 +102,7 @@ export function useCasinoRuntime() {
       .subscribe()
 
     // Fallback polling to avoid stale runtime UI if realtime drops updates.
-    const poll = window.setInterval(fetchRuntime, 2000)
+    const poll = window.setInterval(fetchRuntime, RUNTIME_POLL_MS)
 
     return () => {
       void supabase.removeChannel(runtimeChannel)

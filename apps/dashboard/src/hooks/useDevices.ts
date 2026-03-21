@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
+const DEVICES_POLL_MS = 1000
+
 export type DeviceRow = {
   device_id: string
   name?: string | null
@@ -57,7 +59,7 @@ export function useDevices() {
 
     const poll = window.setInterval(() => {
       void fetchAll()
-    }, 2000)
+    }, DEVICES_POLL_MS)
 
     return () => {
       window.clearInterval(poll)

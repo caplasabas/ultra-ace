@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
+const CABINET_GAMES_POLL_MS = 3000
+
 export function useCabinetGames(deviceId: string | null) {
   const [rows, setRows] = useState<any[]>([])
 
@@ -50,7 +52,7 @@ export function useCabinetGames(deviceId: string | null) {
   useEffect(() => {
     if (!deviceId) return
 
-    fetchCabinet()
+    void fetchCabinet()
 
     const channel = supabase
       .channel(`dashboard-cabinet-${deviceId}`)
@@ -71,7 +73,7 @@ export function useCabinetGames(deviceId: string | null) {
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'games',
         },
@@ -80,7 +82,12 @@ export function useCabinetGames(deviceId: string | null) {
 
       .subscribe()
 
+    const poll = window.setInterval(() => {
+      void fetchCabinet()
+    }, CABINET_GAMES_POLL_MS)
+
     return () => {
+      window.clearInterval(poll)
       void supabase.removeChannel(channel)
     }
   }, [deviceId])

@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
+const GAMES_POLL_MS = 3000
+
 export function useGames(type?: 'arcade' | 'casino') {
   const [rows, setRows] = useState<any[]>([])
 
@@ -15,23 +17,19 @@ export function useGames(type?: 'arcade' | 'casino') {
   }
 
   useEffect(() => {
-    fetchGames()
+    void fetchGames()
 
     const channel = supabase
       .channel('dashboard-games')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games' }, payload => {
-        const oldRow = payload.old
-        const newRow = payload.new
-
-        const relevant = oldRow.enabled !== newRow.enabled || oldRow.version !== newRow.version
-
-        if (!relevant) return
-
-        setRows(prev => prev.map(g => (g.id === newRow.id ? { ...g, ...newRow } : g)))
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, () => fetchGames())
       .subscribe()
 
+    const poll = window.setInterval(() => {
+      void fetchGames()
+    }, GAMES_POLL_MS)
+
     return () => {
+      window.clearInterval(poll)
       void supabase.removeChannel(channel)
     }
   }, [type])
