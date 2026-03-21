@@ -8,7 +8,7 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [overrideBusy, setOverrideBusy] = useState(false)
-  const [powerActionBusy, setPowerActionBusy] = useState<'restart' | 'shutdown' | null>(null)
+  const [powerActionBusy, setPowerActionBusy] = useState<'restart' | 'shutdown' | 'reset' | null>(null)
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
   const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
   const formatJackpotCurrency = (v: number | string | null | undefined) =>
@@ -152,7 +152,7 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
     return true
   }
 
-  async function enqueuePowerCommand(command: 'restart' | 'shutdown') {
+  async function enqueuePowerCommand(command: 'restart' | 'shutdown' | 'reset') {
     if (!device?.device_id) return
     setPowerActionBusy(command)
 
@@ -171,7 +171,7 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
     }
 
     const deduped = Boolean((data as any)?.deduped)
-    const label = command === 'restart' ? 'Restart' : 'Shutdown'
+    const label = command === 'restart' ? 'Restart' : command === 'shutdown' ? 'Shutdown' : 'Reset'
     setSuccessMessage(
       deduped
         ? `${label} already queued for ${device.device_id}`
@@ -287,6 +287,14 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
                   Sends command to this device only.
                 </div>
                 <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="rounded border border-sky-600/80 bg-sky-900/30 px-3 py-1.5 text-xs font-semibold text-sky-200 hover:bg-sky-800/40 disabled:opacity-50"
+                    disabled={powerActionBusy !== null || overrideBusy}
+                    onClick={() => void enqueuePowerCommand('reset')}
+                  >
+                    {powerActionBusy === 'reset' ? 'Queueing Reset...' : 'Reset Device'}
+                  </button>
                   <button
                     type="button"
                     className="rounded border border-amber-600/80 bg-amber-900/30 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-800/40 disabled:opacity-50"
