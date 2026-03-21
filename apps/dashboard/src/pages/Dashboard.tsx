@@ -444,8 +444,12 @@ export default function Dashboard() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-slate-100">{d.device_id ?? 'Unnamed'}</div>
-                        {d.name && <div className="truncate text-xs text-slate-400">{d.name}</div>}
+                        <div className="truncate text-sm font-semibold text-slate-100">
+                          {d.name?.trim() || 'Unnamed Cabinet'}
+                        </div>
+                        <div className="truncate text-[10px] font-mono text-slate-500">
+                          {d.device_id ?? 'Unknown Device'}
+                        </div>
                         <div className="mt-1 flex items-center gap-2 text-[10px]">
                           <span
                             className={`rounded px-1.5 py-0.5 font-semibold ${
@@ -606,8 +610,10 @@ export default function Dashboard() {
                       <td className="px-4 py-2">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <div className="truncate">{d.device_id ?? 'Unnamed'}</div>
-                            {d.name && <div className="truncate text-xs text-slate-400">{d.name}</div>}
+                            <div className="truncate">{d.name?.trim() || 'Unnamed Cabinet'}</div>
+                            <div className="truncate text-[10px] font-mono text-slate-500">
+                              {d.device_id ?? 'Unknown Device'}
+                            </div>
                           </div>
                           {d.jackpot_selected && (
                             <span className="rounded border border-amber-400/70 bg-amber-900/50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200">

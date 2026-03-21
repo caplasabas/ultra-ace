@@ -226,9 +226,11 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
             <div className="flex justify-between items-center">
               <div>
                 <h3 className="text-base md:text-lg font-semibold">
-                  Device: {device.device_id ?? 'Unnamed Device'}
+                  {device.name?.trim() || 'Unnamed Cabinet'}
                 </h3>
-                {device.name && <div className="mt-1 text-sm text-slate-300">{device.name}</div>}
+                <div className="mt-1 text-xs font-mono text-slate-400">
+                  Device ID: {device.device_id ?? 'Unknown Device'}
+                </div>
                 <div className="mt-1 text-xs text-slate-400">
                   Status: {(device.device_status ?? 'idle').toUpperCase()} • {telemetryLabel}
                 </div>
