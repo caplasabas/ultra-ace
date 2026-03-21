@@ -3,6 +3,7 @@ import { type JackpotDeliveryMode, useCasinoRuntime } from '../hooks/useCasinoRu
 import { useDevices } from '../hooks/useDevices'
 import { getGame, toggleGame, useGames } from '../hooks/useGames'
 import { prepareGamePackage, purgeGamePackages, removeGamePackage } from '../lib/arcadeAdmin'
+import { supabase } from '../lib/supabase'
 
 export default function Settings() {
   const games = useGames()
@@ -11,6 +12,7 @@ export default function Settings() {
     useCasinoRuntime()
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [isRuntimeFormDirty, setIsRuntimeFormDirty] = useState(false)
 
@@ -52,6 +54,16 @@ export default function Settings() {
   const [selectedDevDeviceIds, setSelectedDevDeviceIds] = useState<string[]>([])
   const [testSubmitting, setTestSubmitting] = useState(false)
   const [testResultMessage, setTestResultMessage] = useState<string | null>(null)
+  const [globalPowerBusy, setGlobalPowerBusy] = useState<'restart' | 'shutdown' | 'reset' | null>(null)
+  const [globalOverrideBusy, setGlobalOverrideBusy] = useState(false)
+  const [globalBalanceAmount, setGlobalBalanceAmount] = useState('0')
+  const [globalBalanceKind, setGlobalBalanceKind] = useState<'debit' | 'credit'>('credit')
+  const [globalBalanceAccountName, setGlobalBalanceAccountName] = useState('Global Manual Accounting Override')
+  const [globalBalanceNotes, setGlobalBalanceNotes] = useState('')
+  const [globalHopperAmount, setGlobalHopperAmount] = useState('0')
+  const [globalHopperKind, setGlobalHopperKind] = useState<'debit' | 'credit'>('credit')
+  const [globalHopperAccountName, setGlobalHopperAccountName] = useState('Global Manual Hopper Override')
+  const [globalHopperNotes, setGlobalHopperNotes] = useState('')
 
   function applyRuntimeToForm() {
     if (!runtime) return
@@ -95,6 +107,12 @@ export default function Settings() {
   }, [errorMessage])
 
   useEffect(() => {
+    if (!successMessage) return
+    const t = setTimeout(() => setSuccessMessage(null), 5000)
+    return () => clearTimeout(t)
+  }, [successMessage])
+
+  useEffect(() => {
     if (!testResultMessage) return
     const t = setTimeout(() => setTestResultMessage(null), 5000)
     return () => clearTimeout(t)
@@ -104,6 +122,10 @@ export default function Settings() {
   const happyProfiles = useMemo(() => profiles.filter(p => p.mode === 'HAPPY'), [profiles])
   const devDevices = useMemo(
     () => devices.filter(device => (device.device_id ?? '').startsWith('dev-')),
+    [devices],
+  )
+  const deviceIds = useMemo(
+    () => devices.map(device => String(device.device_id ?? '').trim()).filter(Boolean),
     [devices],
   )
   const playingDevDeviceIds = useMemo(
@@ -160,6 +182,92 @@ export default function Settings() {
     Math.min(testJackpotWinnersValue, Math.max(1, selectedDevDeviceIds.length)),
   )
   const perWinnerTestAmount = effectiveTestWinners > 0 ? testJackpotAmountValue / effectiveTestWinners : 0
+  const deviceCount = deviceIds.length
+
+  async function enqueueGlobalPowerCommand(command: 'restart' | 'shutdown' | 'reset') {
+    if (deviceCount === 0) {
+      setErrorMessage('No target devices found')
+      return
+    }
+
+    setGlobalPowerBusy(command)
+
+    const { data, error } = await supabase.rpc('enqueue_bulk_device_admin_command', {
+      p_command: command,
+      p_device_ids: deviceIds,
+      p_reason: 'settings_global_controls',
+      p_requested_by: 'dashboard',
+    })
+
+    setGlobalPowerBusy(null)
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+
+    const queuedCount = Number((data as any)?.queued_count ?? 0)
+    const dedupedCount = Number((data as any)?.deduped_count ?? 0)
+    const label = command === 'restart' ? 'Restart' : command === 'shutdown' ? 'Shutdown' : 'Reset'
+    setSuccessMessage(
+      `${label} queued for ${deviceCount.toLocaleString()} device${deviceCount === 1 ? '' : 's'}${
+        dedupedCount > 0 ? ` • ${dedupedCount.toLocaleString()} already pending` : ''
+      }${queuedCount > 0 ? ` • ${queuedCount.toLocaleString()} new` : ''}`,
+    )
+    setErrorMessage(null)
+  }
+
+  async function postGlobalOverride(params: {
+    target: 'accounting_balance' | 'hopper_balance'
+    entryKind: 'debit' | 'credit'
+    amountText: string
+    accountName: string
+    notes: string
+  }) {
+    const amount = Math.max(0, Number(params.amountText || 0))
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setErrorMessage('Amount must be greater than 0')
+      return
+    }
+    if (!params.accountName.trim()) {
+      setErrorMessage('Account name is required')
+      return
+    }
+    if (deviceCount === 0) {
+      setErrorMessage('No target devices found')
+      return
+    }
+
+    setGlobalOverrideBusy(true)
+
+    const { data, error } = await supabase.rpc('post_bulk_device_admin_ledger_entry', {
+      p_target: params.target,
+      p_entry_kind: params.entryKind,
+      p_amount: amount,
+      p_account_name: params.accountName.trim(),
+      p_device_ids: deviceIds,
+      p_notes: params.notes.trim() || null,
+      p_metadata: {
+        source: 'settings_global_controls',
+      },
+    })
+
+    setGlobalOverrideBusy(false)
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+
+    const processedCount = Number((data as any)?.processed_count ?? deviceCount)
+    const totalApplied = Number((data as any)?.total_applied ?? 0)
+    setSuccessMessage(
+      `${params.target === 'accounting_balance' ? 'Balance' : 'Hopper'} ${params.entryKind.toUpperCase()} ${formatCurrency(amount)} per device • ${processedCount.toLocaleString()} device${
+        processedCount === 1 ? '' : 's'
+      } • ${formatCurrency(totalApplied)} total`,
+    )
+    setErrorMessage(null)
+  }
 
   async function saveRuntime() {
     setSaving(true)
@@ -342,6 +450,160 @@ export default function Settings() {
           {errorMessage}
         </div>
       )}
+
+      {successMessage && (
+        <div className="p-3 bg-green-900/30 border border-green-700 text-green-300 text-sm rounded">
+          {successMessage}
+        </div>
+      )}
+
+      <section className="rounded-lg border border-slate-800 bg-slate-900/40 p-4 space-y-4">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Global Device Controls</h2>
+            <p className="text-xs text-slate-400">
+              Sends demo/admin actions to all registered devices from settings.
+            </p>
+          </div>
+          <div className="text-xs font-mono text-slate-300">
+            Targeting {deviceCount.toLocaleString()} device{deviceCount === 1 ? '' : 's'}
+          </div>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="rounded border border-slate-700 bg-slate-950/70 p-3">
+            <div className="text-xs text-slate-400 mb-3">Queue a power command for all devices.</div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded border border-sky-600/80 bg-sky-900/30 px-3 py-1.5 text-xs font-semibold text-sky-200 hover:bg-sky-800/40 disabled:opacity-50"
+                disabled={globalPowerBusy !== null || globalOverrideBusy || deviceCount === 0}
+                onClick={() => void enqueueGlobalPowerCommand('reset')}
+              >
+                {globalPowerBusy === 'reset' ? 'Queueing Reset...' : 'Reset All Devices'}
+              </button>
+              <button
+                type="button"
+                className="rounded border border-amber-600/80 bg-amber-900/30 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-800/40 disabled:opacity-50"
+                disabled={globalPowerBusy !== null || globalOverrideBusy || deviceCount === 0}
+                onClick={() => void enqueueGlobalPowerCommand('restart')}
+              >
+                {globalPowerBusy === 'restart' ? 'Queueing Restart...' : 'Restart All Devices'}
+              </button>
+              <button
+                type="button"
+                className="rounded border border-red-600/80 bg-red-900/30 px-3 py-1.5 text-xs font-semibold text-red-200 hover:bg-red-800/40 disabled:opacity-50"
+                disabled={globalPowerBusy !== null || globalOverrideBusy || deviceCount === 0}
+                onClick={() => void enqueueGlobalPowerCommand('shutdown')}
+              >
+                {globalPowerBusy === 'shutdown' ? 'Queueing Shutdown...' : 'Shutdown All Devices'}
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded border border-slate-700 bg-slate-950/70 p-3">
+            <div className="text-xs text-slate-400 mb-2">Global Accounting Balance Override</div>
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              <select
+                className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm"
+                value={globalBalanceKind}
+                onChange={e => setGlobalBalanceKind(e.target.value as 'debit' | 'credit')}
+              >
+                <option value="credit">Credit</option>
+                <option value="debit">Debit</option>
+              </select>
+              <input
+                className="col-span-2 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm"
+                type="number"
+                min={0}
+                step={1}
+                value={globalBalanceAmount}
+                onChange={e => setGlobalBalanceAmount(e.target.value)}
+                placeholder="Amount"
+              />
+            </div>
+            <input
+              className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs mb-2"
+              value={globalBalanceAccountName}
+              onChange={e => setGlobalBalanceAccountName(e.target.value)}
+              placeholder="Account name"
+            />
+            <input
+              className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs mb-2"
+              value={globalBalanceNotes}
+              onChange={e => setGlobalBalanceNotes(e.target.value)}
+              placeholder="Notes"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                void postGlobalOverride({
+                  target: 'accounting_balance',
+                  entryKind: globalBalanceKind,
+                  amountText: globalBalanceAmount,
+                  accountName: globalBalanceAccountName,
+                  notes: globalBalanceNotes,
+                })
+              }}
+              disabled={globalOverrideBusy || globalPowerBusy !== null || deviceCount === 0}
+              className="w-full rounded border border-blue-600 bg-blue-700/30 px-3 py-1 text-xs text-blue-300 disabled:opacity-50"
+            >
+              Apply to All Devices
+            </button>
+          </div>
+
+          <div className="rounded border border-slate-700 bg-slate-950/70 p-3">
+            <div className="text-xs text-slate-400 mb-2">Global Hopper Override</div>
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              <select
+                className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm"
+                value={globalHopperKind}
+                onChange={e => setGlobalHopperKind(e.target.value as 'debit' | 'credit')}
+              >
+                <option value="credit">Credit</option>
+                <option value="debit">Debit</option>
+              </select>
+              <input
+                className="col-span-2 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm"
+                type="number"
+                min={0}
+                step={1}
+                value={globalHopperAmount}
+                onChange={e => setGlobalHopperAmount(e.target.value)}
+                placeholder="Amount"
+              />
+            </div>
+            <input
+              className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs mb-2"
+              value={globalHopperAccountName}
+              onChange={e => setGlobalHopperAccountName(e.target.value)}
+              placeholder="Account name"
+            />
+            <input
+              className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs mb-2"
+              value={globalHopperNotes}
+              onChange={e => setGlobalHopperNotes(e.target.value)}
+              placeholder="Notes"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                void postGlobalOverride({
+                  target: 'hopper_balance',
+                  entryKind: globalHopperKind,
+                  amountText: globalHopperAmount,
+                  accountName: globalHopperAccountName,
+                  notes: globalHopperNotes,
+                })
+              }}
+              disabled={globalOverrideBusy || globalPowerBusy !== null || deviceCount === 0}
+              className="w-full rounded border border-amber-600 bg-amber-700/30 px-3 py-1 text-xs text-amber-300 disabled:opacity-50"
+            >
+              Apply to All Devices
+            </button>
+          </div>
+        </div>
+      </section>
 
       <section className="rounded-lg border border-slate-800 bg-slate-900/40 p-4 space-y-4">
         <h2 className="text-lg font-semibold">Happy Hour Control</h2>
