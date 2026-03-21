@@ -604,8 +604,11 @@ export default function Dashboard() {
                       }
                     >
                       <td className="px-4 py-2">
-                        <div className="flex items-center gap-2">
-                          <span>{d.device_id ?? 'Unnamed'}</span>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="truncate">{d.device_id ?? 'Unnamed'}</div>
+                            {d.name && <div className="truncate text-xs text-slate-400">{d.name}</div>}
+                          </div>
                           {d.jackpot_selected && (
                             <span className="rounded border border-amber-400/70 bg-amber-900/50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200">
                               JACKPOT

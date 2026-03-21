@@ -9,6 +9,8 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [overrideBusy, setOverrideBusy] = useState(false)
   const [powerActionBusy, setPowerActionBusy] = useState<'restart' | 'shutdown' | 'reset' | null>(null)
+  const [nameBusy, setNameBusy] = useState(false)
+  const [deviceName, setDeviceName] = useState(String(device.name ?? ''))
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
   const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
   const formatJackpotCurrency = (v: number | string | null | undefined) =>
@@ -66,6 +68,7 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
   useEffect(() => {
     setBalanceAmount('0')
     setHopperAmount('0')
+    setDeviceName(String(device.name ?? ''))
   }, [device.device_id, device.balance, device.hopper_balance])
 
   useEffect(() => {
@@ -180,6 +183,32 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
     setErrorMessage(null)
   }
 
+  async function saveDeviceName() {
+    if (!device?.device_id) return
+
+    setNameBusy(true)
+
+    const nextName = deviceName.trim()
+    const { error } = await supabase
+      .from('devices')
+      .update({
+        name: nextName || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('device_id', device.device_id)
+
+    setNameBusy(false)
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+
+    device.name = nextName || null
+    setSuccessMessage(nextName ? `Cabinet name saved: ${nextName}` : `Cabinet name cleared for ${device.device_id}`)
+    setErrorMessage(null)
+  }
+
   return (
     <div className="fixed inset-0   bg-black/85 z-50 overflow-y-auto">
       <div className="min-h-full flex items-start md:items-center justify-center p-4">
@@ -199,6 +228,7 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
                 <h3 className="text-base md:text-lg font-semibold">
                   Device: {device.device_id ?? 'Unnamed Device'}
                 </h3>
+                {device.name && <div className="mt-1 text-sm text-slate-300">{device.name}</div>}
                 <div className="mt-1 text-xs text-slate-400">
                   Status: {(device.device_status ?? 'idle').toUpperCase()} • {telemetryLabel}
                 </div>
@@ -281,6 +311,30 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
 
           <div className="flex flex-col overflow-hidden">
             <div className="px-4">
+              <h4 className="text-sm font-semibold mb-2">Cabinet Name</h4>
+              <div className="rounded border border-slate-700 bg-slate-950/70 p-3 mb-4">
+                <div className="text-xs text-slate-400 mb-3">
+                  Set a human-friendly name for this device. This shows in the dashboard list.
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    type="text"
+                    value={deviceName}
+                    onChange={e => setDeviceName(e.target.value)}
+                    placeholder="Cabinet name"
+                    className="flex-1 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+                  />
+                  <button
+                    type="button"
+                    className="rounded border border-blue-600/80 bg-blue-900/30 px-3 py-2 text-xs font-semibold text-blue-200 hover:bg-blue-800/40 disabled:opacity-50"
+                    disabled={nameBusy || overrideBusy || powerActionBusy !== null}
+                    onClick={() => void saveDeviceName()}
+                  >
+                    {nameBusy ? 'Saving Name...' : 'Save Name'}
+                  </button>
+                </div>
+              </div>
+
               <h4 className="text-sm font-semibold mb-2">Device Power Controls</h4>
               <div className="rounded border border-slate-700 bg-slate-950/70 p-3 mb-4">
                 <div className="text-xs text-slate-400 mb-3">
