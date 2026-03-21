@@ -336,7 +336,7 @@ export default function Dashboard() {
             </button>
 
             <div className="rounded-lg border border-orange-700/40 bg-orange-900/20 p-4">
-              <div className="text-xs text-orange-300/80 mb-1">Global House Take (Strict 20% per bet)</div>
+              <div className="text-xs text-orange-300/80 mb-1">Global House Take (Configured profile house %)</div>
               <div className="text-xl sm:text-2xl font-bold font-mono text-orange-300">
                 {formatCurrency(globalHouseGross)}
               </div>
