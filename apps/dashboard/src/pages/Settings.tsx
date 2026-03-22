@@ -22,8 +22,15 @@ type OverCapWinRow = {
 export default function Settings() {
   const games = useGames()
   const devices = useDevices()
-  const { runtime, profiles, updateRuntime, updateProfile, setHappyHour, demoReset, enqueueDevJackpotTest } =
-    useCasinoRuntime()
+  const {
+    runtime,
+    profiles,
+    updateRuntime,
+    updateProfile,
+    setHappyHour,
+    demoReset,
+    enqueueDevJackpotTest,
+  } = useCasinoRuntime()
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
@@ -47,10 +54,11 @@ export default function Settings() {
   const [jackpotDelayMinSpins, setJackpotDelayMinSpins] = useState('2')
   const [jackpotDelayMaxSpins, setJackpotDelayMaxSpins] = useState('3')
   const [jackpotWinVariance, setJackpotWinVariance] = useState('90')
-  const [jackpotPayoutCurve, setJackpotPayoutCurve] = useState<'flat' | 'front' | 'center' | 'back'>(
-    'center',
-  )
-  const [jackpotDeliveryMode, setJackpotDeliveryMode] = useState<JackpotDeliveryMode>('TARGET_FIRST')
+  const [jackpotPayoutCurve, setJackpotPayoutCurve] = useState<
+    'flat' | 'front' | 'center' | 'back'
+  >('center')
+  const [jackpotDeliveryMode, setJackpotDeliveryMode] =
+    useState<JackpotDeliveryMode>('TARGET_FIRST')
   const [poolGoalMode, setPoolGoalMode] = useState<'amount' | 'spins' | 'time'>('amount')
   const [poolGoalSpins, setPoolGoalSpins] = useState('1000')
   const [poolGoalTimeHours, setPoolGoalTimeHours] = useState('0')
@@ -68,15 +76,21 @@ export default function Settings() {
   const [selectedDevDeviceIds, setSelectedDevDeviceIds] = useState<string[]>([])
   const [testSubmitting, setTestSubmitting] = useState(false)
   const [testResultMessage, setTestResultMessage] = useState<string | null>(null)
-  const [globalPowerBusy, setGlobalPowerBusy] = useState<'restart' | 'shutdown' | 'reset' | null>(null)
+  const [globalPowerBusy, setGlobalPowerBusy] = useState<'restart' | 'shutdown' | 'reset' | null>(
+    null,
+  )
   const [globalOverrideBusy, setGlobalOverrideBusy] = useState(false)
   const [globalBalanceAmount, setGlobalBalanceAmount] = useState('0')
   const [globalBalanceKind, setGlobalBalanceKind] = useState<'debit' | 'credit'>('credit')
-  const [globalBalanceAccountName, setGlobalBalanceAccountName] = useState('Global Manual Accounting Override')
+  const [globalBalanceAccountName, setGlobalBalanceAccountName] = useState(
+    'Global Manual Accounting Override',
+  )
   const [globalBalanceNotes, setGlobalBalanceNotes] = useState('')
   const [globalHopperAmount, setGlobalHopperAmount] = useState('0')
   const [globalHopperKind, setGlobalHopperKind] = useState<'debit' | 'credit'>('credit')
-  const [globalHopperAccountName, setGlobalHopperAccountName] = useState('Global Manual Hopper Override')
+  const [globalHopperAccountName, setGlobalHopperAccountName] = useState(
+    'Global Manual Hopper Override',
+  )
   const [globalHopperNotes, setGlobalHopperNotes] = useState('')
   const [overCapWins, setOverCapWins] = useState<OverCapWinRow[]>([])
   const [overCapWinsLoading, setOverCapWinsLoading] = useState(false)
@@ -98,9 +112,7 @@ export default function Settings() {
     setJackpotPayoutCurve(
       (runtime.jackpot_payout_curve ?? 'center') as 'flat' | 'front' | 'center' | 'back',
     )
-    setJackpotDeliveryMode(
-      (runtime.jackpot_delivery_mode ?? 'TARGET_FIRST') as JackpotDeliveryMode,
-    )
+    setJackpotDeliveryMode((runtime.jackpot_delivery_mode ?? 'TARGET_FIRST') as JackpotDeliveryMode)
     setPoolGoalMode((runtime.pool_goal_mode ?? 'amount') as 'amount' | 'spins' | 'time')
     setPoolGoalSpins(String(runtime.pool_goal_spins ?? 1000))
     const totalMinutes = Math.max(1, Math.round((runtime.pool_goal_time_seconds ?? 1800) / 60))
@@ -150,7 +162,10 @@ export default function Settings() {
     [devices],
   )
   const playingDevDeviceIds = useMemo(
-    () => devDevices.filter(device => device.device_status === 'playing').map(device => device.device_id),
+    () =>
+      devDevices
+        .filter(device => device.device_status === 'playing')
+        .map(device => device.device_id),
     [devDevices],
   )
   const selectedBaseProfile = useMemo(
@@ -195,7 +210,8 @@ export default function Settings() {
   }, [devDevices])
 
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
-  const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
+  const formatCurrency = (v: number | string | null | undefined) =>
+    `₱${asNumber(v).toLocaleString()}`
   const formatDateTime = (value: string | null | undefined) =>
     value ? new Date(value).toLocaleString() : 'Unknown'
   const testJackpotAmountValue = Math.max(0, Number(testJackpotAmount || 0))
@@ -204,7 +220,8 @@ export default function Settings() {
     1,
     Math.min(testJackpotWinnersValue, Math.max(1, selectedDevDeviceIds.length)),
   )
-  const perWinnerTestAmount = effectiveTestWinners > 0 ? testJackpotAmountValue / effectiveTestWinners : 0
+  const perWinnerTestAmount =
+    effectiveTestWinners > 0 ? testJackpotAmountValue / effectiveTestWinners : 0
   const deviceCount = deviceIds.length
 
   async function enqueueGlobalPowerCommand(command: 'restart' | 'shutdown' | 'reset') {
@@ -515,7 +532,9 @@ export default function Settings() {
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)]">
           <div className="rounded border border-slate-700 bg-slate-950/70 p-3">
-            <div className="text-xs text-slate-400 mb-3">Queue a power command for all devices.</div>
+            <div className="text-xs text-slate-400 mb-3">
+              Queue a power command for all devices.
+            </div>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -648,91 +667,15 @@ export default function Settings() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-rose-800/70 bg-rose-950/20 p-4 space-y-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-rose-200">Over-Cap Win Clients</h2>
-            <p className="text-xs text-rose-200/80">
-              Recent normal wins that the DB had to clamp. Use this to find stale or buggy clients.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void loadOverCapWins()}
-            disabled={overCapWinsLoading}
-            className="rounded border border-rose-700 bg-rose-900/30 px-3 py-1.5 text-xs font-semibold text-rose-200 disabled:opacity-50"
-          >
-            {overCapWinsLoading ? 'Refreshing…' : 'Refresh List'}
-          </button>
-        </div>
-
-        {overCapWinsError && (
-          <div className="rounded border border-red-700 bg-red-900/30 p-3 text-xs text-red-200">
-            {overCapWinsError}
-          </div>
-        )}
-
-        <div className="overflow-x-auto rounded border border-rose-900/60">
-          <table className="min-w-full divide-y divide-rose-900/60 text-sm">
-            <thead className="bg-slate-950/70 text-xs uppercase tracking-wide text-rose-200/80">
-              <tr>
-                <th className="px-3 py-2 text-left">Time</th>
-                <th className="px-3 py-2 text-left">Cabinet</th>
-                <th className="px-3 py-2 text-right">Requested</th>
-                <th className="px-3 py-2 text-right">Accepted</th>
-                <th className="px-3 py-2 text-right">Over</th>
-                <th className="px-3 py-2 text-left">Mode</th>
-                <th className="px-3 py-2 text-left">Client</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-rose-900/40 bg-slate-950/40">
-              {overCapWins.length === 0 && !overCapWinsLoading && (
-                <tr>
-                  <td colSpan={7} className="px-3 py-6 text-center text-xs text-slate-400">
-                    No over-cap wins logged.
-                  </td>
-                </tr>
-              )}
-              {overCapWins.map(row => {
-                const metadata = row.metadata ?? {}
-                const clientApp = String(metadata.clientApp ?? 'unknown')
-                const clientBuild = String(metadata.clientBuild ?? 'unknown')
-                const displayName = row.device_name?.trim() || 'Unnamed Cabinet'
-                return (
-                  <tr key={row.id} className="align-top">
-                    <td className="px-3 py-2 text-xs text-slate-300">{formatDateTime(row.event_ts)}</td>
-                    <td className="px-3 py-2">
-                      <div className="font-medium text-slate-100">{displayName}</div>
-                      <div className="text-[11px] text-slate-400">{row.device_id}</div>
-                    </td>
-                    <td className="px-3 py-2 text-right text-rose-100">{formatCurrency(row.requested_amount)}</td>
-                    <td className="px-3 py-2 text-right text-slate-200">{formatCurrency(row.accepted_amount)}</td>
-                    <td className="px-3 py-2 text-right font-medium text-rose-300">
-                      {formatCurrency(row.over_amount)}
-                    </td>
-                    <td className="px-3 py-2 text-xs text-slate-300">
-                      <div>{row.runtime_mode}</div>
-                      <div className="text-[11px] text-slate-500">{row.funding_source}</div>
-                    </td>
-                    <td className="px-3 py-2 text-xs text-slate-300">
-                      <div>{clientApp}</div>
-                      <div className="text-[11px] text-slate-500">{clientBuild}</div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
       <section className="rounded-lg border border-slate-800 bg-slate-900/40 p-4 space-y-4">
         <h2 className="text-lg font-semibold">Happy Hour Control</h2>
 
         <div className="text-sm text-slate-300">
           <span className="mr-3">
             Current Mode:{' '}
-            <strong className={runtime?.active_mode === 'HAPPY' ? 'text-amber-300' : 'text-sky-300'}>
+            <strong
+              className={runtime?.active_mode === 'HAPPY' ? 'text-amber-300' : 'text-sky-300'}
+            >
               {runtime?.active_mode ?? 'BASE'}
             </strong>
           </span>
@@ -824,7 +767,8 @@ export default function Settings() {
               value={happyProfileId}
               onChange={e => {
                 const nextHappyProfileId = e.target.value
-                const nextHappyProfile = happyProfiles.find(p => p.id === nextHappyProfileId) ?? null
+                const nextHappyProfile =
+                  happyProfiles.find(p => p.id === nextHappyProfileId) ?? null
                 setIsRuntimeFormDirty(true)
                 setHappyProfileId(nextHappyProfileId)
                 if (nextHappyProfile) {
@@ -907,9 +851,11 @@ export default function Settings() {
                 placeholder="Happy %"
               />
             </div>
-            <span className={`text-xs ${Math.abs(baseSplitTotal - 100) > 0.0001 ? 'text-red-300' : 'text-slate-500'}`}>
-              Base Split: House {baseHousePct.toFixed(2)}% / Jackpot {baseJackpotPct.toFixed(2)}% / Happy{' '}
-              {baseHappyPct.toFixed(2)}% (Total {baseSplitTotal.toFixed(2)}%)
+            <span
+              className={`text-xs ${Math.abs(baseSplitTotal - 100) > 0.0001 ? 'text-red-300' : 'text-slate-500'}`}
+            >
+              Base Split: House {baseHousePct.toFixed(2)}% / Jackpot {baseJackpotPct.toFixed(2)}% /
+              Happy {baseHappyPct.toFixed(2)}% (Total {baseSplitTotal.toFixed(2)}%)
             </span>
           </div>
 
@@ -950,9 +896,11 @@ export default function Settings() {
                 placeholder="Happy %"
               />
             </div>
-            <span className={`text-xs ${Math.abs(happySplitTotal - 100) > 0.0001 ? 'text-red-300' : 'text-slate-500'}`}>
-              Happy Split: House {happyHousePct.toFixed(2)}% / Jackpot {happyJackpotPct.toFixed(2)}% / Happy{' '}
-              {happyHappyPct.toFixed(2)}% (Total {happySplitTotal.toFixed(2)}%)
+            <span
+              className={`text-xs ${Math.abs(happySplitTotal - 100) > 0.0001 ? 'text-red-300' : 'text-slate-500'}`}
+            >
+              Happy Split: House {happyHousePct.toFixed(2)}% / Jackpot {happyJackpotPct.toFixed(2)}%
+              / Happy {happyHappyPct.toFixed(2)}% (Total {happySplitTotal.toFixed(2)}%)
             </span>
             {splitInvalid && (
               <span className="text-xs text-red-300">
@@ -1200,7 +1148,8 @@ export default function Settings() {
             Enable Max Win Cap
           </label>
           <div className="text-xs text-slate-500 md:col-span-2 md:mt-7">
-            Tiered cap: 1-19 x3000, 20-99 x2500, 100-199 x2000, 200-299 x1500, 300-499 x1000, 500+ x700.
+            Tiered cap: 1-19 x3000, 20-99 x2500, 100-199 x2000, 200-299 x1500, 300-499 x1000, 500+
+            x700.
           </div>
         </div>
 
@@ -1218,8 +1167,8 @@ export default function Settings() {
       <section className="rounded-lg border border-indigo-800/70 bg-indigo-950/20 p-4 space-y-4">
         <h2 className="text-lg font-semibold text-indigo-200">DEV Jackpot Test</h2>
         <p className="text-xs text-indigo-200/80">
-          DEV-only manual jackpot trigger. DB will only accept selected devices with <code>dev-</code>{' '}
-          prefix.
+          DEV-only manual jackpot trigger. DB will only accept selected devices with{' '}
+          <code>dev-</code> prefix.
         </p>
 
         {testResultMessage && (
@@ -1284,8 +1233,8 @@ export default function Settings() {
         </label>
 
         <div className="text-xs text-indigo-200/80">
-          Split preview: {formatCurrency(testJackpotAmountValue)} total / {effectiveTestWinners} winner(s) ={' '}
-          <strong>{formatCurrency(perWinnerTestAmount)}</strong> per winner.
+          Split preview: {formatCurrency(testJackpotAmountValue)} total / {effectiveTestWinners}{' '}
+          winner(s) = <strong>{formatCurrency(perWinnerTestAmount)}</strong> per winner.
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -1449,7 +1398,8 @@ export default function Settings() {
       <section className="rounded-lg border border-red-800/70 bg-red-950/20 p-4 space-y-4">
         <h2 className="text-lg font-semibold text-red-300">Demo Reset</h2>
         <p className="text-xs text-red-200/80">
-          Clears metrics/ledger history, removes non-kept devices, resets balances and runtime banks.
+          Clears metrics/ledger history, removes non-kept devices, resets balances and runtime
+          banks.
         </p>
 
         <label className="flex flex-col gap-1 text-sm">
@@ -1479,6 +1429,90 @@ export default function Settings() {
           >
             Run Demo Reset
           </button>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-rose-800/70 bg-rose-950/20 p-4 space-y-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-rose-200">Over-Cap Win Clients</h2>
+            <p className="text-xs text-rose-200/80">
+              Recent normal wins that the DB had to clamp. Use this to find stale or buggy clients.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void loadOverCapWins()}
+            disabled={overCapWinsLoading}
+            className="rounded border border-rose-700 bg-rose-900/30 px-3 py-1.5 text-xs font-semibold text-rose-200 disabled:opacity-50"
+          >
+            {overCapWinsLoading ? 'Refreshing…' : 'Refresh List'}
+          </button>
+        </div>
+
+        {overCapWinsError && (
+          <div className="rounded border border-red-700 bg-red-900/30 p-3 text-xs text-red-200">
+            {overCapWinsError}
+          </div>
+        )}
+
+        <div className="overflow-x-auto rounded border border-rose-900/60">
+          <table className="min-w-full divide-y divide-rose-900/60 text-sm">
+            <thead className="bg-slate-950/70 text-xs uppercase tracking-wide text-rose-200/80">
+              <tr>
+                <th className="px-3 py-2 text-left">Time</th>
+                <th className="px-3 py-2 text-left">Cabinet</th>
+                <th className="px-3 py-2 text-right">Requested</th>
+                <th className="px-3 py-2 text-right">Accepted</th>
+                <th className="px-3 py-2 text-right">Over</th>
+                <th className="px-3 py-2 text-left">Mode</th>
+                <th className="px-3 py-2 text-left">Client</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-rose-900/40 bg-slate-950/40">
+              {overCapWins.length === 0 && !overCapWinsLoading && (
+                <tr>
+                  <td colSpan={7} className="px-3 py-6 text-center text-xs text-slate-400">
+                    No over-cap wins logged.
+                  </td>
+                </tr>
+              )}
+              {overCapWins.map(row => {
+                const metadata = row.metadata ?? {}
+                const clientApp = String(metadata.clientApp ?? 'unknown')
+                const clientBuild = String(metadata.clientBuild ?? 'unknown')
+                const displayName = row.device_name?.trim() || 'Unnamed Cabinet'
+                return (
+                  <tr key={row.id} className="align-top">
+                    <td className="px-3 py-2 text-xs text-slate-300">
+                      {formatDateTime(row.event_ts)}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="font-medium text-slate-100">{displayName}</div>
+                      <div className="text-[11px] text-slate-400">{row.device_id}</div>
+                    </td>
+                    <td className="px-3 py-2 text-right text-rose-100">
+                      {formatCurrency(row.requested_amount)}
+                    </td>
+                    <td className="px-3 py-2 text-right text-slate-200">
+                      {formatCurrency(row.accepted_amount)}
+                    </td>
+                    <td className="px-3 py-2 text-right font-medium text-rose-300">
+                      {formatCurrency(row.over_amount)}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-slate-300">
+                      <div>{row.runtime_mode}</div>
+                      <div className="text-[11px] text-slate-500">{row.funding_source}</div>
+                    </td>
+                    <td className="px-3 py-2 text-xs text-slate-300">
+                      <div>{clientApp}</div>
+                      <div className="text-[11px] text-slate-500">{clientBuild}</div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       </section>
     </div>

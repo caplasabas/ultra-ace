@@ -104,6 +104,7 @@ export default function Dashboard() {
 
   const globalBet = asNumber(stats?.total_bet_amount)
   const globalWin = asNumber(stats?.total_win_amount)
+  const globalAverageBet = asNumber(stats?.total_spins) > 0 ? globalBet / asNumber(stats?.total_spins) : 0
   const globalHouseGross = asNumber(stats?.total_house_take ?? (globalBet - globalWin))
   const globalHouseNet = asNumber(
     stats?.total_house_net ??
@@ -285,6 +286,9 @@ export default function Dashboard() {
               <div className="text-xs text-violet-300/80 mb-1">Total Bet Amount</div>
               <div className="text-xl sm:text-2xl font-bold font-mono text-violet-300">
                 {formatCurrency(stats?.total_bet_amount)}
+              </div>
+              <div className="text-[11px] text-violet-200/80 mt-1 font-mono">
+                Avg Bet / Spin {formatJackpotCurrency(globalAverageBet)}
               </div>
             </div>
 
