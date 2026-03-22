@@ -66,7 +66,6 @@ export default function Settings() {
   const [maxWinEnabled, setMaxWinEnabled] = useState(true)
   const [hopperAlertThreshold, setHopperAlertThreshold] = useState('500')
   const [autoHappy, setAutoHappy] = useState(true)
-  const [keepDeviceIdsText, setKeepDeviceIdsText] = useState('')
   const [resetConfirm, setResetConfirm] = useState('')
   const [testJackpotAmount, setTestJackpotAmount] = useState('5000')
   const [testJackpotWinners, setTestJackpotWinners] = useState('1')
@@ -483,12 +482,7 @@ export default function Settings() {
       return
     }
 
-    const keepDeviceIds = keepDeviceIdsText
-      .split(/[,\n]/)
-      .map(v => v.trim())
-      .filter(Boolean)
-
-    const result = await demoReset(keepDeviceIds)
+    const result = await demoReset()
     if (!result.ok) {
       setErrorMessage(result.error?.message ?? 'Failed to run demo reset')
       return
@@ -1398,19 +1392,9 @@ export default function Settings() {
       <section className="rounded-lg border border-red-800/70 bg-red-950/20 p-4 space-y-4">
         <h2 className="text-lg font-semibold text-red-300">Demo Reset</h2>
         <p className="text-xs text-red-200/80">
-          Clears metrics/ledger history, removes non-kept devices, resets balances and runtime
-          banks.
+          Resets balances, ledgers, jackpot/free-spin runtime, session state, and queued admin
+          actions for all registered devices while keeping each device ID and name.
         </p>
-
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-red-200">Keep Device IDs (comma or newline separated)</span>
-          <textarea
-            className="bg-slate-950 border border-red-800/70 rounded px-3 py-2 min-h-[88px]"
-            value={keepDeviceIdsText}
-            onChange={e => setKeepDeviceIdsText(e.target.value)}
-            placeholder="8260caefe187dd89"
-          />
-        </label>
 
         <label className="flex flex-col gap-1 text-sm max-w-xs">
           <span className="text-red-200">Type RESET to confirm</span>

@@ -137,10 +137,9 @@ export function useCasinoRuntime() {
     return { ok: true }
   }
 
-  async function demoReset(keepDeviceIds: string[]) {
-    const payload = (keepDeviceIds ?? []).map(v => v.trim()).filter(Boolean)
+  async function demoReset() {
     const { error } = await supabase.rpc('demo_reset_runtime_metrics', {
-      p_keep_device_ids: payload,
+      p_keep_device_ids: [],
     })
     if (error) return { ok: false, error }
 

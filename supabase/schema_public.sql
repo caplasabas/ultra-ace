@@ -421,66 +421,61 @@ CREATE OR REPLACE FUNCTION "public"."demo_reset_runtime_metrics"("p_keep_device_
     SET "search_path" TO 'public'
     AS $$
 declare
-  v_kept_count integer := 0;
-  v_removed_count integer := 0;
+  v_device_count integer := 0;
+  v_command_count integer := 0;
 begin
-  with keep_ids as (
-    select distinct nullif(trim(x), '') as device_id
-    from unnest(coalesce(p_keep_device_ids, array[]::text[])) x
-  )
   select count(*)::int
-  into v_kept_count
+  into v_device_count
   from public.devices d
-  join keep_ids k on k.device_id = d.device_id;
+  where trim(coalesce(d.device_id, '')) <> '';
 
-  -- Remove non-kept devices first.
-  with keep_ids as (
-    select distinct nullif(trim(x), '') as device_id
-    from unnest(coalesce(p_keep_device_ids, array[]::text[])) x
-  ),
-  deleted as (
-    delete from public.devices d
-    where not exists (
-      select 1 from keep_ids k where k.device_id = d.device_id
-    )
-    returning 1
-  )
-  select count(*)::int into v_removed_count from deleted;
+  truncate table public.device_metric_events restart identity;
+  truncate table public.device_daily_stats;
 
-  -- Clear event/stat history.
-  truncate table public.device_metric_events, public.device_daily_stats;
+  if to_regclass('public.jackpot_payout_plan_steps') is not null then
+    execute 'truncate table public.jackpot_payout_plan_steps restart identity cascade';
+  end if;
 
-  -- Clear queue/pot state for clean jackpot/happy testing.
   if to_regclass('public.jackpot_payout_queue') is not null then
-    execute 'truncate table public.jackpot_payout_queue';
+    execute 'truncate table public.jackpot_payout_queue restart identity cascade';
   end if;
 
   if to_regclass('public.happy_hour_pots') is not null then
-    execute 'truncate table public.happy_hour_pots restart identity';
+    execute 'truncate table public.happy_hour_pots restart identity cascade';
   end if;
 
   if to_regclass('public.jackpot_pots') is not null then
-    execute 'truncate table public.jackpot_pots restart identity';
+    execute 'truncate table public.jackpot_pots restart identity cascade';
   end if;
 
   if to_regclass('public.device_game_sessions') is not null then
-    execute 'truncate table public.device_game_sessions restart identity';
+    execute 'truncate table public.device_game_sessions restart identity cascade';
   end if;
 
-  -- Optional legacy tables.
   if to_regclass('public.device_admin_ledger_entries') is not null then
-    execute 'truncate table public.device_admin_ledger_entries';
+    execute 'truncate table public.device_admin_ledger_entries restart identity cascade';
+  end if;
+
+  if to_regclass('public.device_admin_commands') is not null then
+    execute 'truncate table public.device_admin_commands restart identity cascade';
   end if;
 
   if to_regclass('public.ledger_entries') is not null then
-    execute 'truncate table public.ledger_entries';
+    execute 'truncate table public.ledger_entries restart identity cascade';
   end if;
 
   if to_regclass('public.ledger_events') is not null then
-    execute 'truncate table public.ledger_events';
+    execute 'truncate table public.ledger_events restart identity cascade';
   end if;
 
-  -- Reset live device counters and status fields.
+  if to_regclass('public.over_cap_win_events') is not null then
+    execute 'truncate table public.over_cap_win_events restart identity cascade';
+  end if;
+
+  if to_regclass('public.device_spin_event_dedup') is not null then
+    execute 'truncate table public.device_spin_event_dedup restart identity cascade';
+  end if;
+
   update public.devices
   set
     balance = 0,
@@ -493,7 +488,7 @@ begin
     house_take_total = 0,
     jackpot_contrib_total = 0,
     jackpot_win_total = 0,
-    last_bet_amount = null,
+    last_bet_amount = 0,
     last_bet_at = null,
     withdraw_total = 0,
     spins_total = 0,
@@ -516,11 +511,11 @@ begin
     updated_at = now()
   where true;
 
-  -- Reset runtime banks/counters and active pot pointers.
   update public.casino_runtime
   set
     active_mode = 'BASE',
     manual_happy_enabled = false,
+    auto_happy_enabled = true,
     prize_pool_balance = 0,
     happy_hour_prize_balance = 0,
     jackpot_pool_balance = 0,
@@ -537,10 +532,37 @@ begin
 
   perform public.recompute_casino_mode();
 
+  if to_regclass('public.device_admin_commands') is not null then
+    insert into public.device_admin_commands (
+      device_id,
+      command,
+      status,
+      reason,
+      requested_by,
+      requested_at,
+      created_at,
+      updated_at
+    )
+    select
+      d.device_id,
+      'reset',
+      'queued',
+      'demo_reset_runtime_metrics',
+      'dashboard',
+      now(),
+      now(),
+      now()
+    from public.devices d
+    where trim(coalesce(d.device_id, '')) <> '';
+
+    get diagnostics v_command_count = row_count;
+  end if;
+
   return jsonb_build_object(
     'ok', true,
-    'kept_devices', v_kept_count,
-    'removed_devices', v_removed_count
+    'devices_reset', v_device_count,
+    'devices_preserved', v_device_count,
+    'reset_commands_queued', v_command_count
   );
 end;
 $$;
