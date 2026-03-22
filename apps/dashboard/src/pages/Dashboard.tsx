@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { DeviceRow } from '../hooks/useDevices'
 import { useDevices } from '../hooks/useDevices'
 import { DeviceModal } from '../components/DeviceModal'
 import { useGlobalStats } from '../hooks/useGlobalStats'
 import { useCasinoRuntime } from '../hooks/useCasinoRuntime'
 import { useGames } from '../hooks/useGames'
 import moment from 'moment'
-import type { DeviceRow } from '../hooks/useDevices'
 import { supabase } from '../lib/supabase'
 
 type SortField =
@@ -60,16 +60,8 @@ export default function Dashboard() {
   useEffect(() => {
     async function fetchPots() {
       const [{ data: happyData }, { data: jackpotData }] = await Promise.all([
-        supabase
-          .from('happy_hour_pots')
-          .select('*')
-          .order('id', { ascending: false })
-          .limit(50),
-        supabase
-          .from('jackpot_pots')
-          .select('*')
-          .order('id', { ascending: false })
-          .limit(50),
+        supabase.from('happy_hour_pots').select('*').order('id', { ascending: false }).limit(50),
+        supabase.from('jackpot_pots').select('*').order('id', { ascending: false }).limit(50),
       ])
       setHappyPots(happyData ?? [])
       setJackpotPots(jackpotData ?? [])
@@ -94,7 +86,8 @@ export default function Dashboard() {
   }, [])
 
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
-  const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
+  const formatCurrency = (v: number | string | null | undefined) =>
+    `₱${asNumber(v).toLocaleString()}`
   const formatJackpotCurrency = (v: number | string | null | undefined) =>
     `₱${asNumber(v).toLocaleString(undefined, {
       minimumFractionDigits: 0,
@@ -104,17 +97,9 @@ export default function Dashboard() {
 
   const globalBet = asNumber(stats?.total_bet_amount)
   const globalWin = asNumber(stats?.total_win_amount)
-  const globalAverageBet = asNumber(stats?.total_spins) > 0 ? globalBet / asNumber(stats?.total_spins) : 0
-  const globalHouseGross = asNumber(stats?.total_house_take ?? (globalBet - globalWin))
-  const globalHouseNet = asNumber(
-    stats?.total_house_net ??
-      (asNumber(stats?.total_coins_in) -
-        asNumber(stats?.total_withdraw_amount) -
-        asNumber(stats?.total_balance) -
-        asNumber(runtime?.prize_pool_balance) -
-        asNumber(runtime?.happy_hour_prize_balance) -
-        asNumber(runtime?.jackpot_pool_balance)),
-  )
+  const globalAverageBet =
+    asNumber(stats?.total_spins) > 0 ? globalBet / asNumber(stats?.total_spins) : 0
+  const globalHouseGross = asNumber(stats?.total_house_take ?? globalBet - globalWin)
   const hopperAlertThreshold = asNumber(runtime?.hopper_alert_threshold ?? 500)
   const activeProfileId =
     runtime?.active_mode === 'HAPPY' ? runtime?.happy_profile_id : runtime?.base_profile_id
@@ -127,7 +112,9 @@ export default function Dashboard() {
     const index = new Map<string, string>()
     for (const game of games) {
       const id = String(game?.id ?? '').trim()
-      const type = String(game?.type ?? '').trim().toLowerCase()
+      const type = String(game?.type ?? '')
+        .trim()
+        .toLowerCase()
       if (!id) continue
       if (type === 'arcade' || type === 'casino') {
         index.set(id, type)
@@ -196,7 +183,10 @@ export default function Dashboard() {
   const getSortValue = (device: DeviceRow, field: SortField): number | string => {
     if (field === 'device_id') return (device.device_id ?? '').toLowerCase()
     if (field === 'updated_at') return device.updated_at ? moment(device.updated_at).valueOf() : 0
-    if (field === 'house_win') return asNumber(device.house_take_total ?? (asNumber(device.bet_total) - asNumber(device.win_total)))
+    if (field === 'house_win')
+      return asNumber(
+        device.house_take_total ?? asNumber(device.bet_total) - asNumber(device.win_total),
+      )
     if (field === 'rtp') {
       return asNumber(device.bet_total) > 0
         ? (asNumber(device.win_total) / asNumber(device.bet_total)) * 100
@@ -249,6 +239,10 @@ export default function Dashboard() {
       <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-8 sm:space-y-10">
         <header>
           <h1 className="text-xl sm:text-2xl font-semibold">Dashboard</h1>
+          <div className="text-[11px] text-emerald-200/80 mt-1 font-mono">
+            Split H/J/P {formatPercent(activeHousePct)} / {formatPercent(activeJackpotPct)} /{' '}
+            {formatPercent(activeHappyPct)}
+          </div>
           <p className="text-slate-400 text-sm">Live operational metrics</p>
         </header>
 
@@ -333,11 +327,8 @@ export default function Dashboard() {
                 </span>
               </div>
               <div className="text-sm text-emerald-200/90 mt-1 font-mono">
-                Accum {formatCurrency(runtime?.prize_pool_balance)} / {formatCurrency(runtime?.prize_pool_goal)}
-              </div>
-              <div className="text-[11px] text-emerald-200/80 mt-1 font-mono">
-                Split H/J/P {formatPercent(activeHousePct)} / {formatPercent(activeJackpotPct)} /{' '}
-                {formatPercent(activeHappyPct)}
+                Accum {formatCurrency(runtime?.prize_pool_balance)} /{' '}
+                {formatCurrency(runtime?.prize_pool_goal)}
               </div>
               <div className="text-xs text-emerald-200/80 mt-2">
                 Queued Pots: {asNumber(runtime?.happy_pots_queued_count)} (click to view)
@@ -345,16 +336,11 @@ export default function Dashboard() {
             </button>
 
             <div className="rounded-lg border border-orange-700/40 bg-orange-900/20 p-4">
-              <div className="text-xs text-orange-300/80 mb-1">Global House Take (Configured profile house %)</div>
+              <div className="text-xs text-orange-300/80 mb-1">
+                Global House Take (Configured profile house %)
+              </div>
               <div className="text-xl sm:text-2xl font-bold font-mono text-orange-300">
                 {formatCurrency(globalHouseGross)}
-              </div>
-              <div
-                className={`text-[11px] mt-1 font-mono ${
-                  globalHouseNet < 0 ? 'text-red-300' : 'text-orange-200/80'
-                }`}
-              >
-                Net after pool liabilities {formatCurrency(globalHouseNet)}
               </div>
             </div>
 
@@ -371,10 +357,8 @@ export default function Dashboard() {
                 Paid {formatCurrency(stats?.total_jackpot_win)}
               </div>
               <div className="text-sm text-indigo-200/90 mt-1 font-mono">
-                Pool {formatCurrency(runtime?.jackpot_pool_balance)} / {formatCurrency(runtime?.jackpot_pool_goal)}
-              </div>
-              <div className="text-[11px] text-indigo-200/80 mt-1 font-mono">
-                RTP Share {formatPercent(activeJackpotPct)}
+                Pool {formatCurrency(runtime?.jackpot_pool_balance)} /{' '}
+                {formatCurrency(runtime?.jackpot_pool_goal)}
               </div>
               <div className="text-xs text-indigo-200/80 mt-2">
                 Queued Pots: {asNumber(runtime?.jackpot_pots_queued_count)} (click to view)
@@ -388,7 +372,8 @@ export default function Dashboard() {
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">Devices</h2>
               <div className="text-xs text-slate-400">
-                Showing {visibleDevices.length.toLocaleString()} of {devices.length.toLocaleString()}
+                Showing {visibleDevices.length.toLocaleString()} of{' '}
+                {devices.length.toLocaleString()}
               </div>
             </div>
 
@@ -419,7 +404,6 @@ export default function Dashboard() {
                 {sortDirection === 'asc' ? 'Ascending' : 'Descending'}
               </button>
             </div>
-
           </div>
 
           <div className="overflow-hidden rounded-lg border border-slate-800 md:hidden">
@@ -429,7 +413,9 @@ export default function Dashboard() {
                   asNumber(d.bet_total) > 0
                     ? (asNumber(d.win_total) / asNumber(d.bet_total)) * 100
                     : 0
-                const deviceHouseWin = asNumber(d.house_take_total ?? (asNumber(d.bet_total) - asNumber(d.win_total)))
+                const deviceHouseWin = asNumber(
+                  d.house_take_total ?? asNumber(d.bet_total) - asNumber(d.win_total),
+                )
                 const hopperLow = asNumber(d.hopper_balance) <= hopperAlertThreshold
                 const gameType = getDeviceGameType(d)
                 const telemetryLabel = getDeviceTelemetryLabel(d)
@@ -459,6 +445,11 @@ export default function Dashboard() {
                         <div className="truncate text-[10px] font-mono text-slate-500">
                           {d.device_id ?? 'Unknown Device'}
                         </div>
+                        <div className="mt-1 text-[10px] text-slate-400">
+                          {d.arcade_shell_version?.trim() || 'unknown version'}
+                          {' • '}
+                          {d.current_ip?.trim() || 'no ip'}
+                        </div>
                         <div className="mt-1 flex items-center gap-2 text-[10px]">
                           <span
                             className={`rounded px-1.5 py-0.5 font-semibold ${
@@ -478,11 +469,13 @@ export default function Dashboard() {
                         <div className="mt-1 text-[10px] text-slate-300">{telemetryLabel}</div>
                         {d.jackpot_selected && (
                           <div className="mt-1 text-[10px] font-semibold text-amber-200">
-                            JACKPOT TARGET {formatJackpotCurrency(d.jackpot_target_amount)} • Remaining{' '}
-                            {formatJackpotCurrency(d.jackpot_remaining_amount)}
+                            JACKPOT TARGET {formatJackpotCurrency(d.jackpot_target_amount)} •
+                            Remaining {formatJackpotCurrency(d.jackpot_remaining_amount)}
                           </div>
                         )}
-                        {jackpotStatus && <div className="mt-1 text-[10px] text-amber-300">{jackpotStatus}</div>}
+                        {jackpotStatus && (
+                          <div className="mt-1 text-[10px] text-amber-300">{jackpotStatus}</div>
+                        )}
                       </div>
                       <div className="text-right">
                         <div className="text-[10px] text-slate-500">Last Seen</div>
@@ -495,7 +488,9 @@ export default function Dashboard() {
                     <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
                       <div>
                         <div className="text-[10px] text-slate-500">Balance</div>
-                        <div className="font-mono text-sm font-bold text-green-400">{formatCurrency(d.balance)}</div>
+                        <div className="font-mono text-sm font-bold text-green-400">
+                          {formatCurrency(d.balance)}
+                        </div>
                       </div>
                       <div>
                         <div className="text-[10px] text-slate-500">Hopper</div>
@@ -509,11 +504,15 @@ export default function Dashboard() {
                       </div>
                       <div>
                         <div className="text-[10px] text-slate-500">Last Bet</div>
-                        <div className="font-mono text-sm text-violet-300">{formatCurrency(d.last_bet_amount)}</div>
+                        <div className="font-mono text-sm text-violet-300">
+                          {formatCurrency(d.last_bet_amount)}
+                        </div>
                       </div>
                       <div>
                         <div className="text-[10px] text-slate-500">House Win</div>
-                        <div className={`font-mono text-sm ${deviceHouseWin < 0 ? 'text-red-300' : 'text-orange-300'}`}>
+                        <div
+                          className={`font-mono text-sm ${deviceHouseWin < 0 ? 'text-red-300' : 'text-orange-300'}`}
+                        >
                           {formatCurrency(deviceHouseWin)}
                         </div>
                       </div>
@@ -525,7 +524,9 @@ export default function Dashboard() {
                       </div>
                       <div>
                         <div className="text-[10px] text-slate-500">RTP</div>
-                        <div className="font-mono text-sm text-fuchsia-300">{formatPercent(deviceRtp)}</div>
+                        <div className="font-mono text-sm text-fuchsia-300">
+                          {formatPercent(deviceRtp)}
+                        </div>
                       </div>
                     </div>
                   </button>
@@ -539,52 +540,95 @@ export default function Dashboard() {
               <thead className="bg-slate-900 text-slate-400">
                 <tr>
                   <th className="px-4 py-2 text-left">
-                    <button type="button" className="hover:text-white" onClick={() => onSort('device_id')}>
-                      Device {sortField === 'device_id' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                    <button
+                      type="button"
+                      className="hover:text-white"
+                      onClick={() => onSort('device_id')}
+                    >
+                      Device{' '}
+                      {sortField === 'device_id' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
                   <th className="px-4 py-2 text-left">Status</th>
                   <th className="px-4 py-2 text-left">Game / Mode</th>
                   <th className="px-4 py-2 text-right">
-                    <button type="button" className="hover:text-white" onClick={() => onSort('balance')}>
+                    <button
+                      type="button"
+                      className="hover:text-white"
+                      onClick={() => onSort('balance')}
+                    >
                       Balance {sortField === 'balance' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
                   <th className="px-4 py-2 text-right">
-                    <button type="button" className="hover:text-white" onClick={() => onSort('coins_in_total')}>
-                      Coins-In {sortField === 'coins_in_total' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                    <button
+                      type="button"
+                      className="hover:text-white"
+                      onClick={() => onSort('coins_in_total')}
+                    >
+                      Coins-In{' '}
+                      {sortField === 'coins_in_total' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
                   <th className="px-4 py-2 text-right">
-                    <button type="button" className="hover:text-white" onClick={() => onSort('hopper_balance')}>
-                      Hopper {sortField === 'hopper_balance' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                    <button
+                      type="button"
+                      className="hover:text-white"
+                      onClick={() => onSort('hopper_balance')}
+                    >
+                      Hopper{' '}
+                      {sortField === 'hopper_balance' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
                   <th className="px-4 py-2 text-right">Bet</th>
                   <th className="px-4 py-2 text-right">
-                    <button type="button" className="hover:text-white" onClick={() => onSort('last_bet_amount')}>
-                      Last Bet {sortField === 'last_bet_amount' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                    <button
+                      type="button"
+                      className="hover:text-white"
+                      onClick={() => onSort('last_bet_amount')}
+                    >
+                      Last Bet{' '}
+                      {sortField === 'last_bet_amount' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
                   <th className="px-4 py-2 text-right">Win</th>
                   <th className="px-4 py-2 text-right">
-                    <button type="button" className="hover:text-white" onClick={() => onSort('house_win')}>
-                      House Win {sortField === 'house_win' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                    <button
+                      type="button"
+                      className="hover:text-white"
+                      onClick={() => onSort('house_win')}
+                    >
+                      House Win{' '}
+                      {sortField === 'house_win' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
                   <th className="px-4 py-2 text-right">
-                    <button type="button" className="hover:text-white" onClick={() => onSort('spins_total')}>
-                      Spins {sortField === 'spins_total' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                    <button
+                      type="button"
+                      className="hover:text-white"
+                      onClick={() => onSort('spins_total')}
+                    >
+                      Spins{' '}
+                      {sortField === 'spins_total' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
                   <th className="px-4 py-2 text-right">
-                    <button type="button" className="hover:text-white" onClick={() => onSort('rtp')}>
+                    <button
+                      type="button"
+                      className="hover:text-white"
+                      onClick={() => onSort('rtp')}
+                    >
                       RTP {sortField === 'rtp' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
                   <th className="px-4 py-2 text-right">
-                    <button type="button" className="hover:text-white" onClick={() => onSort('updated_at')}>
-                      Last Seen {sortField === 'updated_at' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                    <button
+                      type="button"
+                      className="hover:text-white"
+                      onClick={() => onSort('updated_at')}
+                    >
+                      Last Seen{' '}
+                      {sortField === 'updated_at' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
                 </tr>
@@ -595,7 +639,9 @@ export default function Dashboard() {
                     asNumber(d.bet_total) > 0
                       ? (asNumber(d.win_total) / asNumber(d.bet_total)) * 100
                       : 0
-                  const deviceHouseWin = asNumber(d.house_take_total ?? (asNumber(d.bet_total) - asNumber(d.win_total)))
+                  const deviceHouseWin = asNumber(
+                    d.house_take_total ?? asNumber(d.bet_total) - asNumber(d.win_total),
+                  )
                   const hopperLow = asNumber(d.hopper_balance) <= hopperAlertThreshold
                   const telemetryLabel = getDeviceTelemetryLabel(d)
                   const jackpotStatus = getDeviceJackpotStatus(d)
@@ -622,6 +668,11 @@ export default function Dashboard() {
                             <div className="truncate">{d.name?.trim() || 'Unnamed Cabinet'}</div>
                             <div className="truncate text-[10px] font-mono text-slate-500">
                               {d.device_id ?? 'Unknown Device'}
+                            </div>
+                            <div className="mt-1 text-[10px] text-slate-400">
+                              {d.arcade_shell_version?.trim() || 'unknown version'}
+                              {' • '}
+                              {d.current_ip?.trim() || 'no ip'}
                             </div>
                           </div>
                           {d.jackpot_selected && (
@@ -663,7 +714,9 @@ export default function Dashboard() {
                       <td className="px-4 py-2 text-right font-mono">
                         <div
                           className={`inline-flex items-center gap-2 ${
-                            hopperLow ? 'text-red-300 animate-pulse font-extrabold text-base' : 'text-amber-300'
+                            hopperLow
+                              ? 'text-red-300 animate-pulse font-extrabold text-base'
+                              : 'text-amber-300'
                           }`}
                         >
                           {hopperLow && (
@@ -710,7 +763,9 @@ export default function Dashboard() {
               {searchTerm ? `No devices found for "${searchTerm}".` : 'No devices found.'}
             </div>
           )}
-          <div className="mt-2 text-xs text-slate-500">Sorted by {sortLabel} ({sortDirection.toUpperCase()})</div>
+          <div className="mt-2 text-xs text-slate-500">
+            Sorted by {sortLabel} ({sortDirection.toUpperCase()})
+          </div>
         </section>
       </div>
 
@@ -726,14 +781,22 @@ export default function Dashboard() {
           <div className="mx-auto max-w-2xl rounded-lg border border-slate-700 bg-slate-950 p-4">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-lg font-semibold">Happy Hour Pots Queue</h3>
-              <button onClick={() => setShowHappyPotsModal(false)} className="text-slate-300 hover:text-white">
+              <button
+                onClick={() => setShowHappyPotsModal(false)}
+                className="text-slate-300 hover:text-white"
+              >
                 ✕
               </button>
             </div>
             <div className="max-h-[70vh] overflow-auto space-y-2">
               {happyPots.map(p => (
-                <div key={p.id} className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm">
-                  <div className="font-mono">#{p.id} • {String(p.status).toUpperCase()} • {formatCurrency(p.amount_total)}</div>
+                <div
+                  key={p.id}
+                  className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm"
+                >
+                  <div className="font-mono">
+                    #{p.id} • {String(p.status).toUpperCase()} • {formatCurrency(p.amount_total)}
+                  </div>
                   <div className="text-slate-400 text-xs mt-1">
                     Remaining {formatCurrency(p.amount_remaining)} • {p.goal_mode}
                   </div>
@@ -749,14 +812,22 @@ export default function Dashboard() {
           <div className="mx-auto max-w-2xl rounded-lg border border-slate-700 bg-slate-950 p-4">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-lg font-semibold">Jackpot Pots Queue</h3>
-              <button onClick={() => setShowJackpotPotsModal(false)} className="text-slate-300 hover:text-white">
+              <button
+                onClick={() => setShowJackpotPotsModal(false)}
+                className="text-slate-300 hover:text-white"
+              >
                 ✕
               </button>
             </div>
             <div className="max-h-[70vh] overflow-auto space-y-2">
               {jackpotPots.map(p => (
-                <div key={p.id} className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm">
-                  <div className="font-mono">#{p.id} • {String(p.status).toUpperCase()} • {formatCurrency(p.amount_total)}</div>
+                <div
+                  key={p.id}
+                  className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm"
+                >
+                  <div className="font-mono">
+                    #{p.id} • {String(p.status).toUpperCase()} • {formatCurrency(p.amount_total)}
+                  </div>
                   <div className="text-slate-400 text-xs mt-1">
                     Remaining {formatCurrency(p.amount_remaining)} • {p.goal_mode}
                   </div>

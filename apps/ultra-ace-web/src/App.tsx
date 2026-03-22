@@ -211,7 +211,7 @@ export default function App() {
   }
 
   const WITHDRAW_STEP = 20
-  const WITHDRAW_MIN = 60
+  const WITHDRAW_MIN = 20
   const getMaxWithdrawSelectable = (balanceValue: number) =>
     Math.floor(balanceValue / WITHDRAW_STEP) * WITHDRAW_STEP
   const isValidWithdrawAmount = (amount: number, balanceValue: number) => {

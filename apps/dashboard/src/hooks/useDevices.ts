@@ -36,6 +36,8 @@ export type DeviceRow = {
   jackpot_target_amount?: number | null
   jackpot_remaining_amount?: number | null
   jackpot_spins_until_start?: number | null
+  arcade_shell_version?: string | null
+  current_ip?: string | null
   updated_at?: string | null
 }
 

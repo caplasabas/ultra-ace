@@ -232,6 +232,11 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
                   Device ID: {device.device_id ?? 'Unknown Device'}
                 </div>
                 <div className="mt-1 text-xs text-slate-400">
+                  Arcade Shell: {String(device.arcade_shell_version ?? '').trim() || 'unknown'}
+                  {' • '}
+                  IP: {String(device.current_ip ?? '').trim() || 'n/a'}
+                </div>
+                <div className="mt-1 text-xs text-slate-400">
                   Status: {(device.device_status ?? 'idle').toUpperCase()} • {telemetryLabel}
                 </div>
                 {device.jackpot_selected && (
