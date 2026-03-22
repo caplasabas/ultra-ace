@@ -315,9 +315,9 @@ export default function Dashboard() {
               onClick={() => setShowHappyPotsModal(true)}
               className="text-left rounded-lg border border-emerald-700/40 bg-emerald-900/20 p-4 hover:border-emerald-500/70"
             >
-              <div className="flex justify-between text-xs text-emerald-300/80 mb-1">
+              <div className="flex items-center justify-between text-xs text-emerald-300/80 mb-1">
                 <span> Mode / Pools</span>
-                <div className="text-xs text-emerald-200/80 mt-2">
+                <div className="text-xs text-emerald-200/80">
                   Queued Pots: {asNumber(runtime?.happy_pots_queued_count)}
                 </div>
               </div>
@@ -349,9 +349,9 @@ export default function Dashboard() {
               onClick={() => setShowJackpotPotsModal(true)}
               className="text-left rounded-lg border border-indigo-700/40 bg-indigo-900/20 p-4 hover:border-indigo-500/70"
             >
-              <div className="flex justify-between text-xs text-indigo-300/80 mb-1">
+              <div className="flex items-center justify-between text-xs text-indigo-300/80 mb-1">
                 <span> Jackpot Flow</span>
-                <div className="text-xs text-indigo-200/80 mt-2">
+                <div className="text-xs text-indigo-200/80">
                   Queued Pots: {asNumber(runtime?.jackpot_pots_queued_count)}
                 </div>
               </div>

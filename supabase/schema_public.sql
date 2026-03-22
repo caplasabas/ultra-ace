@@ -423,6 +423,7 @@ CREATE OR REPLACE FUNCTION "public"."demo_reset_runtime_metrics"("p_keep_device_
 declare
   v_device_count integer := 0;
   v_command_count integer := 0;
+  v_cabinet_game_count integer := 0;
 begin
   select count(*)::int
   into v_device_count
@@ -474,6 +475,30 @@ begin
 
   if to_regclass('public.device_spin_event_dedup') is not null then
     execute 'truncate table public.device_spin_event_dedup restart identity cascade';
+  end if;
+
+  if to_regclass('public.cabinet_games') is not null then
+    truncate table public.cabinet_games;
+
+    insert into public.cabinet_games (
+      device_id,
+      game_id,
+      installed,
+      installed_version
+    )
+    select
+      d.device_id,
+      g.id,
+      case
+        when g.type = 'casino' and g.enabled = false then false
+        else true
+      end as installed,
+      null as installed_version
+    from public.devices d
+    cross join public.games g
+    where trim(coalesce(d.device_id, '')) <> '';
+
+    get diagnostics v_cabinet_game_count = row_count;
   end if;
 
   update public.devices
@@ -562,6 +587,7 @@ begin
     'ok', true,
     'devices_reset', v_device_count,
     'devices_preserved', v_device_count,
+    'cabinet_games_seeded', v_cabinet_game_count,
     'reset_commands_queued', v_command_count
   );
 end;
@@ -575,9 +601,8 @@ CREATE OR REPLACE FUNCTION "public"."disable_game_from_cabinets"() RETURNS "trig
     LANGUAGE "plpgsql"
     AS $$
 begin
-  -- only act when enabled changed to false
-  if old.enabled = true and new.enabled = false then
-    update cabinet_games
+  if old.enabled = true and new.enabled = false and new.type = 'casino' then
+    update public.cabinet_games
     set installed = false
     where game_id = new.id;
   end if;
