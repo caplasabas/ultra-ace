@@ -771,15 +771,15 @@ CREATE OR REPLACE FUNCTION "public"."prevent_install_if_disabled"() RETURNS "tri
     LANGUAGE "plpgsql"
     AS $$
 declare
-  game_enabled boolean;
+  game_row public.games;
 begin
-  -- Only block when trying to set installed = true
   if new.installed = true then
-    select enabled into game_enabled
-    from games
+    select *
+    into game_row
+    from public.games
     where id = new.game_id;
 
-    if game_enabled = false then
+    if found and game_row.enabled = false and game_row.type = 'casino' then
       raise exception 'Cannot install disabled game';
     end if;
   end if;

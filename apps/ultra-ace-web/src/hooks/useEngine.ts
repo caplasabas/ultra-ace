@@ -219,6 +219,7 @@ export function useEngine() {
   const [withdrawAmount, setWithdrawAmount] = useState(20)
   const [isWithdrawing, setIsWithdrawing] = useState(false)
   const [showWithdrawModal, setShowWithdrawModal] = useState(false)
+  const isOnlineRef = useRef(typeof navigator !== 'undefined' ? navigator.onLine : true)
   const maxWinEnabledRef = useRef(true)
   const currentSpinMaxWinRef = useRef<number | null>(null)
   const spinLockRef = useRef(false)
@@ -1079,6 +1080,21 @@ export function useEngine() {
   }, [deviceId])
 
   useEffect(() => {
+    const syncOnlineState = () => {
+      isOnlineRef.current = typeof navigator !== 'undefined' ? navigator.onLine : true
+    }
+
+    window.addEventListener('online', syncOnlineState)
+    window.addEventListener('offline', syncOnlineState)
+    syncOnlineState()
+
+    return () => {
+      window.removeEventListener('online', syncOnlineState)
+      window.removeEventListener('offline', syncOnlineState)
+    }
+  }, [])
+
+  useEffect(() => {
     isFreeGameRef.current = isFreeGame
   }, [isFreeGame])
 
@@ -1207,6 +1223,7 @@ export function useEngine() {
      Spin execution
   ----------------------------- */
   async function spinNow() {
+    if (!isOnlineRef.current) return
     if (spinning) return
     if (spinLockRef.current) return
     if (!rngRef.current) return
@@ -1579,6 +1596,7 @@ export function useEngine() {
   }
 
   async function buyFreeSpins(betAmount: number) {
+    if (!isOnlineRef.current) return
     if (spinning || showFreeSpinIntro || freeSpinsLeft > 0 || pendingFreeSpins > 0) return
     if (spinLockRef.current) return
     if (!rngRef.current || !deviceIdRef.current) return

@@ -16,6 +16,7 @@ import { ScatterWinBanner } from './ui/ScatterWinBanner'
 import { BuySpinModal } from './ui/BuySpinModal'
 import { installAccountingRetryHooks, logLedgerEvent } from './lib/accounting'
 import { WithdrawModal } from './ui/WithdrawModal'
+import { OfflineModal } from './ui/OfflineModal'
 import splashStart from './assets/images/splash_start.png'
 import WILD_RED from './assets/symbols/WILD_RED.png'
 
@@ -103,6 +104,10 @@ export default function App() {
     const saved = localStorage.getItem('audioOn')
     return saved ? saved === 'true' : true
   })
+  const [internetOnline, setInternetOnline] = useState(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : true,
+  )
+  const [showOfflineModal, setShowOfflineModal] = useState(false)
 
   useEffect(() => {
     const scale = Math.min(window.innerWidth / 430, window.innerHeight / 900)
@@ -118,6 +123,23 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('audioOn', String(audioOn))
   }, [audioOn])
+
+  useEffect(() => {
+    const syncOnlineState = () => {
+      const nextOnline = typeof navigator !== 'undefined' ? navigator.onLine : true
+      setInternetOnline(nextOnline)
+      setShowOfflineModal(!nextOnline)
+    }
+
+    window.addEventListener('online', syncOnlineState)
+    window.addEventListener('offline', syncOnlineState)
+    syncOnlineState()
+
+    return () => {
+      window.removeEventListener('online', syncOnlineState)
+      window.removeEventListener('offline', syncOnlineState)
+    }
+  }, [])
 
   useBackgroundAudio(BGM, audioOn, 0.4)
 
@@ -161,6 +183,11 @@ export default function App() {
     setShowWithdrawModal,
   } = useEngine()
 
+  useEffect(() => {
+    if (internetOnline) return
+    setShowOfflineModal(true)
+  }, [internetOnline])
+
   function getBetIncrement(bet: number): number {
     if (bet < 10) return 1
     if (bet < 50) return 10
@@ -179,6 +206,10 @@ export default function App() {
   }
 
   const addBet = () => {
+    if (!internetOnline) {
+      setShowOfflineModal(true)
+      return
+    }
     setBet(prev => {
       const normalized = Number.isInteger(prev) ? prev : Math.floor(prev)
 
@@ -190,6 +221,10 @@ export default function App() {
   }
 
   const minusBet = () => {
+    if (!internetOnline) {
+      setShowOfflineModal(true)
+      return
+    }
     setBet(prev => {
       const next = prev + getBetIncrement(prev)
       return Math.min(next, balance)
@@ -197,6 +232,10 @@ export default function App() {
   }
 
   const addBuySpinBet = () => {
+    if (!internetOnline) {
+      setShowOfflineModal(true)
+      return
+    }
     setBuySpinBet(prev => {
       const inc = getBetIncrement(prev)
       return Math.min(prev + inc, balance)
@@ -204,6 +243,10 @@ export default function App() {
   }
 
   const minusBuySpinBet = () => {
+    if (!internetOnline) {
+      setShowOfflineModal(true)
+      return
+    }
     setBuySpinBet(prev => {
       const dec = getBetDecrement(prev)
       return Math.max(1, prev - dec)
@@ -221,6 +264,10 @@ export default function App() {
   }
 
   const addWithdrawAmount = () => {
+    if (!internetOnline) {
+      setShowOfflineModal(true)
+      return
+    }
     const max = getMaxWithdrawSelectable(balance)
     if (max < WITHDRAW_MIN) return
     setWithdrawAmount(prev => {
@@ -229,6 +276,10 @@ export default function App() {
   }
 
   const minusWithdrawAmount = () => {
+    if (!internetOnline) {
+      setShowOfflineModal(true)
+      return
+    }
     const max = getMaxWithdrawSelectable(balance)
     if (max < WITHDRAW_MIN) return
     setWithdrawAmount(prev => {
@@ -248,6 +299,10 @@ export default function App() {
   }, [showWithdrawModal, balance, setWithdrawAmount])
 
   const addBalance = (source = 'coin', amount = 5) => {
+    if (!internetOnline) {
+      setShowOfflineModal(true)
+      return
+    }
     if (!deviceId) return
 
     logLedgerEvent({
@@ -263,6 +318,10 @@ export default function App() {
   }
 
   const minusBalance = (source = 'hopper', amount = 20) => {
+    if (!internetOnline) {
+      setShowOfflineModal(true)
+      return
+    }
     if (!deviceId) return
 
     logLedgerEvent({
@@ -775,6 +834,10 @@ export default function App() {
 
       switch (action) {
         case 'SPIN': {
+          if (!internetOnline && !s.spinning) {
+            setShowOfflineModal(true)
+            return
+          }
           if (s.showFreeSpinIntro) {
             triggerFreeSpinStart()
             return
@@ -855,6 +918,10 @@ export default function App() {
         }
 
         case 'AUTO': {
+          if (!internetOnline) {
+            setShowOfflineModal(true)
+            break
+          }
           if (
             !s.isFreeGame &&
             s.balance >= s.bet &&
@@ -867,12 +934,20 @@ export default function App() {
         }
 
         case 'TURBO': {
+          if (!internetOnline) {
+            setShowOfflineModal(true)
+            break
+          }
           if (s.balance >= s.bet && s.pauseColumn === null && !s.showBuySpinModal) {
             setTurboStageRef.current(prev => ((prev + 1) % 4) as 0 | 1 | 2 | 3)
           }
           break
         }
         case 'BUY': {
+          if (!internetOnline) {
+            setShowOfflineModal(true)
+            break
+          }
           if (
             s.isReady &&
             !s.spinning &&
@@ -891,6 +966,10 @@ export default function App() {
         }
 
         case 'WITHDRAW': {
+          if (!internetOnline) {
+            setShowOfflineModal(true)
+            break
+          }
           if (s.isReady && !s.spinning && !s.autoSpin && !s.showBuySpinModal) {
             if (!s.showWithdrawModal) {
               if (getMaxWithdrawSelectable(s.balance) < WITHDRAW_MIN) break
@@ -1028,6 +1107,10 @@ export default function App() {
                 onMinusBet={minusBuySpinBet}
                 onCancel={() => setShowBuySpinModal(false)}
                 onConfirm={() => {
+                  if (!internetOnline) {
+                    setShowOfflineModal(true)
+                    return
+                  }
                   if (isReady) {
                     setShowBuySpinModal(false)
                     buyFreeSpins(buySpinBet)
@@ -1045,6 +1128,10 @@ export default function App() {
                 onMinusAmount={minusWithdrawAmount}
                 onCancel={() => setShowWithdrawModal(false)}
                 onConfirm={() => {
+                  if (!internetOnline) {
+                    setShowOfflineModal(true)
+                    return
+                  }
                   if (!isValidWithdrawAmount(withdrawAmount, balance)) return
 
                   fetch('http://localhost:5174', {
@@ -1060,6 +1147,7 @@ export default function App() {
                 }}
               />
             )}
+            {showOfflineModal && <OfflineModal onClose={() => setShowOfflineModal(false)} />}
             <div className="dim-zone">
               <DimOverlay
                 active={
