@@ -460,7 +460,8 @@ export default function App() {
     )
 
   const redWildPropagationPaths = useMemo<RedWildPropagationPath[]>(() => {
-    if (phase !== 'postGoldTransform' || !activeCascade?.window || !previousCascade?.window) return []
+    if (phase !== 'postGoldTransform' || !activeCascade?.window || !previousCascade?.window)
+      return []
 
     const sources: Array<{ reel: number; row: number }> = []
     const targets: Array<{ reel: number; row: number }> = []
@@ -494,12 +495,15 @@ export default function App() {
     if (!sources.length || !targets.length) return []
 
     return targets.map((target, index) => {
-      const source = sources.reduce((best, current) => {
-        const bestDistance = Math.abs(best.reel - target.reel) + Math.abs(best.row - target.row)
-        const currentDistance =
-          Math.abs(current.reel - target.reel) + Math.abs(current.row - target.row)
-        return currentDistance < bestDistance ? current : best
-      }, sources[index % sources.length])
+      const source = sources.reduce(
+        (best, current) => {
+          const bestDistance = Math.abs(best.reel - target.reel) + Math.abs(best.row - target.row)
+          const currentDistance =
+            Math.abs(current.reel - target.reel) + Math.abs(current.row - target.row)
+          return currentDistance < bestDistance ? current : best
+        },
+        sources[index % sources.length],
+      )
 
       return {
         id: `${source.reel}-${source.row}-${target.reel}-${target.row}`,
@@ -550,6 +554,7 @@ export default function App() {
       !showBuySpinModal)
 
   useEffect(() => {
+    if (!internetOnline) return
     if (!isIdle) return
     if (!autoSpin && !isFreeGame) return
     if (showFreeSpinIntro || isFreeSpinPreview || showScatterWinBanner || showBuySpinModal) return
@@ -567,6 +572,7 @@ export default function App() {
 
     return () => clearTimeout(t)
   }, [
+    internetOnline,
     isIdle,
     autoSpin,
     isFreeGame,
@@ -771,6 +777,22 @@ export default function App() {
   useEffect(() => {
     window.__ARCADE_INPUT__ = payload => {
       console.log('[ARCADE]', payload)
+
+      if (payload?.type === 'INTERNET_LOST') {
+        console.log('[ULTRAACE] INTERNET_LOST')
+
+        setInternetOnline(false)
+        setShowOfflineModal(true)
+        return
+      }
+
+      if (payload?.type === 'INTERNET_RESTORED' || payload?.type === 'INTERNET_OK') {
+        console.log('[ULTRAACE] INTERNET_RESTORED')
+
+        setInternetOnline(true)
+        setShowOfflineModal(false)
+        return
+      }
 
       // --- COIN ---
       if (payload.type === 'COIN') {
@@ -1147,7 +1169,15 @@ export default function App() {
                 }}
               />
             )}
-            {showOfflineModal && <OfflineModal onClose={() => setShowOfflineModal(false)} />}
+            {showOfflineModal && (
+              <OfflineModal
+                onClose={() => {
+                  if (internetOnline) {
+                    setShowOfflineModal(false)
+                  }
+                }}
+              />
+            )}
             <div className="dim-zone">
               <DimOverlay
                 active={
@@ -1228,7 +1258,11 @@ export default function App() {
                           } as React.CSSProperties
                         }
                       >
-                        <img src={WILD_RED} className="red-wild-propagation-img" draggable={false} />
+                        <img
+                          src={WILD_RED}
+                          className="red-wild-propagation-img"
+                          draggable={false}
+                        />
                       </div>
                     ))}
                   </div>
