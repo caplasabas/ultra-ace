@@ -7,9 +7,23 @@ import { detectScatterPauseColumn, useCascadeTimeline } from './hooks/useCascade
 import { DebugHud } from './debug/DebugHud'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { formatPeso } from '@ultra-ace/engine'
+import { type CascadeStep, formatPeso } from '@ultra-ace/engine'
 import { useBackgroundAudio } from './audio/useBackgroundAudio'
-import BGM from './assets/audio/bgm/casino-lottery-casino-gambling-music-406445.mp3'
+import BGM from './assets/audio/bgm.mp3'
+import winBigSfx from './assets/audio/effects/win_big.mp3'
+import winSmallSfx from './assets/audio/effects/win_small.mp3'
+import doubleVoice from './assets/audio/voice/Double!.mp3'
+import fourTimesVoice from './assets/audio/voice/4 times!.mp3'
+import fiveTimesVoice from './assets/audio/voice/5 times!.mp3'
+import aceVoice from './assets/audio/voice/Ace!.mp3'
+import clubVoice from './assets/audio/voice/Club!.mp3'
+import diamondVoice from './assets/audio/voice/Diamond!.mp3'
+import heartVoice from './assets/audio/voice/Heart!.mp3'
+import jackVoice from './assets/audio/voice/Jack!.mp3'
+import kingVoice from './assets/audio/voice/King!.mp3'
+import queenVoice from './assets/audio/voice/Queen!.mp3'
+import spadeVoice from './assets/audio/voice/Spade!.mp3'
+import tripleVoice from './assets/audio/voice/Triple!.mp3'
 
 import { FreeSpinIntro } from './ui/FreeSpinIntro'
 import { ScatterWinBanner } from './ui/ScatterWinBanner'
@@ -23,6 +37,37 @@ import WILD_RED from './assets/symbols/WILD_RED.png'
 const DEV = import.meta.env.DEV
 const GAME_BUILD_VERSION = import.meta.env.VITE_GAME_VERSION || 'dev'
 const FREE_SPIN_PRESTART_DELAY_MS = 1500
+const BIG_WIN_BET_MULTIPLIER = 10
+const BIG_WIN_MIN_AMOUNT = 20
+const WIN_AUDIO_PHASES = new Set([
+  'highlight',
+  'pop',
+  'cascadeRefill',
+  'postGoldTransform',
+  'settle',
+])
+
+const VOICE_BY_SYMBOL: Record<string, string> = {
+  A: aceVoice,
+  K: kingVoice,
+  Q: queenVoice,
+  J: jackVoice,
+  SPADE: spadeVoice,
+  HEART: heartVoice,
+  DIAMOND: diamondVoice,
+  CLUB: clubVoice,
+}
+
+const VOICE_BY_CARD_COUNT: Record<number, string> = {
+  4: doubleVoice,
+  5: tripleVoice,
+}
+
+const VOICE_BY_MULTIPLIER: Record<number, string> = {
+  4: fourTimesVoice,
+  5: fiveTimesVoice,
+}
+
 type RedWildPropagationPath = {
   id: string
   fromReel: number
@@ -32,6 +77,120 @@ type RedWildPropagationPath = {
 }
 
 const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kind }))
+
+function getWinVoiceSequence(cascade: CascadeStep): string[] {
+  const clips: string[] = []
+  const playedSymbols = new Set<string>()
+
+  for (const lineWin of cascade.lineWins ?? []) {
+    const symbolClip = VOICE_BY_SYMBOL[lineWin.symbol]
+    if (symbolClip && !playedSymbols.has(lineWin.symbol)) {
+      clips.push(symbolClip)
+      playedSymbols.add(lineWin.symbol)
+    }
+  }
+
+  const maxCardCount = (cascade.lineWins ?? []).reduce(
+    (max, lineWin) => Math.max(max, Number(lineWin.count ?? 0)),
+    0,
+  )
+
+  const cardCountClip =
+    maxCardCount >= 5 ? VOICE_BY_CARD_COUNT[5] : VOICE_BY_CARD_COUNT[maxCardCount]
+  if (cardCountClip) clips.push(cardCountClip)
+
+  const multiplierClip = VOICE_BY_MULTIPLIER[Math.round(Number(cascade.multiplier ?? 1))]
+  if (multiplierClip) clips.push(multiplierClip)
+
+  return clips
+}
+
+function getWinEffectClip(cascadeWin: number, betAmount: number): string {
+  const bigWinThreshold = Math.max(BIG_WIN_MIN_AMOUNT, betAmount * BIG_WIN_BET_MULTIPLIER)
+  return cascadeWin >= bigWinThreshold ? winBigSfx : winSmallSfx
+}
+
+function getWinOverlayTitle(amount: number, betAmount: number): string {
+  const ratio = betAmount > 0 ? amount / betAmount : 0
+
+  if (ratio >= 40) return 'SUPER\nMEGA'
+  if (ratio >= 30) return 'SUPER\nWIN'
+  if (ratio >= 20) return 'MEGA\nWIN'
+  if (ratio >= 10) return 'BIG\nWIN'
+  return ''
+}
+
+function getCascadeAudioBudgetMs(args: {
+  activeCascade?: CascadeStep
+  nextCascade?: CascadeStep
+  previousCascade?: CascadeStep
+  turboMultiplier: number
+  pauseColumn: number | null
+}) {
+  const { activeCascade, nextCascade, previousCascade, turboMultiplier, pauseColumn } = args
+  if (!activeCascade?.win) return 0
+
+  const scaled = (ms: number) =>
+    ms /
+    (pauseColumn !== null
+      ? (turboMultiplier > 1 ? turboMultiplier / 2 : turboMultiplier) * 1.7
+      : turboMultiplier)
+
+  const scaledWithFloor = (ms: number, floorMs: number) => {
+    const turboFloor = turboMultiplier > 1 ? Math.max(20, floorMs / turboMultiplier) : floorMs
+    return Math.max(scaled(ms), turboFloor)
+  }
+
+  const hasNextLineWin =
+    Boolean(nextCascade?.lineWins?.length) || Number(nextCascade?.win ?? 0) > 0.0001
+  const hasRemovals = Boolean(activeCascade.removedPositions?.length)
+  const hasScatterWin =
+    activeCascade.window?.flat().filter(symbol => symbol.kind === 'SCATTER').length >= 3
+  const nextScatterCount =
+    nextCascade?.window?.flat().filter(symbol => symbol.kind === 'SCATTER').length ?? 0
+  const hasNextLineScatter = nextScatterCount >= 3
+  const hasGoldToWild =
+    activeCascade.window?.some((col, reel) =>
+      col.some((symbol, row) => {
+        const prev = previousCascade?.window?.[reel]?.[row]
+        return prev?.isGold === true && symbol.kind === 'WILD'
+      }),
+    ) ?? false
+  const hasRedWildPropagation =
+    activeCascade.window?.some((col, reel) =>
+      col.some((symbol, row) => {
+        const prev = previousCascade?.window?.[reel]?.[row]
+        return (
+          symbol.kind === 'WILD' &&
+          symbol.wildColor === 'red' &&
+          !symbol.fromGold &&
+          prev !== undefined &&
+          !(prev.kind === 'WILD' && prev.wildColor === 'red')
+        )
+      }),
+    ) ?? false
+
+  let budget = scaledWithFloor(820, 420)
+  budget += scaledWithFloor(520, 240)
+
+  if (hasRemovals) {
+    budget += scaledWithFloor(760, 180)
+
+    if (hasGoldToWild) {
+      budget += hasRedWildPropagation ? scaledWithFloor(2150, 1500) : scaledWithFloor(620, 180)
+    }
+  }
+
+  const transitionsToNextCascade =
+    (!hasRemovals && (hasNextLineWin || hasNextLineScatter)) || (hasRemovals && hasNextLineWin)
+
+  if (!transitionsToNextCascade) {
+    budget += scaledWithFloor(!hasNextLineWin && hasScatterWin ? 300 * turboMultiplier : 80, 80)
+  }
+
+  return budget
+}
+
 //
 // function logWindowKinds(label: string, window: EngineSymbol[][]) {
 //   if (!window?.length) return
@@ -340,7 +499,12 @@ export default function App() {
   const [hasPressedStart, setHasPressedStart] = useState(false)
   const [introCountdown, setIntroCountdown] = useState(10)
   const lastLoggedWinKeyRef = useRef<string>('')
+  const lastPlayedWinAudioKeyRef = useRef<string>('')
   const pendingIntroStartRef = useRef(false)
+  const activeForegroundAudioRef = useRef<HTMLAudioElement | null>(null)
+  const activeForegroundAudioFinalizeRef = useRef<(() => void) | null>(null)
+  const audioSequenceTokenRef = useRef(0)
+  const clipDurationCacheRef = useRef(new Map<string, number>())
 
   const spinRef = useRef(spin)
   const setAutoSpinRef = useRef(setAutoSpin)
@@ -365,6 +529,94 @@ export default function App() {
   const setHasPressedStartRef = useRef(setHasPressedStart)
 
   const setAudioOnRef = useRef(setAudioOn)
+
+  function stopForegroundAudio() {
+    audioSequenceTokenRef.current += 1
+
+    const activeAudio = activeForegroundAudioRef.current
+    const finalize = activeForegroundAudioFinalizeRef.current
+
+    activeForegroundAudioRef.current = null
+    activeForegroundAudioFinalizeRef.current = null
+    if (!activeAudio) {
+      finalize?.()
+      return
+    }
+
+    activeAudio.pause()
+    activeAudio.currentTime = 0
+    finalize?.()
+  }
+
+  async function getClipDurationMs(clip: string) {
+    const cached = clipDurationCacheRef.current.get(clip)
+    if (cached !== undefined) return cached
+
+    const durationMs = await new Promise<number>(resolve => {
+      const probe = new Audio(clip)
+
+      const finalize = (value: number) => {
+        probe.onloadedmetadata = null
+        probe.onerror = null
+        resolve(value)
+      }
+
+      if (Number.isFinite(probe.duration) && probe.duration > 0) {
+        finalize(probe.duration * 1000)
+        return
+      }
+
+      probe.preload = 'metadata'
+      probe.onloadedmetadata = () => finalize((probe.duration || 0) * 1000)
+      probe.onerror = () => finalize(0)
+      probe.load()
+    })
+
+    clipDurationCacheRef.current.set(clip, durationMs)
+    return durationMs
+  }
+
+  async function playAudioSequence(clips: string[], budgetMs?: number) {
+    const token = ++audioSequenceTokenRef.current
+    let playbackRate = 1
+
+    if (budgetMs && Number.isFinite(budgetMs) && budgetMs > 0) {
+      const durations = await Promise.all(clips.map(getClipDurationMs))
+      if (token !== audioSequenceTokenRef.current) return
+
+      const totalDurationMs = durations.reduce((sum, duration) => sum + duration, 0)
+      if (totalDurationMs > budgetMs) {
+        playbackRate = Math.min(4, totalDurationMs / budgetMs)
+      }
+    }
+
+    for (const clip of clips) {
+      if (!gameStateRef.current.audioOn) return
+      if (token !== audioSequenceTokenRef.current) return
+
+      await new Promise<void>(resolve => {
+        const audio = new Audio(clip)
+        activeForegroundAudioRef.current = audio
+        audio.playbackRate = playbackRate
+        audio.preservesPitch = false
+
+        const finalize = () => {
+          if (activeForegroundAudioRef.current === audio) {
+            activeForegroundAudioRef.current = null
+          }
+          audio.onended = null
+          audio.onerror = null
+          activeForegroundAudioFinalizeRef.current = null
+          resolve()
+        }
+
+        activeForegroundAudioFinalizeRef.current = finalize
+        audio.onended = finalize
+        audio.onerror = finalize
+        audio.play().catch(finalize)
+      })
+    }
+  }
 
   const {
     phase,
@@ -533,6 +785,7 @@ export default function App() {
   }, [adaptedWindow, phase])
 
   const renderedWindow = adaptedWindow ?? heldWindowForIntro
+  const allowBootSplashClick = DEV && deviceId?.startsWith('dev-')
   const bootSplashStage: 'start' | null = sessionReady && !hasPressedStart ? 'start' : null
 
   const isReady =
@@ -597,6 +850,27 @@ export default function App() {
     commitWin(activeCascade.win)
   }, [phase, activeCascade, spinId, cascadeIndex])
 
+  useEffect(() => {
+    if (spinId <= 0) return
+    stopForegroundAudio()
+  }, [spinId])
+
+  useEffect(() => {
+    if (WIN_AUDIO_PHASES.has(phase)) return
+    stopForegroundAudio()
+  }, [phase])
+
+  useEffect(() => {
+    if (audioOn) return
+    stopForegroundAudio()
+  }, [audioOn])
+
+  useEffect(() => {
+    return () => {
+      stopForegroundAudio()
+    }
+  }, [])
+
   const BASE_MULTIPLIERS = [1, 2, 3, 5]
   const FREE_MULTIPLIERS = [2, 4, 6, 10]
 
@@ -615,6 +889,47 @@ export default function App() {
   const showFreeSpinModeUi = isFreeGame || isFreeSpinPreview || showScatterWinBanner || freezeUI
   const showFreeSpinCount =
     (isFreeGame || isFreeSpinPreview || pendingFreeSpins > 0) && freeSpinDisplayCount > 0
+  const useFreeSpinWinCounter =
+    isFreeGame || pauseColumn !== null || pendingFreeSpins > 0 || freeSpinsLeft > 0
+  const overlayAmount = Math.max(
+    activeCascade?.win ?? 0,
+    useFreeSpinWinCounter ? freeSpinTotal : totalWin,
+  )
+  const overlayTitle = getWinOverlayTitle(overlayAmount, bet)
+  const nextCascade = cascades[cascadeIndex + 1]
+
+  useEffect(() => {
+    if (phase !== 'highlight') return
+    if (!audioOn) return
+    if (!activeCascade?.win) return
+
+    const winKey = `${spinId}:${cascadeIndex}`
+    if (lastPlayedWinAudioKeyRef.current === winKey) return
+    lastPlayedWinAudioKeyRef.current = winKey
+
+    const clips = [...getWinVoiceSequence(activeCascade), getWinEffectClip(overlayAmount, bet)]
+    const budgetMs = getCascadeAudioBudgetMs({
+      activeCascade,
+      nextCascade,
+      previousCascade,
+      turboMultiplier,
+      pauseColumn,
+    })
+
+    void playAudioSequence(clips, budgetMs)
+  }, [
+    phase,
+    audioOn,
+    activeCascade,
+    nextCascade,
+    previousCascade,
+    spinId,
+    cascadeIndex,
+    overlayAmount,
+    bet,
+    turboMultiplier,
+    pauseColumn,
+  ])
 
   function triggerFreeSpinStart() {
     if (!gameStateRef.current.showFreeSpinIntro) return
@@ -1031,8 +1346,23 @@ export default function App() {
       <div className="viewport">
         <div
           className="boot-splash-screen"
+          onClick={allowBootSplashClick ? () => setHasPressedStart(true) : undefined}
+          onKeyDown={
+            allowBootSplashClick
+              ? event => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    setHasPressedStart(true)
+                  }
+                }
+              : undefined
+          }
+          role={allowBootSplashClick ? 'button' : undefined}
+          tabIndex={allowBootSplashClick ? 0 : undefined}
+          aria-label={allowBootSplashClick ? 'Start game' : undefined}
           style={{
             backgroundImage: `url(${splashStart})`,
+            cursor: allowBootSplashClick ? 'pointer' : undefined,
           }}
         />
       </div>
@@ -1268,7 +1598,8 @@ export default function App() {
                   </div>
                 </div>
                 <WinOverlay
-                  amount={activeCascade?.win ?? 0}
+                  amount={overlayAmount}
+                  title={overlayTitle}
                   phase={phase === 'highlight' || phase === 'pop' ? phase : null}
                 />
               </div>
@@ -1277,14 +1608,7 @@ export default function App() {
                 <div className={`win-display ${showFreeSpinIntro && 'hidden'}`}>
                   WIN:{' '}
                   <span className="win-amount">
-                    {formatPeso(
-                      isFreeGame ||
-                        pauseColumn !== null ||
-                        pendingFreeSpins > 0 ||
-                        freeSpinsLeft > 0
-                        ? freeSpinTotal
-                        : totalWin,
-                    )}
+                    {formatPeso(useFreeSpinWinCounter ? freeSpinTotal : totalWin)}
                   </span>
                 </div>
                 <div className="bottom-controls">

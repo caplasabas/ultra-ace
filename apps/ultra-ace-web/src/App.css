@@ -2079,30 +2079,11 @@
 .win-face {
     position: relative;
     z-index: 2;
-
-    /* GOLD GRADIENT — THIS WILL NOW SHOW */
-    background: linear-gradient(
-            180deg,
-            #fff86b 0%,
-            #ffd400 32%,
-            #ffb000 58%,
-            #ff8a00 78%,
-            #c64a00 100%
-    );
-
-    -webkit-background-clip: text;
-    background-clip: text;
-
-    -webkit-text-fill-color: transparent;
-    color: transparent;
-
-    /* RED OUTLINE */
-    -webkit-text-stroke: 2px #6b1900;
-
-    /*!* DEPTH *!*/
-    /*text-shadow:*/
-    /*        0 2px 0 rgba(90, 30, 0, 0.85),*/
-    /*        0 6px 10px rgba(0, 0, 0, 0.35);*/
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
 }
 
 .win-burst {
@@ -2467,13 +2448,55 @@ button:focus-visible {
     font-family: 'Bebas Neue', sans-serif;
     font-size: clamp(42px, 7vw, 78px);
     font-weight: 900;
-    line-height: 0.85;
+    line-height: 0.9;
     letter-spacing: 0.02em;
 
 }
 
+.win-title,
+.win-total {
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+}
+
+.win-title {
+    white-space: pre-line;
+    font-size: clamp(52px, 10vw, 96px);
+    line-height: 0.84;
+    letter-spacing: 0.03em;
+    -webkit-text-stroke: 2px #5e2400;
+    text-shadow: 0 5px 14px rgba(0, 0, 0, 0.28);
+    background-image: linear-gradient(180deg, #fff6a8 0%, #ffd341 28%, #ff9100 70%, #c24600 100%);
+}
+
+.win-title.big-win {
+    background-image: linear-gradient(180deg, #fffca0 0%, #91f45a 32%, #31bb2b 68%, #0e6a16 100%);
+}
+
+.win-title.mega-win {
+    background-image: linear-gradient(180deg, #fff8bf 0%, #78f6ff 26%, #22a9ff 62%, #0d4db8 100%);
+}
+
+.win-title.super-win {
+    background-image: linear-gradient(180deg, #fff9c8 0%, #ffd552 18%, #ff7a30 48%, #d62b1f 76%, #861113 100%);
+}
+
+.win-title.super-mega {
+    background-image: linear-gradient(180deg, #fff3b6 0%, #ffd561 20%, #ff8f2d 42%, #ea4552 68%, #8529b6 100%);
+}
+
 .win-amount {
     color: white;
+}
+
+.win-total {
+    font-size: clamp(34px, 6vw, 62px);
+    line-height: 0.9;
+    letter-spacing: 0.04em;
+    -webkit-text-stroke: 1.5px #742000;
+    background-image: linear-gradient(180deg, #fff6a8 0%, #ffd65b 30%, #ffae16 62%, #d45400 100%);
 }
 
 .win-placeholder {
