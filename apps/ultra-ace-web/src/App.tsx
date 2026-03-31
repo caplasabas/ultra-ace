@@ -10,6 +10,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { type CascadeStep, formatPeso } from '@ultra-ace/engine'
 import { useBackgroundAudio } from './audio/useBackgroundAudio'
 import BGM from './assets/audio/bgm.mp3'
+import cardDealSfx from './assets/audio/effects/card_deal.mp3'
+import symbolMatchSfx from './assets/audio/effects/symbol_match.wav'
 import winBigSfx from './assets/audio/effects/win_big.mp3'
 import winSmallSfx from './assets/audio/effects/win_small.mp3'
 import doubleVoice from './assets/audio/voice/Double!.mp3'
@@ -29,7 +31,6 @@ import { FreeSpinIntro } from './ui/FreeSpinIntro'
 import { ScatterWinBanner } from './ui/ScatterWinBanner'
 import { BuySpinModal } from './ui/BuySpinModal'
 import { installAccountingRetryHooks, logLedgerEvent } from './lib/accounting'
-import { WithdrawModal } from './ui/WithdrawModal'
 import { OfflineModal } from './ui/OfflineModal'
 import splashStart from './assets/images/splash_start.png'
 import WILD_RED from './assets/symbols/WILD_RED.png'
@@ -39,13 +40,6 @@ const GAME_BUILD_VERSION = import.meta.env.VITE_GAME_VERSION || 'dev'
 const FREE_SPIN_PRESTART_DELAY_MS = 1500
 const BIG_WIN_BET_MULTIPLIER = 10
 const BIG_WIN_MIN_AMOUNT = 20
-const WIN_AUDIO_PHASES = new Set([
-  'highlight',
-  'pop',
-  'cascadeRefill',
-  'postGoldTransform',
-  'settle',
-])
 
 const VOICE_BY_SYMBOL: Record<string, string> = {
   A: aceVoice,
@@ -105,6 +99,12 @@ function getWinVoiceSequence(cascade: CascadeStep): string[] {
   return clips
 }
 
+function getSymbolMatchLayerCount(matchCount: number) {
+  if (matchCount >= 7) return 5
+  if (matchCount >= 4) return 4
+  return 3
+}
+
 function getWinEffectClip(cascadeWin: number, betAmount: number): string {
   const bigWinThreshold = Math.max(BIG_WIN_MIN_AMOUNT, betAmount * BIG_WIN_BET_MULTIPLIER)
   return cascadeWin >= bigWinThreshold ? winBigSfx : winSmallSfx
@@ -118,77 +118,6 @@ function getWinOverlayTitle(amount: number, betAmount: number): string {
   if (ratio >= 20) return 'MEGA\nWIN'
   if (ratio >= 10) return 'BIG\nWIN'
   return ''
-}
-
-function getCascadeAudioBudgetMs(args: {
-  activeCascade?: CascadeStep
-  nextCascade?: CascadeStep
-  previousCascade?: CascadeStep
-  turboMultiplier: number
-  pauseColumn: number | null
-}) {
-  const { activeCascade, nextCascade, previousCascade, turboMultiplier, pauseColumn } = args
-  if (!activeCascade?.win) return 0
-
-  const scaled = (ms: number) =>
-    ms /
-    (pauseColumn !== null
-      ? (turboMultiplier > 1 ? turboMultiplier / 2 : turboMultiplier) * 1.7
-      : turboMultiplier)
-
-  const scaledWithFloor = (ms: number, floorMs: number) => {
-    const turboFloor = turboMultiplier > 1 ? Math.max(20, floorMs / turboMultiplier) : floorMs
-    return Math.max(scaled(ms), turboFloor)
-  }
-
-  const hasNextLineWin =
-    Boolean(nextCascade?.lineWins?.length) || Number(nextCascade?.win ?? 0) > 0.0001
-  const hasRemovals = Boolean(activeCascade.removedPositions?.length)
-  const hasScatterWin =
-    activeCascade.window?.flat().filter(symbol => symbol.kind === 'SCATTER').length >= 3
-  const nextScatterCount =
-    nextCascade?.window?.flat().filter(symbol => symbol.kind === 'SCATTER').length ?? 0
-  const hasNextLineScatter = nextScatterCount >= 3
-  const hasGoldToWild =
-    activeCascade.window?.some((col, reel) =>
-      col.some((symbol, row) => {
-        const prev = previousCascade?.window?.[reel]?.[row]
-        return prev?.isGold === true && symbol.kind === 'WILD'
-      }),
-    ) ?? false
-  const hasRedWildPropagation =
-    activeCascade.window?.some((col, reel) =>
-      col.some((symbol, row) => {
-        const prev = previousCascade?.window?.[reel]?.[row]
-        return (
-          symbol.kind === 'WILD' &&
-          symbol.wildColor === 'red' &&
-          !symbol.fromGold &&
-          prev !== undefined &&
-          !(prev.kind === 'WILD' && prev.wildColor === 'red')
-        )
-      }),
-    ) ?? false
-
-  let budget = scaledWithFloor(820, 420)
-  budget += scaledWithFloor(520, 240)
-
-  if (hasRemovals) {
-    budget += scaledWithFloor(760, 180)
-
-    if (hasGoldToWild) {
-      budget += hasRedWildPropagation ? scaledWithFloor(2150, 1500) : scaledWithFloor(620, 180)
-    }
-  }
-
-  const transitionsToNextCascade =
-    (!hasRemovals && (hasNextLineWin || hasNextLineScatter)) || (hasRemovals && hasNextLineWin)
-
-  if (!transitionsToNextCascade) {
-    budget += scaledWithFloor(!hasNextLineWin && hasScatterWin ? 300 * turboMultiplier : 80, 80)
-  }
-
-  return budget
 }
 
 //
@@ -483,6 +412,10 @@ export default function App() {
     }
     if (!deviceId) return
 
+    if (source === 'hopper') {
+      return
+    }
+
     logLedgerEvent({
       deviceId,
       type: 'withdrawal',
@@ -498,13 +431,20 @@ export default function App() {
   const [showBuySpinModal, setShowBuySpinModal] = useState(false)
   const [hasPressedStart, setHasPressedStart] = useState(false)
   const [introCountdown, setIntroCountdown] = useState(10)
+  const [withdrawRequestedAmount, setWithdrawRequestedAmount] = useState(0)
+  const [withdrawRemainingAmount, setWithdrawRemainingAmount] = useState(0)
+  const withdrawRequestedAmountRef = useRef(0)
   const lastLoggedWinKeyRef = useRef<string>('')
   const lastPlayedWinAudioKeyRef = useRef<string>('')
+  const lastPlayedPopAudioKeyRef = useRef<string>('')
+  const lastPlayedDealAudioKeyRef = useRef<string>('')
   const pendingIntroStartRef = useRef(false)
   const activeForegroundAudioRef = useRef<HTMLAudioElement | null>(null)
   const activeForegroundAudioFinalizeRef = useRef<(() => void) | null>(null)
+  const activeOneShotAudioRef = useRef(new Set<HTMLAudioElement>())
+  const activeOneShotAudioGroupsRef = useRef(new Map<string, Set<HTMLAudioElement>>())
+  const activeOneShotTimersRef = useRef(new Map<string, number[]>())
   const audioSequenceTokenRef = useRef(0)
-  const clipDurationCacheRef = useRef(new Map<string, number>())
 
   const spinRef = useRef(spin)
   const setAutoSpinRef = useRef(setAutoSpin)
@@ -548,47 +488,36 @@ export default function App() {
     finalize?.()
   }
 
-  async function getClipDurationMs(clip: string) {
-    const cached = clipDurationCacheRef.current.get(clip)
-    if (cached !== undefined) return cached
+  function stopOneShotAudio(group?: string) {
+    if (group) {
+      const timers = activeOneShotTimersRef.current.get(group)
+      timers?.forEach(window.clearTimeout)
+      activeOneShotTimersRef.current.delete(group)
 
-    const durationMs = await new Promise<number>(resolve => {
-      const probe = new Audio(clip)
+      const groupAudios = activeOneShotAudioGroupsRef.current.get(group)
+      if (!groupAudios) return
+      activeOneShotAudioGroupsRef.current.delete(group)
+      groupAudios.forEach(audio => {
+        activeOneShotAudioRef.current.delete(audio)
+        audio.pause()
+        audio.currentTime = 0
+      })
+      return
+    }
 
-      const finalize = (value: number) => {
-        probe.onloadedmetadata = null
-        probe.onerror = null
-        resolve(value)
-      }
+    activeOneShotTimersRef.current.forEach(timers => timers.forEach(window.clearTimeout))
+    activeOneShotTimersRef.current.clear()
+    activeOneShotAudioGroupsRef.current.clear()
 
-      if (Number.isFinite(probe.duration) && probe.duration > 0) {
-        finalize(probe.duration * 1000)
-        return
-      }
-
-      probe.preload = 'metadata'
-      probe.onloadedmetadata = () => finalize((probe.duration || 0) * 1000)
-      probe.onerror = () => finalize(0)
-      probe.load()
+    activeOneShotAudioRef.current.forEach(audio => {
+      audio.pause()
+      audio.currentTime = 0
     })
-
-    clipDurationCacheRef.current.set(clip, durationMs)
-    return durationMs
+    activeOneShotAudioRef.current.clear()
   }
 
-  async function playAudioSequence(clips: string[], budgetMs?: number) {
+  async function playAudioSequence(clips: string[]) {
     const token = ++audioSequenceTokenRef.current
-    let playbackRate = 1
-
-    if (budgetMs && Number.isFinite(budgetMs) && budgetMs > 0) {
-      const durations = await Promise.all(clips.map(getClipDurationMs))
-      if (token !== audioSequenceTokenRef.current) return
-
-      const totalDurationMs = durations.reduce((sum, duration) => sum + duration, 0)
-      if (totalDurationMs > budgetMs) {
-        playbackRate = Math.min(4, totalDurationMs / budgetMs)
-      }
-    }
 
     for (const clip of clips) {
       if (!gameStateRef.current.audioOn) return
@@ -597,8 +526,6 @@ export default function App() {
       await new Promise<void>(resolve => {
         const audio = new Audio(clip)
         activeForegroundAudioRef.current = audio
-        audio.playbackRate = playbackRate
-        audio.preservesPitch = false
 
         const finalize = () => {
           if (activeForegroundAudioRef.current === audio) {
@@ -615,6 +542,81 @@ export default function App() {
         audio.onerror = finalize
         audio.play().catch(finalize)
       })
+    }
+  }
+
+  function playOneShotAudio(clip: string, options?: { group?: string; playbackRate?: number }) {
+    if (!gameStateRef.current.audioOn) return
+
+    const group = options?.group
+    const audio = new Audio(clip)
+    audio.playbackRate = options?.playbackRate ?? 1
+    audio.preservesPitch = false
+
+    const finalize = () => {
+      audio.onended = null
+      audio.onerror = null
+      activeOneShotAudioRef.current.delete(audio)
+      if (group) {
+        const groupAudios = activeOneShotAudioGroupsRef.current.get(group)
+        groupAudios?.delete(audio)
+        if (groupAudios && groupAudios.size === 0) {
+          activeOneShotAudioGroupsRef.current.delete(group)
+        }
+      }
+    }
+
+    activeOneShotAudioRef.current.add(audio)
+    if (group) {
+      const groupAudios = activeOneShotAudioGroupsRef.current.get(group) ?? new Set<HTMLAudioElement>()
+      groupAudios.add(audio)
+      activeOneShotAudioGroupsRef.current.set(group, groupAudios)
+    }
+
+    audio.onended = finalize
+    audio.onerror = finalize
+    audio.play().catch(finalize)
+  }
+
+  function playLayeredOneShotAudio(
+    clip: string,
+    options: { group: string; layers: number; staggerMs: number; volume: number },
+  ) {
+    if (!gameStateRef.current.audioOn) return
+
+    const { group, layers, staggerMs, volume } = options
+    const timers: number[] = []
+    activeOneShotTimersRef.current.set(group, timers)
+
+    for (let index = 0; index < layers; index++) {
+      const timer = window.setTimeout(() => {
+        if (!gameStateRef.current.audioOn) return
+        if (!activeOneShotTimersRef.current.has(group)) return
+
+        const audio = new Audio(clip)
+        audio.volume = volume
+
+        const finalize = () => {
+          audio.onended = null
+          audio.onerror = null
+          activeOneShotAudioRef.current.delete(audio)
+          const groupAudios = activeOneShotAudioGroupsRef.current.get(group)
+          groupAudios?.delete(audio)
+          if (groupAudios && groupAudios.size === 0) {
+            activeOneShotAudioGroupsRef.current.delete(group)
+          }
+        }
+
+        activeOneShotAudioRef.current.add(audio)
+        const groupAudios = activeOneShotAudioGroupsRef.current.get(group) ?? new Set<HTMLAudioElement>()
+        groupAudios.add(audio)
+        activeOneShotAudioGroupsRef.current.set(group, groupAudios)
+        audio.onended = finalize
+        audio.onerror = finalize
+        audio.play().catch(finalize)
+      }, index * staggerMs)
+
+      timers.push(timer)
     }
   }
 
@@ -806,6 +808,20 @@ export default function App() {
       !showWithdrawModal &&
       !showBuySpinModal)
 
+  const canOpenShellWithdraw =
+    internetOnline &&
+    isReady &&
+    !spinning &&
+    !autoSpin &&
+    !isFreeGame &&
+    !showFreeSpinIntro &&
+    !showScatterWinBanner &&
+    freeSpinsLeft <= 0 &&
+    pauseColumn === null &&
+    !showBuySpinModal &&
+    !isWithdrawing &&
+    getMaxWithdrawSelectable(balance) >= WITHDRAW_MIN
+
   useEffect(() => {
     if (!internetOnline) return
     if (!isIdle) return
@@ -853,21 +869,19 @@ export default function App() {
   useEffect(() => {
     if (spinId <= 0) return
     stopForegroundAudio()
+    stopOneShotAudio()
   }, [spinId])
-
-  useEffect(() => {
-    if (WIN_AUDIO_PHASES.has(phase)) return
-    stopForegroundAudio()
-  }, [phase])
 
   useEffect(() => {
     if (audioOn) return
     stopForegroundAudio()
+    stopOneShotAudio()
   }, [audioOn])
 
   useEffect(() => {
     return () => {
       stopForegroundAudio()
+      stopOneShotAudio()
     }
   }, [])
 
@@ -896,7 +910,6 @@ export default function App() {
     useFreeSpinWinCounter ? freeSpinTotal : totalWin,
   )
   const overlayTitle = getWinOverlayTitle(overlayAmount, bet)
-  const nextCascade = cascades[cascadeIndex + 1]
 
   useEffect(() => {
     if (phase !== 'highlight') return
@@ -907,29 +920,46 @@ export default function App() {
     if (lastPlayedWinAudioKeyRef.current === winKey) return
     lastPlayedWinAudioKeyRef.current = winKey
 
-    const clips = [...getWinVoiceSequence(activeCascade), getWinEffectClip(overlayAmount, bet)]
-    const budgetMs = getCascadeAudioBudgetMs({
-      activeCascade,
-      nextCascade,
-      previousCascade,
-      turboMultiplier,
-      pauseColumn,
+    const matchCount = activeCascade.lineWins.reduce((sum, lineWin) => sum + lineWin.positions.length, 0)
+    const matchLayers = getSymbolMatchLayerCount(matchCount)
+    const layerVolume = matchLayers >= 5 ? 0.4 : matchLayers === 4 ? 0.46 : 0.52
+
+    playLayeredOneShotAudio(symbolMatchSfx, {
+      group: 'highlight',
+      layers: matchLayers,
+      staggerMs: 22,
+      volume: layerVolume,
     })
 
-    void playAudioSequence(clips, budgetMs)
-  }, [
-    phase,
-    audioOn,
-    activeCascade,
-    nextCascade,
-    previousCascade,
-    spinId,
-    cascadeIndex,
-    overlayAmount,
-    bet,
-    turboMultiplier,
-    pauseColumn,
-  ])
+    const clips = getWinVoiceSequence(activeCascade)
+    if (!clips.length) return
+
+    void playAudioSequence(clips)
+  }, [phase, audioOn, activeCascade, spinId, cascadeIndex])
+
+  useEffect(() => {
+    if (phase !== 'pop') return
+    if (!audioOn) return
+    if (!activeCascade?.win) return
+
+    const winKey = `${spinId}:${cascadeIndex}`
+    if (lastPlayedPopAudioKeyRef.current === winKey) return
+    lastPlayedPopAudioKeyRef.current = winKey
+
+    playOneShotAudio(getWinEffectClip(overlayAmount, bet), { group: 'pop' })
+  }, [phase, audioOn, activeCascade, spinId, cascadeIndex, overlayAmount, bet])
+
+  useEffect(() => {
+    if (phase !== 'initialRefill' && phase !== 'cascadeRefill') return
+    if (!audioOn) return
+    if (!activeCascade?.window?.length) return
+
+    const dealKey = `${spinId}:${cascadeIndex}:${phase}`
+    if (lastPlayedDealAudioKeyRef.current === dealKey) return
+    lastPlayedDealAudioKeyRef.current = dealKey
+
+    playOneShotAudio(cardDealSfx, { group: 'deal' })
+  }, [phase, audioOn, activeCascade, spinId, cascadeIndex])
 
   function triggerFreeSpinStart() {
     if (!gameStateRef.current.showFreeSpinIntro) return
@@ -1064,6 +1094,31 @@ export default function App() {
     )
   }, [canExitViaMenu])
 
+  const requestParentExitConfirm = () => {
+    if (window.parent === window) return
+    window.parent.postMessage({ type: 'ULTRAACE_REQUEST_EXIT_CONFIRM' }, '*')
+  }
+
+  useEffect(() => {
+    if (window.parent === window) return
+    window.parent.postMessage(
+      {
+        type: 'ULTRAACE_WITHDRAW_STATE',
+        canOpen: canOpenShellWithdraw,
+        balance,
+        isWithdrawing,
+        min: WITHDRAW_MIN,
+        step: WITHDRAW_STEP,
+      },
+      '*',
+    )
+  }, [balance, canOpenShellWithdraw, isWithdrawing])
+
+  const requestShellWithdrawOpen = () => {
+    if (window.parent === window) return
+    window.parent.postMessage({ type: 'ULTRAACE_WITHDRAW_REQUEST' }, '*')
+  }
+
   useEffect(() => {
     spinRef.current = spin
   }, [spin])
@@ -1109,6 +1164,17 @@ export default function App() {
         return
       }
 
+      if (
+        !internetOnline &&
+        (payload.type === 'COIN' ||
+          payload.type === 'HOPPER_COIN' ||
+          payload.type === 'PLAYER' ||
+          payload.type === 'ACTION')
+      ) {
+        setShowOfflineModal(true)
+        return
+      }
+
       // --- COIN ---
       if (payload.type === 'COIN') {
         addBalanceRef.current('coin', payload.credits)
@@ -1118,6 +1184,7 @@ export default function App() {
       // --- WITHDRAW COMPLETE ---
       if (payload.type === 'WITHDRAW_DISPENSE') {
         minusBalanceRef.current('hopper', payload.dispensed)
+        setWithdrawRemainingAmount(prev => Math.max(0, prev - Number(payload.dispensed ?? 0)))
         return
       }
 
@@ -1139,6 +1206,10 @@ export default function App() {
       if (payload.type === 'WITHDRAW_COMPLETE') {
         setIsWithdrawingRef.current(false)
         setShowWithdrawModalRef.current(false)
+        setWithdrawAmount(withdrawRequestedAmountRef.current || 20)
+        withdrawRequestedAmountRef.current = 0
+        setWithdrawRequestedAmount(0)
+        setWithdrawRemainingAmount(0)
         return
       }
 
@@ -1156,7 +1227,8 @@ export default function App() {
       const s = gameStateRef.current
       if (s.bootSplashStage === 'start') {
         if (action === 'MENU') {
-          // allow menu/exit while waiting on start gate
+          requestParentExitConfirm()
+          return
         } else if (isP1StartPlayerEvent) {
           setHasPressedStartRef.current(true)
           return
@@ -1307,22 +1379,21 @@ export default function App() {
             setShowOfflineModal(true)
             break
           }
-          if (s.isReady && !s.spinning && !s.autoSpin && !s.showBuySpinModal) {
-            if (!s.showWithdrawModal) {
-              if (getMaxWithdrawSelectable(s.balance) < WITHDRAW_MIN) break
-              setShowWithdrawModalRef.current(true)
-            } else if (!s.isWithdrawing && isValidWithdrawAmount(s.withdrawAmount, s.balance)) {
-              fetch('http://localhost:5174', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  type: 'WITHDRAW',
-                  amount: s.withdrawAmount,
-                }),
-              })
+          const canOpenFromState =
+            s.isReady &&
+            !s.spinning &&
+            !s.autoSpin &&
+            !s.isFreeGame &&
+            !s.showFreeSpinIntro &&
+            !s.showScatterWinBanner &&
+            s.freeSpinsLeft <= 0 &&
+            s.pauseColumn === null &&
+            !s.showBuySpinModal &&
+            !s.isWithdrawing &&
+            getMaxWithdrawSelectable(s.balance) >= WITHDRAW_MIN
 
-              setIsWithdrawingRef.current(true)
-            }
+          if (canOpenFromState) {
+            requestShellWithdrawOpen()
           }
           break
         }
@@ -1394,15 +1465,8 @@ export default function App() {
 
               <button
                 className="withdrawal-btn"
-                disabled={
-                  !isReady ||
-                  pauseColumn !== null ||
-                  balance === 0 ||
-                  balance < 60 ||
-                  isFreeGame ||
-                  freeSpinsLeft > 0
-                }
-                onClick={() => setShowWithdrawModal(true)}
+                disabled={!canOpenShellWithdraw}
+                onClick={requestShellWithdrawOpen}
               />
 
               <button
@@ -1467,35 +1531,6 @@ export default function App() {
                     setShowBuySpinModal(false)
                     buyFreeSpins(buySpinBet)
                   }
-                }}
-              />
-            )}
-
-            {showWithdrawModal && (
-              <WithdrawModal
-                withdrawAmount={withdrawAmount}
-                balance={balance}
-                isWithdrawing={isWithdrawing}
-                onAddAmount={addWithdrawAmount}
-                onMinusAmount={minusWithdrawAmount}
-                onCancel={() => setShowWithdrawModal(false)}
-                onConfirm={() => {
-                  if (!internetOnline) {
-                    setShowOfflineModal(true)
-                    return
-                  }
-                  if (!isValidWithdrawAmount(withdrawAmount, balance)) return
-
-                  fetch('http://localhost:5174', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      type: 'WITHDRAW',
-                      amount: withdrawAmount,
-                    }),
-                  })
-
-                  setIsWithdrawing(true)
                 }}
               />
             )}

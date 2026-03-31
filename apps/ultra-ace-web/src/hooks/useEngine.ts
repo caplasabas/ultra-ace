@@ -159,6 +159,18 @@ function generateSeed(): string {
   return [Date.now(), buf[0], buf[1], buf[2], buf[3]].join('-')
 }
 
+function normalizePersistedBetAmount(value: number, balanceCap: number): number {
+  const safeValue = Math.max(1, Math.floor(Number(value || 0)))
+  const cap = Math.max(0, Math.floor(Number(balanceCap || 0)))
+  const limit = cap > 0 ? Math.min(safeValue, cap) : safeValue
+
+  if (limit <= 10) return limit
+  if (limit < 50) return Math.max(10, Math.floor(limit / 10) * 10)
+  if (limit < 100) return 50
+  if (limit < 500) return Math.max(100, Math.floor(limit / 100) * 100)
+  return Math.max(500, Math.floor(limit / 500) * 500)
+}
+
 export function useEngine() {
   const sessionIdRef = useRef<number | null>(null)
   const lastOutcomeRef = useRef<SpinOutcome | null>(null)
@@ -425,7 +437,7 @@ export function useEngine() {
       ])
       applyAuthoritativeBalance(initialBalance)
       if (persistedBet && persistedBet > 0) {
-        const normalizedBet = Math.max(1, Number(persistedBet.toFixed(2)))
+        const normalizedBet = normalizePersistedBetAmount(persistedBet, initialBalance.balance)
         const balanceCap = Math.max(0, Number(initialBalance.balance ?? 0))
         const startupBet = balanceCap > 0 ? Math.min(normalizedBet, balanceCap) : normalizedBet
         setBet(startupBet)
@@ -1644,7 +1656,7 @@ export function useEngine() {
         deviceId: deviceIdRef.current,
         spinId: nextSpinId,
         isFreeGame: false,
-        betAmount: cost,
+        betAmount,
         totalWin,
         freeSpinsAwarded: outcome.freeSpinsAwarded ?? 0,
         cascades: outcome.cascades?.length ?? 0,

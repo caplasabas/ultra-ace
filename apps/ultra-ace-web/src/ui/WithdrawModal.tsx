@@ -4,6 +4,8 @@ type Props = {
   withdrawAmount: number
   isWithdrawing: boolean
   balance: number
+  requestedAmount: number
+  remainingAmount: number
   onAddAmount: () => void
   onMinusAmount: () => void
   onConfirm: () => void
@@ -14,28 +16,33 @@ export function WithdrawModal({
   withdrawAmount,
   isWithdrawing,
   balance,
+  requestedAmount,
+  remainingAmount,
   onAddAmount,
   onMinusAmount,
   onConfirm,
   onCancel,
 }: Props) {
   const canAfford = balance >= withdrawAmount
+  const activeAmount = isWithdrawing ? remainingAmount : withdrawAmount
 
   return (
     <div className="modal-backdrop">
-      <div className="modal-card">
+      <div className="modal-card modal-card-withdraw">
         <div className="modal-header">
           <h2>Withdraw Balance</h2>
         </div>
 
         <div className="modal-body">
-          <div className="modal-row">
-            <span>Withdraw Amount</span>
-            <div className="bet-adjust">
+          <div className="modal-row modal-row-withdraw">
+            <span className="withdraw-label">
+              {isWithdrawing ? 'Remaining to Dispense' : 'Withdraw Amount'}
+            </span>
+            <div className="amount-adjust">
               <button disabled={isWithdrawing} onClick={onMinusAmount} className="modal-toggle">
                 −
               </button>
-              <span>{formatPeso(withdrawAmount)}</span>
+              <span className="withdraw-amount-value">{formatPeso(activeAmount)}</span>
               <button disabled={isWithdrawing} onClick={onAddAmount} className="modal-toggle">
                 +
               </button>
@@ -46,6 +53,17 @@ export function WithdrawModal({
 
           {!canAfford && <div className="modal-warning">Insufficient balance</div>}
         </div>
+        {isWithdrawing && (
+          <div className="withdraw-progress-overlay">
+            <div className="withdraw-progress-card">
+              <div className="withdraw-progress-title">Dispensing</div>
+              <div className="withdraw-progress-amount">{formatPeso(remainingAmount)}</div>
+              <div className="withdraw-progress-detail">
+                Requested {formatPeso(requestedAmount)}
+              </div>
+            </div>
+          </div>
+        )}
         <div className="modal-actions">
           <button disabled={isWithdrawing} onClick={onCancel} className="modal-cancel">
             Cancel
