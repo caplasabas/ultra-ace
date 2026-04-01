@@ -1305,7 +1305,7 @@ export default function App() {
             if (s.showWithdrawModal) {
               addWithdrawAmountRef.current()
             } else if (s.showBuySpinModal) {
-              addBuySpinBetRef.current()
+              minusBuySpinBetRef.current()
             } else {
               addBetRef.current()
             }
@@ -1318,7 +1318,7 @@ export default function App() {
             if (s.showWithdrawModal) {
               minusWithdrawAmountRef.current()
             } else if (s.showBuySpinModal) {
-              minusBuySpinBetRef.current()
+              addBuySpinBetRef.current()
             } else {
               minusBetRef.current()
             }

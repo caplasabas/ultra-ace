@@ -49,9 +49,23 @@ export async function getDeviceId(): Promise<string> {
 export async function ensureDeviceRegistered(name?: string) {
   const deviceId = await getDeviceId()
 
-  const { error } = await supabase
+  const nextName = String(name ?? '').trim()
+  const { data: existing, error: lookupError } = await supabase
     .from('devices')
-    .upsert({ device_id: deviceId, name: name ?? null }, { onConflict: 'device_id' })
+    .select('device_id,name')
+    .eq('device_id', deviceId)
+    .maybeSingle()
+
+  if (lookupError) throw lookupError
+
+  const payload =
+    existing && existing.device_id
+      ? { device_id: deviceId }
+      : nextName
+        ? { device_id: deviceId, name: nextName }
+        : { device_id: deviceId }
+
+  const { error } = await supabase.from('devices').upsert(payload, { onConflict: 'device_id' })
 
   if (error) throw error
 
@@ -70,4 +84,19 @@ export async function fetchDeviceLastBetAmount(deviceId: string): Promise<number
   const value = Number(data?.last_bet_amount ?? 0)
   if (!Number.isFinite(value) || value <= 0) return null
   return value
+}
+
+export async function persistDeviceLastBetAmount(deviceId: string, amount: number) {
+  const normalizedAmount = Number(amount ?? 0)
+  if (!deviceId || !Number.isFinite(normalizedAmount) || normalizedAmount <= 0) return
+
+  const { error } = await supabase
+    .from('devices')
+    .update({
+      last_bet_amount: normalizedAmount,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('device_id', deviceId)
+
+  if (error) throw error
 }

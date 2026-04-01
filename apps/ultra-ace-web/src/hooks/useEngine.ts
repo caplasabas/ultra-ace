@@ -11,7 +11,11 @@ import {
   startEngine,
 } from '@ultra-ace/engine'
 import { DebugSpinInfo } from 'src/debug/DebugHud'
-import { ensureDeviceRegistered, fetchDeviceLastBetAmount } from '../lib/device'
+import {
+  ensureDeviceRegistered,
+  fetchDeviceLastBetAmount,
+  persistDeviceLastBetAmount,
+} from '../lib/device'
 import type { DeviceBalanceSnapshot } from '../lib/balance'
 import { fetchDeviceBalance, subscribeToDeviceBalance } from '../lib/balance'
 import {
@@ -401,7 +405,7 @@ export function useEngine() {
 
     async function init() {
       if (!mounted) return
-      const id = await ensureDeviceRegistered('Arcade Cabinet')
+      const id = await ensureDeviceRegistered()
       setDeviceId(id)
       snapshotKeyRef.current = `${FREE_SPIN_SNAPSHOT_PREFIX}:${id}`
 
@@ -1656,12 +1660,13 @@ export function useEngine() {
         deviceId: deviceIdRef.current,
         spinId: nextSpinId,
         isFreeGame: false,
-        betAmount,
+        betAmount: cost,
         totalWin,
         freeSpinsAwarded: outcome.freeSpinsAwarded ?? 0,
         cascades: outcome.cascades?.length ?? 0,
         triggerType: 'buy',
       })
+      await persistDeviceLastBetAmount(deviceIdRef.current, betAmount)
     } catch (error) {
       console.error('[engine] buy spin accounting failed, skipping animation start', error)
       spinLockRef.current = false
