@@ -216,7 +216,9 @@ export default function App() {
     const syncOnlineState = () => {
       const nextOnline = typeof navigator !== 'undefined' ? navigator.onLine : true
       setInternetOnline(nextOnline)
-      setShowOfflineModal(!nextOnline)
+      setShowOfflineModal(prev =>
+        !nextOnline && !gameStateRef.current.spinning ? true : prev && !nextOnline,
+      )
     }
 
     window.addEventListener('online', syncOnlineState)
@@ -272,8 +274,9 @@ export default function App() {
   } = useEngine()
 
   useEffect(() => {
-    if (internetOnline) return
-    setShowOfflineModal(true)
+    if (!internetOnline && !gameStateRef.current.spinning) {
+      setShowOfflineModal(true)
+    }
   }, [internetOnline])
 
   function getBetIncrement(bet: number): number {
@@ -295,7 +298,9 @@ export default function App() {
 
   const addBet = () => {
     if (!internetOnline) {
-      setShowOfflineModal(true)
+      if (!gameStateRef.current.spinning) {
+        setShowOfflineModal(true)
+      }
       return
     }
     setBet(prev => {
@@ -310,7 +315,9 @@ export default function App() {
 
   const minusBet = () => {
     if (!internetOnline) {
-      setShowOfflineModal(true)
+      if (!gameStateRef.current.spinning) {
+        setShowOfflineModal(true)
+      }
       return
     }
     setBet(prev => {
@@ -321,7 +328,9 @@ export default function App() {
 
   const addBuySpinBet = () => {
     if (!internetOnline) {
-      setShowOfflineModal(true)
+      if (!gameStateRef.current.spinning) {
+        setShowOfflineModal(true)
+      }
       return
     }
     setBuySpinBet(prev => {
@@ -332,7 +341,9 @@ export default function App() {
 
   const minusBuySpinBet = () => {
     if (!internetOnline) {
-      setShowOfflineModal(true)
+      if (!gameStateRef.current.spinning) {
+        setShowOfflineModal(true)
+      }
       return
     }
     setBuySpinBet(prev => {
@@ -353,7 +364,9 @@ export default function App() {
 
   const addWithdrawAmount = () => {
     if (!internetOnline) {
-      setShowOfflineModal(true)
+      if (!gameStateRef.current.spinning) {
+        setShowOfflineModal(true)
+      }
       return
     }
     const max = getMaxWithdrawSelectable(balance)
@@ -365,7 +378,9 @@ export default function App() {
 
   const minusWithdrawAmount = () => {
     if (!internetOnline) {
-      setShowOfflineModal(true)
+      if (!gameStateRef.current.spinning) {
+        setShowOfflineModal(true)
+      }
       return
     }
     const max = getMaxWithdrawSelectable(balance)
@@ -388,7 +403,9 @@ export default function App() {
 
   const addBalance = (source = 'coin', amount = 5) => {
     if (!internetOnline) {
-      setShowOfflineModal(true)
+      if (!gameStateRef.current.spinning) {
+        setShowOfflineModal(true)
+      }
       return
     }
     if (!deviceId) return
@@ -407,7 +424,9 @@ export default function App() {
 
   const minusBalance = (source = 'hopper', amount = 20) => {
     if (!internetOnline) {
-      setShowOfflineModal(true)
+      if (!gameStateRef.current.spinning) {
+        setShowOfflineModal(true)
+      }
       return
     }
     if (!deviceId) return
@@ -568,7 +587,8 @@ export default function App() {
 
     activeOneShotAudioRef.current.add(audio)
     if (group) {
-      const groupAudios = activeOneShotAudioGroupsRef.current.get(group) ?? new Set<HTMLAudioElement>()
+      const groupAudios =
+        activeOneShotAudioGroupsRef.current.get(group) ?? new Set<HTMLAudioElement>()
       groupAudios.add(audio)
       activeOneShotAudioGroupsRef.current.set(group, groupAudios)
     }
@@ -608,7 +628,8 @@ export default function App() {
         }
 
         activeOneShotAudioRef.current.add(audio)
-        const groupAudios = activeOneShotAudioGroupsRef.current.get(group) ?? new Set<HTMLAudioElement>()
+        const groupAudios =
+          activeOneShotAudioGroupsRef.current.get(group) ?? new Set<HTMLAudioElement>()
         groupAudios.add(audio)
         activeOneShotAudioGroupsRef.current.set(group, groupAudios)
         audio.onended = finalize
@@ -920,7 +941,10 @@ export default function App() {
     if (lastPlayedWinAudioKeyRef.current === winKey) return
     lastPlayedWinAudioKeyRef.current = winKey
 
-    const matchCount = activeCascade.lineWins.reduce((sum, lineWin) => sum + lineWin.positions.length, 0)
+    const matchCount = activeCascade.lineWins.reduce(
+      (sum, lineWin) => sum + lineWin.positions.length,
+      0,
+    )
     const matchLayers = getSymbolMatchLayerCount(matchCount)
     const layerVolume = matchLayers >= 5 ? 0.4 : matchLayers === 4 ? 0.46 : 0.52
 
@@ -1148,6 +1172,15 @@ export default function App() {
     window.__ARCADE_INPUT__ = payload => {
       console.log('[ARCADE]', payload)
 
+      // --- Modal-first guard (authoritative) ---
+      if (showOfflineModal) {
+        const isMenu = payload.type === 'ACTION' && payload.action === 'MENU'
+        if (isMenu) {
+          requestParentExitConfirm()
+        }
+        return
+      }
+
       if (payload?.type === 'INTERNET_LOST') {
         console.log('[ULTRAACE] INTERNET_LOST')
 
@@ -1164,15 +1197,20 @@ export default function App() {
         return
       }
 
-      if (
-        !internetOnline &&
-        (payload.type === 'COIN' ||
-          payload.type === 'HOPPER_COIN' ||
-          payload.type === 'PLAYER' ||
-          payload.type === 'ACTION')
-      ) {
-        setShowOfflineModal(true)
-        return
+      if (!internetOnline) {
+        const isMenu = payload.type === 'ACTION' && payload.action === 'MENU'
+        const isSpinningNow = gameStateRef.current.spinning
+
+        // Allow MENU even when offline
+        if (isMenu) {
+          // fallthrough
+        } else {
+          // Do NOT show modal during spin; just block input
+          if (!isSpinningNow) {
+            setShowOfflineModal(true)
+          }
+          return
+        }
       }
 
       // --- COIN ---
@@ -1243,8 +1281,10 @@ export default function App() {
 
       switch (action) {
         case 'SPIN': {
-          if (!internetOnline && !s.spinning) {
-            setShowOfflineModal(true)
+          if (!internetOnline) {
+            if (!s.spinning) {
+              setShowOfflineModal(true)
+            }
             return
           }
           if (s.showFreeSpinIntro) {
@@ -1283,6 +1323,10 @@ export default function App() {
         }
 
         case 'MENU': {
+          if (!internetOnline) {
+            requestParentExitConfirm()
+            return
+          }
           if (s.showWithdrawModal) {
             setShowWithdrawModalRef.current(false)
             return
@@ -1328,7 +1372,7 @@ export default function App() {
 
         case 'AUTO': {
           if (!internetOnline) {
-            setShowOfflineModal(true)
+            if (!s.spinning) setShowOfflineModal(true)
             break
           }
           if (
@@ -1344,7 +1388,7 @@ export default function App() {
 
         case 'TURBO': {
           if (!internetOnline) {
-            setShowOfflineModal(true)
+            if (!s.spinning) setShowOfflineModal(true)
             break
           }
           if (s.balance >= s.bet && s.pauseColumn === null && !s.showBuySpinModal) {
@@ -1354,7 +1398,7 @@ export default function App() {
         }
         case 'BUY': {
           if (!internetOnline) {
-            setShowOfflineModal(true)
+            if (!s.spinning) setShowOfflineModal(true)
             break
           }
           if (
@@ -1376,7 +1420,7 @@ export default function App() {
 
         case 'WITHDRAW': {
           if (!internetOnline) {
-            setShowOfflineModal(true)
+            if (!s.spinning) setShowOfflineModal(true)
             break
           }
           const canOpenFromState =
@@ -1718,6 +1762,13 @@ export default function App() {
                       (!showFreeSpinIntro && !isFreeGame && (balance === 0 || balance < bet))
                     }
                     onClick={() => {
+                      if (!internetOnline) {
+                        if (!gameStateRef.current.spinning) {
+                          setShowOfflineModal(true)
+                        }
+                        return
+                      }
+
                       if (showFreeSpinIntro) {
                         triggerFreeSpinStart()
                         return

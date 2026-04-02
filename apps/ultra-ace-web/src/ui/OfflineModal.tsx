@@ -4,10 +4,16 @@ type Props = {
 
 export function OfflineModal({ onClose }: Props) {
   return (
-    <div className="modal-backdrop">
+    <div
+      className="modal-backdrop"
+      tabIndex={0}
+      autoFocus
+      onKeyDown={e => e.stopPropagation()}
+      onClick={e => e.stopPropagation()}
+    >
       <div className="modal-card">
         <div className="modal-header">
-          <h2>Internet Connection Required</h2>
+          <h2 style={{ alignSelf: 'center', textAlign: 'center' }}>Internet Connection Required</h2>
         </div>
 
         <div className="modal-body">
@@ -37,7 +43,15 @@ export function OfflineModal({ onClose }: Props) {
         </div>
 
         <div className="modal-actions">
-          <button className="modal-cancel" onClick={onClose ?? (() => {})}>
+          <button
+            className="modal-cancel"
+            onClick={() => {
+              if (window.parent !== window) {
+                window.parent.postMessage({ type: 'ULTRAACE_OPEN_SETTINGS' }, '*')
+              }
+              onClose?.()
+            }}
+          >
             OK
           </button>
         </div>
