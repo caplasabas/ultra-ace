@@ -720,8 +720,8 @@ export default function Dashboard() {
                           }`}
                         >
                           {hopperLow && (
-                            <span className="rounded border-2 border-red-500 bg-red-950/80 px-2 py-0.5 text-[10px] font-black tracking-wide text-red-200">
-                              LOW HOPPER
+                            <span className="rounded border-2  text-center border-red-500 bg-red-950/80 px-2 py-0.5 text-[10px] font-black tracking-wide text-red-200">
+                              LOW
                             </span>
                           )}
                           <span>{formatCurrency(d.hopper_balance)}</span>
