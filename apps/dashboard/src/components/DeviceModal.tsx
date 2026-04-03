@@ -8,19 +8,26 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [overrideBusy, setOverrideBusy] = useState(false)
-  const [powerActionBusy, setPowerActionBusy] = useState<'restart' | 'shutdown' | 'reset' | null>(null)
+  const [powerActionBusy, setPowerActionBusy] = useState<'restart' | 'shutdown' | 'reset' | null>(
+    null,
+  )
   const [nameBusy, setNameBusy] = useState(false)
   const [deviceName, setDeviceName] = useState(String(device.name ?? ''))
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
-  const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
+  const formatCurrency = (v: number | string | null | undefined) =>
+    `₱${asNumber(v).toLocaleString()}`
   const formatJackpotCurrency = (v: number | string | null | undefined) =>
     `₱${asNumber(v).toLocaleString(undefined, {
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     })}`
   const deviceRtp =
-    asNumber(device.bet_total) > 0 ? (asNumber(device.win_total) / asNumber(device.bet_total)) * 100 : 0
-  const deviceHouseWin = asNumber(device.house_take_total ?? (asNumber(device.bet_total) - asNumber(device.win_total)))
+    asNumber(device.bet_total) > 0
+      ? (asNumber(device.win_total) / asNumber(device.bet_total)) * 100
+      : 0
+  const deviceHouseWin = asNumber(
+    device.house_take_total ?? asNumber(device.bet_total) - asNumber(device.win_total),
+  )
   const hopperAlertThreshold = asNumber((device as any)?.hopper_alert_threshold ?? 500)
   const hopperLow = asNumber(device.hopper_balance) <= hopperAlertThreshold
   const gameTypeRaw = String(device.game_type ?? (device.session_metadata as any)?.gameType ?? '')
@@ -29,15 +36,15 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
   const gameType: 'arcade' | 'casino' =
     gameTypeRaw === 'arcade' || gameTypeRaw === 'casino'
       ? (gameTypeRaw as 'arcade' | 'casino')
-      : (device.runtime_mode || device.is_free_game || device.jackpot_selected ? 'casino' : 'arcade')
+      : device.runtime_mode || device.is_free_game || device.jackpot_selected
+        ? 'casino'
+        : 'arcade'
   const gameName = String(device.current_game_name ?? device.current_game_id ?? 'No Game')
   const modeLabel = device.is_free_game
     ? `FREE SPIN (${asNumber(device.free_spins_left)} left)`
     : String(device.runtime_mode ?? 'BASE').toUpperCase()
   const telemetryLabel =
-    gameType === 'casino'
-      ? `CASINO / ${gameName} / ${modeLabel}`
-      : `ARCADE / ${gameName}`
+    gameType === 'casino' ? `CASINO / ${gameName} / ${modeLabel}` : `ARCADE / ${gameName}`
   const jackpotStatusLabel = (() => {
     if (!device.jackpot_selected) return null
     if (device.is_free_game && asNumber(device.free_spins_left) > 0) {
@@ -205,7 +212,9 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
     }
 
     device.name = nextName || null
-    setSuccessMessage(nextName ? `Cabinet name saved: ${nextName}` : `Cabinet name cleared for ${device.device_id}`)
+    setSuccessMessage(
+      nextName ? `Cabinet name saved: ${nextName}` : `Cabinet name cleared for ${device.device_id}`,
+    )
     setErrorMessage(null)
   }
 
@@ -245,7 +254,9 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
                     {formatJackpotCurrency(device.jackpot_remaining_amount)}
                   </div>
                 )}
-                {jackpotStatusLabel && <div className="mt-1 text-xs text-amber-300">{jackpotStatusLabel}</div>}
+                {jackpotStatusLabel && (
+                  <div className="mt-1 text-xs text-amber-300">{jackpotStatusLabel}</div>
+                )}
               </div>
 
               <div className="text-base md:text-lg font-mono font-bold text-green-400">
@@ -256,12 +267,16 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
             <div className="grid grid-cols-2 md:grid-cols-7 gap-2 mt-2">
               <div className="rounded border border-green-700/40 bg-green-900/20 px-2 py-1">
                 <div className="text-[10px] text-green-300/80">Balance</div>
-                <div className="text-sm font-mono text-green-300">{formatCurrency(device.balance)}</div>
+                <div className="text-sm font-mono text-green-300">
+                  {formatCurrency(device.balance)}
+                </div>
               </div>
 
               <div className="rounded border border-sky-700/40 bg-sky-900/20 px-2 py-1">
                 <div className="text-[10px] text-sky-300/80">Coins-In</div>
-                <div className="text-sm font-mono text-sky-300">{formatCurrency(device.coins_in_total)}</div>
+                <div className="text-sm font-mono text-sky-300">
+                  {formatCurrency(device.coins_in_total)}
+                </div>
               </div>
 
               <div
@@ -271,15 +286,10 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
               >
                 <div className="text-[10px] text-amber-300/80">Hopper</div>
                 <div className="mt-1 flex items-center justify-between gap-2">
-                  {hopperLow && (
-                    <span className="rounded border-2 border-red-500 bg-red-950/80 px-2 py-0.5 text-[10px] font-black tracking-wide text-red-200">
-                      LOW HOPPER
-                    </span>
-                  )}
                   <div
                     className={`font-mono ${
                       hopperLow
-                        ? 'text-red-200 animate-pulse font-extrabold text-xl leading-none'
+                        ? 'text-red-200 animate-pulse font-extrabold text-sm leading-none'
                         : 'text-amber-300 text-sm'
                     }`}
                   >
@@ -290,7 +300,9 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
 
               <div className="rounded border border-violet-700/40 bg-violet-900/20 px-2 py-1">
                 <div className="text-[10px] text-violet-300/80">Bet Amount</div>
-                <div className="text-sm font-mono text-violet-300">{formatCurrency(device.bet_total)}</div>
+                <div className="text-sm font-mono text-violet-300">
+                  {formatCurrency(device.bet_total)}
+                </div>
               </div>
 
               <div className="rounded border border-orange-700/40 bg-orange-900/20 px-2 py-1">
@@ -306,7 +318,9 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
 
               <div className="rounded border border-cyan-700/40 bg-cyan-900/20 px-2 py-1">
                 <div className="text-[10px] text-cyan-300/80">Spins</div>
-                <div className="text-sm font-mono text-cyan-300">{asNumber(device.spins_total).toLocaleString()}</div>
+                <div className="text-sm font-mono text-cyan-300">
+                  {asNumber(device.spins_total).toLocaleString()}
+                </div>
               </div>
 
               <div className="rounded border border-fuchsia-700/40 bg-fuchsia-900/20 px-2 py-1">
@@ -506,7 +520,11 @@ export function DeviceModal({ device, onClose }: { device: any; onClose: () => v
                     <button
                       onClick={async () => {
                         const nextInstalled = !g.installed
-                        const result = await toggleCabinetGame(device.device_id, g.id, nextInstalled)
+                        const result = await toggleCabinetGame(
+                          device.device_id,
+                          g.id,
+                          nextInstalled,
+                        )
 
                         if (!result.ok) {
                           setErrorMessage(result?.error?.message ?? null)

@@ -493,7 +493,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-10">
+    <div className="p-6 max-w-[90rem] mx-auto space-y-10">
       <header>
         <h1 className="text-2xl font-semibold">Settings</h1>
         <p className="text-slate-400 text-sm">RTP profile and runtime controls</p>

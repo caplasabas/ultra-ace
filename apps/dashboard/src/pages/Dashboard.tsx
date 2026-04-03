@@ -235,7 +235,7 @@ export default function Dashboard() {
 
   return (
     <>
-      <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-8 sm:space-y-10">
+      <div className="p-4 sm:p-6 max-w-[90rem] mx-auto space-y-8 sm:space-y-10">
         <header>
           <h1 className="text-xl sm:text-2xl font-semibold">Dashboard</h1>
           <div className="text-[11px] text-emerald-200/80 mt-1 font-mono">
@@ -252,7 +252,6 @@ export default function Dashboard() {
         )}
 
         <section>
-          <h2 className="text-lg font-semibold mb-3">Global Balances</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-3 sm:gap-4">
             <div className="rounded-lg border border-green-700/40 bg-green-900/20 p-4">
               <div className="text-xs text-green-300/80 mb-1">Total Balance</div>
@@ -276,12 +275,14 @@ export default function Dashboard() {
             </div>
 
             <div className="rounded-lg border border-violet-700/40 bg-violet-900/20 p-4">
-              <div className="text-xs text-violet-300/80 mb-1">Total Bet Amount</div>
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-violet-300/80 ">Total Bet Amount</div>
+                <div className="text-[11px] text-violet-200/80  font-mono">
+                  Avg Bet / Spin {formatJackpotCurrency(globalAverageBet)}
+                </div>
+              </div>
               <div className="text-xl sm:text-2xl font-bold font-mono text-violet-300">
                 {formatCurrency(stats?.total_bet_amount)}
-              </div>
-              <div className="text-[11px] text-violet-200/80 mt-1 font-mono">
-                Avg Bet / Spin {formatJackpotCurrency(globalAverageBet)}
               </div>
             </div>
 
@@ -355,10 +356,10 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="flex items-center justify-between">
-                <div className="text-sm text-indigo-200/90 mt-1 font-mono">
+                <div className="text-sm text-indigo-200/90 font-mono">
                   Contrib {formatCurrency(stats?.total_jackpot_contrib)}
                 </div>
-                <div className="text-sm text-indigo-200/90 mt-1 font-mono">
+                <div className="text-sm text-indigo-200/90 font-mono">
                   Paid {formatCurrency(stats?.total_jackpot_win)}
                 </div>
               </div>
@@ -447,11 +448,6 @@ export default function Dashboard() {
                         </div>
                         <div className="truncate text-[10px] font-mono text-slate-500">
                           {d.device_id ?? 'Unknown Device'}
-                        </div>
-                        <div className="mt-1 text-[10px] text-slate-400">
-                          {d.arcade_shell_version?.trim() || 'unknown version'}
-                          {' • '}
-                          {d.current_ip?.trim() || 'no ip'}
                         </div>
                         <div className="mt-1 flex items-center gap-2 text-[10px]">
                           <span

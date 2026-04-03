@@ -19,7 +19,8 @@ export default function Accounting() {
   const { loading, rows, summary, byDate } = useAccounting(dateFrom, dateTo)
 
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
-  const formatCurrency = (v: number | string | null | undefined) => `₱${asNumber(v).toLocaleString()}`
+  const formatCurrency = (v: number | string | null | undefined) =>
+    `₱${asNumber(v).toLocaleString()}`
   const formatPercent = (v: number) => `${v.toFixed(2)}%`
 
   const houseWin = summary.bet - summary.win
@@ -58,7 +59,7 @@ export default function Accounting() {
   }, [rows])
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-8">
+    <div className="p-6 max-w-[90rem] mx-auto space-y-8">
       <header>
         <h1 className="text-2xl font-semibold">Accounting</h1>
         <p className="text-slate-400 text-sm">Daily balance sheets with date-range filtering</p>
@@ -93,15 +94,21 @@ export default function Accounting() {
       <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="rounded-lg border border-violet-700/40 bg-violet-900/20 p-4">
           <div className="text-xs text-violet-300/80 mb-1">Total Bet</div>
-          <div className="text-2xl font-bold font-mono text-violet-300">{formatCurrency(summary.bet)}</div>
+          <div className="text-2xl font-bold font-mono text-violet-300">
+            {formatCurrency(summary.bet)}
+          </div>
         </div>
         <div className="rounded-lg border border-red-700/40 bg-red-900/20 p-4">
           <div className="text-xs text-red-300/80 mb-1">Total Win</div>
-          <div className="text-2xl font-bold font-mono text-red-300">{formatCurrency(summary.win)}</div>
+          <div className="text-2xl font-bold font-mono text-red-300">
+            {formatCurrency(summary.win)}
+          </div>
         </div>
         <div className="rounded-lg border border-orange-700/40 bg-orange-900/20 p-4">
           <div className="text-xs text-orange-300/80 mb-1">House Win</div>
-          <div className={`text-2xl font-bold font-mono ${houseWin < 0 ? 'text-red-300' : 'text-orange-300'}`}>
+          <div
+            className={`text-2xl font-bold font-mono ${houseWin < 0 ? 'text-red-300' : 'text-orange-300'}`}
+          >
             {formatCurrency(houseWin)}
           </div>
         </div>
@@ -114,7 +121,9 @@ export default function Accounting() {
       </section>
 
       <section className="rounded-lg border border-slate-800 overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-800 text-sm font-semibold">Daily Totals</div>
+        <div className="px-4 py-3 border-b border-slate-800 text-sm font-semibold">
+          Daily Totals
+        </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-slate-900 text-slate-400">
@@ -135,13 +144,23 @@ export default function Accounting() {
                 return (
                   <tr key={date}>
                     <td className="px-4 py-2">{date}</td>
-                    <td className="px-4 py-2 text-right font-mono text-violet-300">{formatCurrency(s.bet)}</td>
-                    <td className="px-4 py-2 text-right font-mono text-red-300">{formatCurrency(s.win)}</td>
-                    <td className={`px-4 py-2 text-right font-mono ${dayHouseWin < 0 ? 'text-red-300' : 'text-orange-300'}`}>
+                    <td className="px-4 py-2 text-right font-mono text-violet-300">
+                      {formatCurrency(s.bet)}
+                    </td>
+                    <td className="px-4 py-2 text-right font-mono text-red-300">
+                      {formatCurrency(s.win)}
+                    </td>
+                    <td
+                      className={`px-4 py-2 text-right font-mono ${dayHouseWin < 0 ? 'text-red-300' : 'text-orange-300'}`}
+                    >
                       {formatCurrency(dayHouseWin)}
                     </td>
-                    <td className="px-4 py-2 text-right font-mono text-cyan-300">{asNumber(s.spins).toLocaleString()}</td>
-                    <td className="px-4 py-2 text-right font-mono text-fuchsia-300">{formatPercent(dayRtp)}</td>
+                    <td className="px-4 py-2 text-right font-mono text-cyan-300">
+                      {asNumber(s.spins).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2 text-right font-mono text-fuchsia-300">
+                      {formatPercent(dayRtp)}
+                    </td>
                   </tr>
                 )
               })}
@@ -172,13 +191,23 @@ export default function Accounting() {
                 return (
                   <tr key={deviceId}>
                     <td className="px-4 py-2">{deviceId}</td>
-                    <td className="px-4 py-2 text-right font-mono text-violet-300">{formatCurrency(s.bet)}</td>
-                    <td className="px-4 py-2 text-right font-mono text-red-300">{formatCurrency(s.win)}</td>
-                    <td className={`px-4 py-2 text-right font-mono ${dHouseWin < 0 ? 'text-red-300' : 'text-orange-300'}`}>
+                    <td className="px-4 py-2 text-right font-mono text-violet-300">
+                      {formatCurrency(s.bet)}
+                    </td>
+                    <td className="px-4 py-2 text-right font-mono text-red-300">
+                      {formatCurrency(s.win)}
+                    </td>
+                    <td
+                      className={`px-4 py-2 text-right font-mono ${dHouseWin < 0 ? 'text-red-300' : 'text-orange-300'}`}
+                    >
                       {formatCurrency(dHouseWin)}
                     </td>
-                    <td className="px-4 py-2 text-right font-mono text-cyan-300">{asNumber(s.spins).toLocaleString()}</td>
-                    <td className="px-4 py-2 text-right font-mono text-fuchsia-300">{formatPercent(dRtp)}</td>
+                    <td className="px-4 py-2 text-right font-mono text-cyan-300">
+                      {asNumber(s.spins).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2 text-right font-mono text-fuchsia-300">
+                      {formatPercent(dRtp)}
+                    </td>
                   </tr>
                 )
               })}
