@@ -9,7 +9,7 @@ import moment from 'moment'
 import { supabase } from '../lib/supabase'
 
 type SortField =
-  | 'device_id'
+  | 'name'
   | 'balance'
   | 'coins_in_total'
   | 'hopper_balance'
@@ -25,7 +25,7 @@ type SortDirection = 'asc' | 'desc'
 
 const SORT_OPTIONS: { field: SortField; label: string }[] = [
   { field: 'updated_at', label: 'Last Seen' },
-  { field: 'device_id', label: 'Device' },
+  { field: 'name', label: 'Device' },
   { field: 'balance', label: 'Balance' },
   { field: 'coins_in_total', label: 'Coins-In' },
   { field: 'hopper_balance', label: 'Hopper' },
@@ -181,7 +181,7 @@ export default function Dashboard() {
   }
 
   const getSortValue = (device: DeviceRow, field: SortField): number | string => {
-    if (field === 'device_id') return (device.device_id ?? '').toLowerCase()
+    if (field === 'name') return (device.name ?? '').toLowerCase()
     if (field === 'updated_at') return device.updated_at ? moment(device.updated_at).valueOf() : 0
     if (field === 'house_win')
       return asNumber(
@@ -199,9 +199,8 @@ export default function Dashboard() {
     const search = searchTerm.trim().toLowerCase()
     const filtered = search
       ? devices.filter(d => {
-          const deviceId = (d.device_id ?? '').toLowerCase()
           const name = (d.name ?? '').toLowerCase()
-          return deviceId.includes(search) || name.includes(search)
+          return name.includes(search)
         })
       : [...devices]
 
@@ -229,7 +228,7 @@ export default function Dashboard() {
       return
     }
     setSortField(field)
-    setSortDirection(field === 'device_id' ? 'asc' : 'desc')
+    setSortDirection(field === 'name' ? 'asc' : 'desc')
   }
 
   const sortLabel = SORT_OPTIONS.find(option => option.field === sortField)?.label ?? 'Last Seen'
@@ -545,10 +544,9 @@ export default function Dashboard() {
                     <button
                       type="button"
                       className="hover:text-white"
-                      onClick={() => onSort('device_id')}
+                      onClick={() => onSort('name')}
                     >
-                      Device{' '}
-                      {sortField === 'device_id' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                      Device {sortField === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
                   <th className="px-4 py-2 text-left">Status</th>
