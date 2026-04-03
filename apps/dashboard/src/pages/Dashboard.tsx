@@ -354,11 +354,13 @@ export default function Dashboard() {
                   Queued Pots: {asNumber(runtime?.jackpot_pots_queued_count)}
                 </div>
               </div>
-              <div className="text-sm text-indigo-200/90 mt-1 font-mono">
-                Contrib {formatCurrency(stats?.total_jackpot_contrib)}
-              </div>
-              <div className="text-sm text-indigo-200/90 mt-1 font-mono">
-                Paid {formatCurrency(stats?.total_jackpot_win)}
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-indigo-200/90 mt-1 font-mono">
+                  Contrib {formatCurrency(stats?.total_jackpot_contrib)}
+                </div>
+                <div className="text-sm text-indigo-200/90 mt-1 font-mono">
+                  Paid {formatCurrency(stats?.total_jackpot_win)}
+                </div>
               </div>
               <div className="text-sm text-indigo-200/90 mt-1 font-mono">
                 Pool {formatCurrency(runtime?.jackpot_pool_balance)} /{' '}
