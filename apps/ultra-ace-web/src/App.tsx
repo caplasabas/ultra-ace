@@ -227,7 +227,7 @@ export default function App() {
     }
   }, [])
 
-  useBackgroundAudio(BGM, audioOn, 0.4)
+  useBackgroundAudio(BGM, audioOn, 1)
 
   const {
     cascades,
