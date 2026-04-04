@@ -20,8 +20,8 @@ import type { DeviceBalanceSnapshot } from '../lib/balance'
 import { fetchDeviceBalance, subscribeToDeviceBalance } from '../lib/balance'
 import {
   fetchCasinoRuntimeLive,
-  subscribeCasinoRuntimeLive,
   type JackpotDeliveryMode,
+  subscribeCasinoRuntimeLive,
 } from '../lib/runtime'
 import { commitSpinAccounting } from '../lib/accounting'
 import {
@@ -32,8 +32,8 @@ import {
 import { registerAuthenticJackpotPlan } from '../lib/jackpotPlan'
 import {
   type ActiveJackpotQueue,
-  finalizeDeviceJackpotPayouts,
   fetchActiveJackpotQueue,
+  finalizeDeviceJackpotPayouts,
   subscribeActiveJackpotQueue,
 } from '../lib/jackpotQueue'
 
@@ -663,7 +663,10 @@ export function useEngine() {
     return Math.min(nextValue, cap)
   }
 
-  function getFundableNormalWinCap(runtimeSnapshot: RuntimeSpinSnapshot, betAmount: number): number | null {
+  function getFundableNormalWinCap(
+    runtimeSnapshot: RuntimeSpinSnapshot,
+    betAmount: number,
+  ): number | null {
     const normalizedBet = roundMoney(Math.max(0, Number(betAmount ?? 0)))
     const reserveBalance =
       runtimeSnapshot.mode === 'HAPPY'
@@ -916,10 +919,12 @@ export function useEngine() {
       })
       const total = roundMoney(candidate.total)
       const varianceOk =
-        total >= normalizedBaseTarget - 0.0001 &&
-        total <= normalizedBaseTarget + maxBonus + 0.0001
-      const penalty =
-        varianceOk ? candidate.diff : Math.max(0, normalizedBaseTarget - total) + Math.max(0, total - (normalizedBaseTarget + maxBonus)) * 5 + candidate.diff
+        total >= normalizedBaseTarget - 0.0001 && total <= normalizedBaseTarget + maxBonus + 0.0001
+      const penalty = varianceOk
+        ? candidate.diff
+        : Math.max(0, normalizedBaseTarget - total) +
+          Math.max(0, total - (normalizedBaseTarget + maxBonus)) * 5 +
+          candidate.diff
 
       if (!best || penalty < bestPenalty) {
         best = {
@@ -1013,7 +1018,9 @@ export function useEngine() {
       const isLast = i === editableIndexes.length - 1
       const nextWin = isLast
         ? roundMoney(Math.max(0, target - allocated))
-        : roundMoney((target * Math.max(Number(cascades[idx].win ?? 0), 1)) / Math.max(weightTotal, 1))
+        : roundMoney(
+            (target * Math.max(Number(cascades[idx].win ?? 0), 1)) / Math.max(weightTotal, 1),
+          )
 
       cascades[idx].win = nextWin
       allocated = roundMoney(allocated + nextWin)
@@ -1293,7 +1300,12 @@ export function useEngine() {
     let authPlanState: ActiveAuthPlanState | null = null
     let authPlanStep: AuthPlanStep | null = null
 
-    if (useAuthenticPaytableMode && queueBeforeSpin && deviceIdRef.current && queueBeforeSpin.campaign_id) {
+    if (
+      useAuthenticPaytableMode &&
+      queueBeforeSpin &&
+      deviceIdRef.current &&
+      queueBeforeSpin.campaign_id
+    ) {
       const existingPlan = activeAuthPlanRef.current
       const canReuseExistingPlan =
         existingPlan &&
@@ -1327,7 +1339,11 @@ export function useEngine() {
           })
           const composedPlan = composed.plan
 
-          if (composedPlan.withinTolerance && composed.varianceOk && composedPlan.steps.length === payoutsLeft) {
+          if (
+            composedPlan.withinTolerance &&
+            composed.varianceOk &&
+            composedPlan.steps.length === payoutsLeft
+          ) {
             const expectedAmounts = composedPlan.steps.map(step => roundMoney(step.expectedAmount))
             await registerAuthenticJackpotPlan({
               deviceId: deviceIdRef.current,
@@ -1365,7 +1381,10 @@ export function useEngine() {
           }
         } catch (error) {
           activeAuthPlanRef.current = null
-          console.warn('[engine] authentic jackpot plan registration failed; fallback active', error)
+          console.warn(
+            '[engine] authentic jackpot plan registration failed; fallback active',
+            error,
+          )
         } finally {
           if (forcedHappyRuntime) {
             hotUpdateEngine({
@@ -1444,7 +1463,10 @@ export function useEngine() {
         }
 
         if (authPlanState && authPlanStep) {
-          authPlanState.nextIndex = Math.min(authPlanState.nextIndex + 1, authPlanState.steps.length)
+          authPlanState.nextIndex = Math.min(
+            authPlanState.nextIndex + 1,
+            authPlanState.steps.length,
+          )
           if (authPlanState.nextIndex >= authPlanState.steps.length) {
             activeAuthPlanRef.current = null
           }

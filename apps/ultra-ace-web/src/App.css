@@ -961,6 +961,10 @@
 
     }
 
+    .multiplier-strip.free {
+        margin-top: -0.3rem;
+    }
+
 
     /* =========================
        Multiplier Strip – Free Spin Tint
@@ -968,9 +972,9 @@
     .multiplier-strip.free::before {
         content: '';
         position: absolute;
-        width: 114.5%;
-        height: 70%;
-        inset: -5.5px -18px;
+        width: 101.7%;
+        height: 80%;
+        inset: -10.4px -0.5px;
 
 
         background: linear-gradient(
@@ -980,7 +984,7 @@
                 rgba(60, 0, 0, 0.75) 100%
         );
 
-        border-radius: 22px;
+        border-radius: 30px;
 
         box-shadow: inset 0 1px 0 rgba(255, 120, 120, 0.18),
         inset 0 -2px 0 rgba(40, 0, 0, 0.55),

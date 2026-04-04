@@ -882,14 +882,9 @@ export default function App() {
   const activeMultiplierIndex = getDisplayMultiplierIndex(phase, cascadeIndex)
   const freeSpinDisplayCount = isFreeGame ? freeSpinsLeft : pendingFreeSpins
   const showFreeSpinModeUi = isFreeGame || isFreeSpinPreview || showScatterWinBanner || freezeUI
-  const showFreeSpinCount =
-    (isFreeGame || isFreeSpinPreview || pendingFreeSpins > 0) && freeSpinDisplayCount > 0
-  const useFreeSpinWinCounter =
-    isFreeGame || pauseColumn !== null || pendingFreeSpins > 0 || freeSpinsLeft > 0
-  const overlayAmount = Math.max(
-    activeCascade?.win ?? 0,
-    useFreeSpinWinCounter ? freeSpinTotal : totalWin,
-  )
+  const showFreeSpinCount = (isFreeGame || isFreeSpinPreview) && freeSpinDisplayCount > 0
+  const useFreeSpinWinCounter = isFreeGame || pauseColumn !== null || freeSpinsLeft > 0
+  const overlayAmount = Math.max(activeCascade?.win ?? 0, totalWin)
   const overlayTitle = getWinOverlayTitle(overlayAmount, bet)
 
   useEffect(() => {

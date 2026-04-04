@@ -32,3 +32,4 @@ package-lock.json
 /.idea/
 /dist-package/
 /AWSCLIV2.pkg
+/data.sql
