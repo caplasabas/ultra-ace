@@ -5,9 +5,11 @@
 html,
 body,
 #root {
-  height: 100%;
+    height: 100%;
 }
 
 body {
-  @apply bg-slate-950 text-slate-100;
+    @apply bg-slate-900 text-slate-100;
 }
+
+

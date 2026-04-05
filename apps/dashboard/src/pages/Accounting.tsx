@@ -59,19 +59,19 @@ export default function Accounting() {
   }, [rows])
 
   return (
-    <div className="p-6 max-w-[90rem] mx-auto space-y-8">
+    <div className="p-6 max-w-[90rem] mx-auto space-y-8 bg-slate-900 text-slate-100">
       <header>
         <h1 className="text-2xl font-semibold">Accounting</h1>
         <p className="text-slate-400 text-sm">Daily balance sheets with date-range filtering</p>
       </header>
 
-      <section className="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
+      <section className="rounded-lg border border-slate-700 bg-slate-800 p-4">
         <div className="flex flex-wrap gap-4 items-end">
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-slate-300">From</span>
             <input
               type="date"
-              className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+              className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-slate-100"
               value={dateFrom}
               onChange={e => setDateFrom(e.target.value)}
             />
@@ -81,7 +81,7 @@ export default function Accounting() {
             <span className="text-slate-300">To</span>
             <input
               type="date"
-              className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
+              className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-slate-100"
               value={dateTo}
               onChange={e => setDateTo(e.target.value)}
             />
@@ -92,41 +92,41 @@ export default function Accounting() {
       </section>
 
       <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="rounded-lg border border-violet-700/40 bg-violet-900/20 p-4">
+        <div className="rounded-lg border border-violet-700/40 bg-slate-800 p-4">
           <div className="text-xs text-violet-300/80 mb-1">Total Bet</div>
-          <div className="text-2xl font-bold font-mono text-violet-300">
+          <div className="text-2xl font-bold font-mono text-violet-400">
             {formatCurrency(summary.bet)}
           </div>
         </div>
-        <div className="rounded-lg border border-red-700/40 bg-red-900/20 p-4">
+        <div className="rounded-lg border border-red-700/40 bg-slate-800 p-4">
           <div className="text-xs text-red-300/80 mb-1">Total Win</div>
-          <div className="text-2xl font-bold font-mono text-red-300">
+          <div className="text-2xl font-bold font-mono text-red-400">
             {formatCurrency(summary.win)}
           </div>
         </div>
-        <div className="rounded-lg border border-orange-700/40 bg-orange-900/20 p-4">
+        <div className="rounded-lg border border-orange-700/40 bg-slate-800 p-4">
           <div className="text-xs text-orange-300/80 mb-1">House Win</div>
           <div
-            className={`text-2xl font-bold font-mono ${houseWin < 0 ? 'text-red-300' : 'text-orange-300'}`}
+            className={`text-2xl font-bold font-mono ${houseWin < 0 ? 'text-red-400' : 'text-orange-400'}`}
           >
             {formatCurrency(houseWin)}
           </div>
         </div>
-        <div className="rounded-lg border border-fuchsia-700/40 bg-fuchsia-900/20 p-4">
+        <div className="rounded-lg border border-fuchsia-700/40 bg-slate-800 p-4">
           <div className="text-xs text-fuchsia-300/80 mb-1">RTP / House Edge</div>
-          <div className="text-base font-bold font-mono text-fuchsia-300">
+          <div className="text-base font-bold font-mono text-fuchsia-400">
             RTP {formatPercent(rtp)} • HE {formatPercent(houseEdge)}
           </div>
         </div>
       </section>
 
-      <section className="rounded-lg border border-slate-800 overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-800 text-sm font-semibold">
+      <section className="rounded-lg border border-slate-700 overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-700 text-sm font-semibold">
           Daily Totals
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-900 text-slate-400">
+            <thead className="bg-slate-800 text-slate-300">
               <tr>
                 <th className="px-4 py-2 text-left">Date</th>
                 <th className="px-4 py-2 text-right">Bet</th>
@@ -136,7 +136,7 @@ export default function Accounting() {
                 <th className="px-4 py-2 text-right">RTP</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody className="divide-y divide-slate-700">
               {byDate.map(([date, s]) => {
                 const dayHouseWin = s.bet - s.win
                 const dayRtp = s.bet > 0 ? (s.win / s.bet) * 100 : 0
@@ -144,21 +144,21 @@ export default function Accounting() {
                 return (
                   <tr key={date}>
                     <td className="px-4 py-2">{date}</td>
-                    <td className="px-4 py-2 text-right font-mono text-violet-300">
+                    <td className="px-4 py-2 text-right font-mono text-violet-400">
                       {formatCurrency(s.bet)}
                     </td>
-                    <td className="px-4 py-2 text-right font-mono text-red-300">
+                    <td className="px-4 py-2 text-right font-mono text-red-400">
                       {formatCurrency(s.win)}
                     </td>
                     <td
-                      className={`px-4 py-2 text-right font-mono ${dayHouseWin < 0 ? 'text-red-300' : 'text-orange-300'}`}
+                      className={`px-4 py-2 text-right font-mono ${dayHouseWin < 0 ? 'text-red-400' : 'text-orange-400'}`}
                     >
                       {formatCurrency(dayHouseWin)}
                     </td>
-                    <td className="px-4 py-2 text-right font-mono text-cyan-300">
+                    <td className="px-4 py-2 text-right font-mono text-cyan-400">
                       {asNumber(s.spins).toLocaleString()}
                     </td>
-                    <td className="px-4 py-2 text-right font-mono text-fuchsia-300">
+                    <td className="px-4 py-2 text-right font-mono text-fuchsia-400">
                       {formatPercent(dayRtp)}
                     </td>
                   </tr>
@@ -169,11 +169,11 @@ export default function Accounting() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-slate-800 overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-800 text-sm font-semibold">By Device</div>
+      <section className="rounded-lg border border-slate-700 overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-700 text-sm font-semibold">By Device</div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-900 text-slate-400">
+            <thead className="bg-slate-800 text-slate-300">
               <tr>
                 <th className="px-4 py-2 text-left">Device</th>
                 <th className="px-4 py-2 text-right">Bet</th>
@@ -183,7 +183,7 @@ export default function Accounting() {
                 <th className="px-4 py-2 text-right">RTP</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody className="divide-y divide-slate-700">
               {byDevice.map(([deviceId, s]) => {
                 const dHouseWin = s.bet - s.win
                 const dRtp = s.bet > 0 ? (s.win / s.bet) * 100 : 0
@@ -191,21 +191,21 @@ export default function Accounting() {
                 return (
                   <tr key={deviceId}>
                     <td className="px-4 py-2">{deviceId}</td>
-                    <td className="px-4 py-2 text-right font-mono text-violet-300">
+                    <td className="px-4 py-2 text-right font-mono text-violet-400">
                       {formatCurrency(s.bet)}
                     </td>
-                    <td className="px-4 py-2 text-right font-mono text-red-300">
+                    <td className="px-4 py-2 text-right font-mono text-red-400">
                       {formatCurrency(s.win)}
                     </td>
                     <td
-                      className={`px-4 py-2 text-right font-mono ${dHouseWin < 0 ? 'text-red-300' : 'text-orange-300'}`}
+                      className={`px-4 py-2 text-right font-mono ${dHouseWin < 0 ? 'text-red-400' : 'text-orange-400'}`}
                     >
                       {formatCurrency(dHouseWin)}
                     </td>
-                    <td className="px-4 py-2 text-right font-mono text-cyan-300">
+                    <td className="px-4 py-2 text-right font-mono text-cyan-400">
                       {asNumber(s.spins).toLocaleString()}
                     </td>
-                    <td className="px-4 py-2 text-right font-mono text-fuchsia-300">
+                    <td className="px-4 py-2 text-right font-mono text-fuchsia-400">
                       {formatPercent(dRtp)}
                     </td>
                   </tr>

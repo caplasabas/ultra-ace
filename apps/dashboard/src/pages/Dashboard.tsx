@@ -44,12 +44,29 @@ export default function Dashboard() {
   const [selectedDevice, setSelectedDevice] = useState<any | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [sortField, setSortField] = useState<SortField>('updated_at')
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [sortField, setSortField] = useState<SortField>('name')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [showHappyPotsModal, setShowHappyPotsModal] = useState(false)
   const [showJackpotPotsModal, setShowJackpotPotsModal] = useState(false)
   const [happyPots, setHappyPots] = useState<any[]>([])
   const [jackpotPots, setJackpotPots] = useState<any[]>([])
+  const [hopperAlertsEnabled, setHopperAlertsEnabled] = useState(() => {
+    try {
+      return localStorage.getItem('hopperAlertsEnabled') === 'true'
+    } catch {
+      return false
+    }
+  })
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('hopperAlertsEnabled', String(hopperAlertsEnabled))
+    } catch {
+      /* empty */
+    }
+  }, [hopperAlertsEnabled])
 
   useEffect(() => {
     if (!errorMessage) return
@@ -122,6 +139,11 @@ export default function Dashboard() {
     }
     return index
   }, [games])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCurrentPage(1)
+  }, [searchTerm, sortField, sortDirection])
 
   const getDeviceGameType = (device: DeviceRow): 'arcade' | 'casino' => {
     const sessionType = String((device.session_metadata as any)?.gameType ?? '')
@@ -211,7 +233,12 @@ export default function Dashboard() {
       if (typeof left === 'string' || typeof right === 'string') {
         const leftText = String(left)
         const rightText = String(right)
-        const compare = leftText.localeCompare(rightText)
+
+        const compare = leftText.localeCompare(rightText, undefined, {
+          numeric: true,
+          sensitivity: 'base',
+        })
+
         return sortDirection === 'asc' ? compare : -compare
       }
 
@@ -232,17 +259,45 @@ export default function Dashboard() {
   }
 
   const sortLabel = SORT_OPTIONS.find(option => option.field === sortField)?.label ?? 'Last Seen'
+  const prioritizedDevices = [...visibleDevices].sort((a, b) => {
+    const computeRisk = (d: any) => {
+      const deviceRtp =
+        asNumber(d.bet_total) > 0 ? (asNumber(d.win_total) / asNumber(d.bet_total)) * 100 : 0
+
+      const threshold = asNumber((d as any)?.hopper_alert_threshold ?? 500)
+      const hopperLow = asNumber(d.hopper_balance) <= threshold
+
+      const highRtp = deviceRtp > 110
+
+      // const lastHeartbeat = new Date((d as any)?.session_last_heartbeat ?? 0).getTime()
+      // const stuckSession =
+      //   d.device_status === 'playing' && Date.now() - lastHeartbeat > 1000 * 60 * 2
+
+      const offline = d.device_status === 'offline'
+
+      let score = 0
+      if (offline) score += 100
+      // if (stuckSession) score += 80
+      if (hopperLow) score += 60
+      if (highRtp) score += 40
+
+      return score
+    }
+
+    return computeRisk(b) - computeRisk(a)
+  })
+  const totalPages = Math.max(1, Math.ceil(prioritizedDevices.length / pageSize))
+
+  const paginatedDevices = prioritizedDevices.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  )
 
   return (
     <>
-      <div className="p-4 sm:p-6 max-w-[90rem] mx-auto space-y-8 sm:space-y-10">
+      <div className="p-5 sm:p-6 max-w-[90rem] mx-auto space-y-8 sm:space-y-10 bg-slate-900 text-slate-100">
         <header>
-          <h1 className="text-xl sm:text-2xl font-semibold">Dashboard</h1>
-          <div className="text-[11px] text-emerald-200/80 mt-1 font-mono">
-            Split H/J/P {formatPercent(activeHousePct)} / {formatPercent(activeJackpotPct)} /{' '}
-            {formatPercent(activeHappyPct)}
-          </div>
-          <p className="text-slate-400 text-sm">Live operational metrics</p>
+          <h1 className="text-2xl font-semibold">Dashboard</h1>
         </header>
 
         {errorMessage && (
@@ -252,167 +307,230 @@ export default function Dashboard() {
         )}
 
         <section>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-3 sm:gap-4">
-            <div className="rounded-lg border border-green-700/40 bg-green-900/20 p-4">
-              <div className="text-xs text-green-300/80 mb-1">Total Balance</div>
-              <div className="text-xl sm:text-2xl font-bold font-mono text-green-400">
-                {formatCurrency(stats?.total_balance)}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="rounded-xl border border-green-700/40 bg-green-100 dark:bg-green-900/20 p-4">
+              <div className="text-lg font-semibold text-green-700 dark:text-green-200 mb-2">
+                Money Flow
               </div>
-            </div>
 
-            <div className="rounded-lg border border-sky-700/40 bg-sky-900/20 p-4">
-              <div className="text-xs text-sky-300/80 mb-1">Total Coins-In</div>
-              <div className="text-xl sm:text-2xl font-bold font-mono text-sky-300">
-                {formatCurrency(stats?.total_coins_in)}
-              </div>
-            </div>
+              <div className="space-y-3">
+                <div>
+                  <div className="text-xs text-green-700/80 dark:text-green-200/80">
+                    Total Balance
+                  </div>
+                  <div className="text-3xl font-extrabold font-mono text-green-700 dark:text-green-200">
+                    {formatCurrency(stats?.total_balance)}
+                  </div>
+                </div>
 
-            <div className="rounded-lg border border-amber-700/40 bg-amber-900/20 p-4">
-              <div className="text-xs text-amber-300/80 mb-1">Total Hopper</div>
-              <div className="text-xl sm:text-2xl font-bold font-mono text-amber-300">
-                {formatCurrency(stats?.total_hopper)}
-              </div>
-            </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <div className="text-xs text-sky-700/80 dark:text-sky-200/80">Coins-In</div>
+                    <div className="text-lg font-mono text-sky-700 dark:text-sky-300">
+                      {formatCurrency(stats?.total_coins_in)}
+                    </div>
+                  </div>
 
-            <div className="rounded-lg border border-violet-700/40 bg-violet-900/20 p-4">
-              <div className="flex items-center justify-between">
-                <div className="text-xs text-violet-300/80 ">Total Bet Amount</div>
-                <div className="text-[11px] text-violet-200/80  font-mono">
-                  Avg Bet / Spin {formatJackpotCurrency(globalAverageBet)}
+                  <div>
+                    <div className="text-xs text-amber-700/80 dark:text-amber-200/80">Hopper</div>
+                    <div className="text-lg font-mono text-amber-700 dark:text-amber-300">
+                      {formatCurrency(stats?.total_hopper)}
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="text-xl sm:text-2xl font-bold font-mono text-violet-300">
-                {formatCurrency(stats?.total_bet_amount)}
-              </div>
             </div>
 
-            <div className="rounded-lg border border-red-700/40 bg-red-900/20 p-4">
-              <div className="text-xs text-red-300/80 mb-1">Total Win Amount</div>
-              <div className="text-xl sm:text-2xl font-bold font-mono text-red-300">
-                {formatCurrency(stats?.total_win_amount)}
+            <div className="rounded-xl border border-violet-700/40 bg-violet-100 dark:bg-violet-900/20 p-4">
+              <div className="text-lg font-semibold text-violet-700 dark:text-violet-200 mb-2">
+                Game Flow
               </div>
-            </div>
 
-            <div className="rounded-lg border border-cyan-700/40 bg-cyan-900/20 p-4">
-              <div className="text-xs text-cyan-300/80 mb-1">Total Spins</div>
-              <div className="text-xl sm:text-2xl font-bold font-mono text-cyan-300">
-                {asNumber(stats?.total_spins).toLocaleString()}
-              </div>
-            </div>
+              <div className="space-y-3">
+                <div>
+                  <div className="text-xs text-violet-700/80 dark:text-violet-200/80">
+                    Total Bet
+                  </div>
+                  <div className="text-3xl font-bold font-mono text-violet-700 dark:text-violet-300">
+                    {formatCurrency(stats?.total_bet_amount)}
+                  </div>
+                </div>
 
-            <div className="rounded-lg border border-fuchsia-700/40 bg-fuchsia-900/20 p-4">
-              <div className="text-xs text-fuchsia-300/80 mb-1">Global RTP</div>
-              <div className="text-xl sm:text-2xl font-bold font-mono text-fuchsia-300">
-                {formatPercent(stats?.global_rtp_percent)}
-              </div>
-              <div className="text-[11px] text-fuchsia-200/80 mt-1 font-mono">
-                Target {formatPercent(activeTargetRtpPct)}
-              </div>
-            </div>
+                <div className="grid grid-cols-2 gap-2 items-end">
+                  <div>
+                    <div className="text-xs text-red-700/80 dark:text-red-200/80">Total Win</div>
+                    <div className="text-lg font-mono text-red-700 dark:text-red-300">
+                      {formatCurrency(stats?.total_win_amount)}
+                    </div>
+                  </div>
 
-            <button
-              type="button"
-              onClick={() => setShowHappyPotsModal(true)}
-              className="text-left rounded-lg border border-emerald-700/40 bg-emerald-900/20 p-4 hover:border-emerald-500/70"
-            >
-              <div className="flex items-center justify-between text-xs text-emerald-300/80 mb-1">
-                <span> Mode / Pools</span>
-                <div className="text-xs text-emerald-200/80">
-                  Queued Pots: {asNumber(runtime?.happy_pots_queued_count)}
+                  <div className="text-xs text-violet-700/80 dark:text-violet-200/80 font-mono">
+                    Avg Bet / Spin {formatJackpotCurrency(globalAverageBet)}
+                  </div>
                 </div>
               </div>
-              <div
-                className={`flex items-center justify-between text-sm font-mono font-bold ${
-                  runtime?.active_mode === 'HAPPY' ? 'text-amber-300' : 'text-emerald-300'
-                }`}
-              >
-                <span>{runtime?.active_mode ?? 'BASE'}</span>
-                <span className={runtime?.active_mode === 'HAPPY' ? 'animate-pulse' : ''}>
-                  Happy {formatCurrency(runtime?.happy_hour_prize_balance)}
-                </span>
-              </div>
-              <div className="text-sm text-emerald-200/90 mt-1 font-mono">
-                Accum {formatCurrency(runtime?.prize_pool_balance)} /{' '}
-                {formatCurrency(runtime?.prize_pool_goal)}
-              </div>
-            </button>
+            </div>
 
-            <div className="rounded-lg border border-orange-700/40 bg-orange-900/20 p-4">
-              <div className="text-xs text-orange-300/80 mb-1">Global House Take</div>
-              <div className="text-xl sm:text-2xl font-bold font-mono text-orange-300">
-                {formatCurrency(globalHouseGross)}
+            <div className="rounded-xl border border-fuchsia-700/40 bg-fuchsia-100 dark:bg-fuchsia-900/20 p-4">
+              <div className="text-lg font-semibold text-fuchsia-700 dark:text-fuchsia-200 mb-2">
+                Performance
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <div className="text-xs text-fuchsia-700/80 dark:text-fuchsia-200/80">RTP</div>
+                  <div className="text-3xl font-bold font-mono text-fuchsia-700 dark:text-fuchsia-300">
+                    {formatPercent(stats?.global_rtp_percent)}
+                  </div>
+                  <div className="text-xs text-fuchsia-700/80 dark:text-fuchsia-200/80">
+                    Target {formatPercent(activeTargetRtpPct)}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-orange-700/80 dark:text-orange-200/80">
+                    House Take
+                  </div>
+                  <div className="text-lg font-mono text-orange-700 dark:text-orange-300">
+                    {formatCurrency(globalHouseGross)}
+                  </div>
+                </div>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowJackpotPotsModal(true)}
-              className="text-left rounded-lg border border-indigo-700/40 bg-indigo-900/20 p-4 hover:border-indigo-500/70"
-            >
-              <div className="flex items-center justify-between text-xs text-indigo-300/80 mb-1">
-                <span> Jackpot Flow</span>
-                <div className="text-xs text-indigo-200/80">
-                  Queued Pots: {asNumber(runtime?.jackpot_pots_queued_count)}
+            {/* 🏦 SYSTEM / POOLS */}
+            <div className="rounded-xl border border-emerald-700/40 bg-emerald-100 dark:bg-emerald-900/20 p-4">
+              <div className="text-lg font-semibold text-emerald-700 dark:text-emerald-200 mb-2">
+                System
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-emerald-700/80 dark:text-emerald-200/80">Mode</span>
+                  <span className="text-lg font-bold font-mono text-emerald-700 dark:text-emerald-300">
+                    {runtime?.active_mode ?? 'BASE'}
+                  </span>
+                </div>
+
+                <div className="text-xs text-emerald-700/80 dark:text-emerald-200/80 font-mono">
+                  Happy Pool {formatCurrency(runtime?.happy_hour_prize_balance)}
+                </div>
+
+                <div className="text-xs text-indigo-700/80 dark:text-indigo-200/80 font-mono">
+                  Jackpot Pool {formatCurrency(runtime?.jackpot_pool_balance)}
+                </div>
+
+                <div className="text-xs text-emerald-700/60 dark:text-emerald-200/60 font-mono">
+                  H/J/P {formatPercent(activeHousePct)} / {formatPercent(activeJackpotPct)} /{' '}
+                  {formatPercent(activeHappyPct)}
                 </div>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-indigo-200/90 font-mono">
-                  Contrib {formatCurrency(stats?.total_jackpot_contrib)}
-                </div>
-                <div className="text-sm text-indigo-200/90 font-mono">
-                  Paid {formatCurrency(stats?.total_jackpot_win)}
-                </div>
-              </div>
-              <div className="text-sm text-indigo-200/90 mt-1 font-mono">
-                Pool {formatCurrency(runtime?.jackpot_pool_balance)} /{' '}
-                {formatCurrency(runtime?.jackpot_pool_goal)}
-              </div>
-            </button>
+            </div>
           </div>
         </section>
 
         <section>
           <div className="mb-3 flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold">Devices</h2>
+            <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto_auto] gap-2 sm:gap-3 items-center">
+              <div className="flex items-center justify-between gap-3">
+                <div className="gap-3">
+                  <h2 className="text-lg font-semibold">Devices</h2>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <div className="text-xs text-red-300">
+                    🔴 Offline {devices.filter(d => d.device_status === 'offline').length}
+                  </div>
+
+                  {/*<div className="text-xs text-yellow-300">*/}
+                  {/*  🟡 Stuck{' '}*/}
+                  {/*  {*/}
+                  {/*    devices.filter(d => {*/}
+                  {/*      return (*/}
+                  {/*        d.device_status === 'playing' &&*/}
+                  {/*        Date.now() - new Date((d as any)?.session_last_heartbeat ?? 0).getTime() >*/}
+                  {/*          120000*/}
+                  {/*      )*/}
+                  {/*    }).length*/}
+                  {/*  }*/}
+                  {/*</div>*/}
+
+                  <div className="text-xs text-orange-300">
+                    🟠 Low Hopper{' '}
+                    {hopperAlertsEnabled
+                      ? devices.filter(d => {
+                          const threshold = asNumber((d as any)?.hopper_alert_threshold ?? 500)
+                          return asNumber(d.hopper_balance) <= threshold
+                        }).length
+                      : 0}
+                  </div>
+
+                  <div className="text-xs text-fuchsia-300">
+                    🟣 High RTP{' '}
+                    {
+                      devices.filter(d => {
+                        const rtp =
+                          asNumber(d.bet_total) > 0
+                            ? (asNumber(d.win_total) / asNumber(d.bet_total)) * 100
+                            : 0
+                        return rtp > 110
+                      }).length
+                    }
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 text-sm text-slate-300">
+                  <span className="text-slate-400">Alerts</span>
+
+                  <select
+                    value={hopperAlertsEnabled ? 'on' : 'off'}
+                    onChange={e => setHopperAlertsEnabled(e.target.value === 'on')}
+                    className="rounded border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200"
+                  >
+                    <option value="on">Hopper Alerts: ON</option>
+                    <option value="off">Hopper Alerts: OFF</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-5 text-sm text-slate-300">
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  placeholder="Search device ID or name"
+                  className="rounded-lg border border-slate-700 bg-white dark:bg-slate-900 px-3 min-w-64 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-500 focus:border-slate-500 focus:outline-none"
+                />
+                <select
+                  value={sortField}
+                  onChange={e => onSort(e.target.value as SortField)}
+                  className="rounded-lg border border-slate-700 bg-white dark:bg-slate-900 px-3 min-w-36 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-slate-500 focus:outline-none"
+                >
+                  {SORT_OPTIONS.map(option => (
+                    <option key={option.field} value={option.field}>
+                      Sort: {option.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'))}
+                  className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+                >
+                  {sortDirection === 'asc' ? 'Ascending' : 'Descending'}
+                </button>
+              </div>
+
               <div className="text-xs text-slate-400">
                 Showing {visibleDevices.length.toLocaleString()} of{' '}
                 {devices.length.toLocaleString()}
               </div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto_auto] gap-2 sm:gap-3">
-              <input
-                type="search"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Search device ID or name"
-                className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-slate-500 focus:outline-none"
-              />
-              <select
-                value={sortField}
-                onChange={e => onSort(e.target.value as SortField)}
-                className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:border-slate-500 focus:outline-none"
-              >
-                {SORT_OPTIONS.map(option => (
-                  <option key={option.field} value={option.field}>
-                    Sort: {option.label}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'))}
-                className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
-              >
-                {sortDirection === 'asc' ? 'Ascending' : 'Descending'}
-              </button>
-            </div>
           </div>
 
-          <div className="overflow-hidden rounded-lg border border-slate-800 md:hidden">
+          <div className="overflow-hidden rounded-lg border border-slate-700 md:hidden">
             <div className="space-y-2 p-2">
-              {visibleDevices.map(d => {
+              {paginatedDevices.map(d => {
                 const deviceRtp =
                   asNumber(d.bet_total) > 0
                     ? (asNumber(d.win_total) / asNumber(d.bet_total)) * 100
@@ -420,7 +538,12 @@ export default function Dashboard() {
                 const deviceHouseWin = asNumber(
                   d.house_take_total ?? asNumber(d.bet_total) - asNumber(d.win_total),
                 )
-                const hopperLow = asNumber(d.hopper_balance) <= hopperAlertThreshold
+                const threshold = asNumber((d as any)?.hopper_alert_threshold ?? 500)
+                const hopperLow = hopperAlertsEnabled && asNumber(d.hopper_balance) <= threshold
+                // --- Alert Computations ---
+                const HIGH_RTP_THRESHOLD = 110
+                const highRtp = deviceRtp > HIGH_RTP_THRESHOLD
+                const offline = d.device_status === 'offline'
                 const gameType = getDeviceGameType(d)
                 const telemetryLabel = getDeviceTelemetryLabel(d)
                 const jackpotStatus = getDeviceJackpotStatus(d)
@@ -432,7 +555,7 @@ export default function Dashboard() {
                     className={`w-full rounded-lg border p-3 text-left ${
                       d.jackpot_selected
                         ? 'border-amber-300/70 bg-gradient-to-br from-amber-900/30 via-slate-900/80 to-slate-900/90 shadow-[0_0_20px_rgba(251,191,36,0.18)]'
-                        : 'border-slate-800 bg-slate-900/60'
+                        : 'border-slate-700 bg-slate-800'
                     }`}
                     onClick={() =>
                       setSelectedDevice({
@@ -443,11 +566,12 @@ export default function Dashboard() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-slate-100">
+                        <div className="truncate text-sm font-semibold text-slate-100 text-slate-900 dark:text-slate-100">
                           {d.name?.trim() || 'Unnamed Cabinet'}
                         </div>
-                        <div className="truncate text-[10px] font-mono text-slate-500">
-                          {d.device_id ?? 'Unknown Device'}
+                        <div className="truncate text-[10px] text-slate-400">
+                          {[d.area_name, d.station_name].filter(Boolean).join(' • ') ||
+                            'Unassigned'}
                         </div>
                         <div className="mt-1 flex items-center gap-2 text-[10px]">
                           <span
@@ -466,6 +590,32 @@ export default function Dashboard() {
                           </span>
                         </div>
                         <div className="mt-1 text-[10px] text-slate-300">{telemetryLabel}</div>
+
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {hopperLow && (
+                            <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-red-500 bg-red-950 text-red-300">
+                              LOW
+                            </span>
+                          )}
+
+                          {highRtp && (
+                            <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-fuchsia-500 bg-fuchsia-950 text-fuchsia-300">
+                              RTP
+                            </span>
+                          )}
+
+                          {/*{stuckSession && (*/}
+                          {/*  <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-yellow-500 bg-yellow-950 text-yellow-300">*/}
+                          {/*    STUCK*/}
+                          {/*  </span>*/}
+                          {/*)}*/}
+
+                          {offline && (
+                            <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-slate-500 bg-slate-900 text-slate-300">
+                              OFF
+                            </span>
+                          )}
+                        </div>
                         {d.jackpot_selected && (
                           <div className="mt-1 text-[10px] font-semibold text-amber-200">
                             JACKPOT TARGET {formatJackpotCurrency(d.jackpot_target_amount)} •
@@ -534,9 +684,9 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="hidden overflow-x-auto rounded-lg border border-slate-800 md:block">
+          <div className="hidden overflow-x-auto rounded-lg border border-slate-700 md:block">
             <table className="min-w-full text-sm">
-              <thead className="bg-slate-900 text-slate-400">
+              <thead className="bg-slate-800 text-slate-300">
                 <tr>
                   <th className="px-4 py-2 text-left">
                     <button
@@ -558,16 +708,7 @@ export default function Dashboard() {
                       Balance {sortField === 'balance' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
-                  <th className="px-4 py-2 text-right">
-                    <button
-                      type="button"
-                      className="hover:text-white"
-                      onClick={() => onSort('coins_in_total')}
-                    >
-                      Coins-In{' '}
-                      {sortField === 'coins_in_total' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
-                    </button>
-                  </th>
+                  <th className="px-4 py-2 text-right">Stats</th>
                   <th className="px-4 py-2 text-right">
                     <button
                       type="button"
@@ -578,7 +719,7 @@ export default function Dashboard() {
                       {sortField === 'hopper_balance' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
-                  <th className="px-4 py-2 text-right">Bet</th>
+
                   <th className="px-4 py-2 text-right">
                     <button
                       type="button"
@@ -589,7 +730,7 @@ export default function Dashboard() {
                       {sortField === 'last_bet_amount' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
-                  <th className="px-4 py-2 text-right">Win</th>
+
                   <th className="px-4 py-2 text-right">
                     <button
                       type="button"
@@ -598,25 +739,6 @@ export default function Dashboard() {
                     >
                       House Win{' '}
                       {sortField === 'house_win' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
-                    </button>
-                  </th>
-                  <th className="px-4 py-2 text-right">
-                    <button
-                      type="button"
-                      className="hover:text-white"
-                      onClick={() => onSort('spins_total')}
-                    >
-                      Spins{' '}
-                      {sortField === 'spins_total' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
-                    </button>
-                  </th>
-                  <th className="px-4 py-2 text-right">
-                    <button
-                      type="button"
-                      className="hover:text-white"
-                      onClick={() => onSort('rtp')}
-                    >
-                      RTP {sortField === 'rtp' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
                   <th className="px-4 py-2 text-right">
@@ -632,7 +754,7 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
-                {visibleDevices.map(d => {
+                {paginatedDevices.map(d => {
                   const deviceRtp =
                     asNumber(d.bet_total) > 0
                       ? (asNumber(d.win_total) / asNumber(d.bet_total)) * 100
@@ -640,7 +762,12 @@ export default function Dashboard() {
                   const deviceHouseWin = asNumber(
                     d.house_take_total ?? asNumber(d.bet_total) - asNumber(d.win_total),
                   )
-                  const hopperLow = asNumber(d.hopper_balance) <= hopperAlertThreshold
+                  const threshold = asNumber((d as any)?.hopper_alert_threshold ?? 500)
+                  const hopperLow = hopperAlertsEnabled && asNumber(d.hopper_balance) <= threshold
+                  // --- Alert Computations ---
+                  const HIGH_RTP_THRESHOLD = 110
+                  const highRtp = deviceRtp > HIGH_RTP_THRESHOLD
+                  const offline = d.device_status === 'offline'
                   const telemetryLabel = getDeviceTelemetryLabel(d)
                   const jackpotStatus = getDeviceJackpotStatus(d)
                   const gameType = getDeviceGameType(d)
@@ -649,9 +776,17 @@ export default function Dashboard() {
                     <tr
                       key={d.device_id}
                       className={`cursor-pointer ${
-                        d.jackpot_selected
-                          ? 'bg-amber-950/25 hover:bg-amber-900/30 ring-1 ring-inset ring-amber-400/40'
-                          : 'hover:bg-slate-900/50'
+                        offline
+                          ? 'bg-slate-800/60 ring-1 ring-slate-500/40'
+                          : // : stuckSession
+                            //   ? 'bg-yellow-950/30 ring-1 ring-yellow-500/40'
+                            hopperLow
+                            ? 'bg-red-950/30 ring-1 ring-red-500/40'
+                            : highRtp
+                              ? 'bg-fuchsia-950/30 ring-1 ring-fuchsia-500/40'
+                              : d.jackpot_selected
+                                ? 'bg-amber-950/25 hover:bg-amber-900/30 ring-1 ring-inset ring-amber-400/40'
+                                : 'hover:bg-slate-900/50'
                       }`}
                       onClick={() =>
                         setSelectedDevice({
@@ -663,16 +798,45 @@ export default function Dashboard() {
                       <td className="px-4 py-2">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <div className="truncate">{d.name?.trim() || 'Unnamed Cabinet'}</div>
-                            <div className="truncate text-[10px] font-mono text-slate-500">
-                              {d.device_id ?? 'Unknown Device'}
+                            <div className="truncate font-medium">
+                              {d.name?.trim() || 'Unnamed Cabinet'}
                             </div>
-                            <div className="mt-1 text-[10px] text-slate-400">
-                              {d.arcade_shell_version?.trim() || 'unknown version'}
-                              {' • '}
-                              {d.current_ip?.trim() || 'no ip'}
+
+                            <div className="truncate text-sm text-slate-400">
+                              {[d.area_name, d.station_name].filter(Boolean).join(' • ') ||
+                                'Unassigned'}
+                            </div>
+
+                            <div className="truncate text-[10px] text-slate-500 font-mono">
+                              {d.device_id}
+                            </div>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {hopperLow && (
+                                <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-red-500 bg-red-950 text-red-300">
+                                  LOW
+                                </span>
+                              )}
+
+                              {highRtp && (
+                                <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-fuchsia-500 bg-fuchsia-950 text-fuchsia-300">
+                                  RTP
+                                </span>
+                              )}
+
+                              {/*{stuckSession && (*/}
+                              {/*  <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-yellow-500 bg-yellow-950 text-yellow-300">*/}
+                              {/*    STUCK*/}
+                              {/*  </span>*/}
+                              {/*)}*/}
+
+                              {offline && (
+                                <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-slate-500 bg-slate-900 text-slate-300">
+                                  OFF
+                                </span>
+                              )}
                             </div>
                           </div>
+
                           {d.jackpot_selected && (
                             <span className="rounded border border-amber-400/70 bg-amber-900/50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200">
                               JACKPOT
@@ -706,8 +870,19 @@ export default function Dashboard() {
                       <td className="px-4 py-2 text-right font-mono font-bold text-green-400">
                         {formatCurrency(d.balance)}
                       </td>
-                      <td className="px-4 py-2 text-right font-mono text-sky-300">
-                        {formatCurrency(d.coins_in_total)}
+                      <td className="px-4 py-2 text-right">
+                        <div className="flex gap-2 justify-end font-mono text-sm text-slate-300">
+                          Bets:
+                          <span className="font-extrabold">{formatCurrency(d.bet_total)}</span>
+                        </div>
+                        <div className="flex gap-2 justify-end  font-mono text-sm text-slate-300">
+                          Wins:
+                          <span className="font-extrabold">{formatCurrency(d.win_total)}</span>
+                        </div>
+                        <div className="flex gap-2 justify-end  font-mono text-sm text-fuchsia-300">
+                          RTP:
+                          <span className="font-extrabold">{formatPercent(deviceRtp)}</span>
+                        </div>
                       </td>
                       <td className="px-4 py-2 text-right font-mono">
                         <div
@@ -725,27 +900,17 @@ export default function Dashboard() {
                           <span>{formatCurrency(d.hopper_balance)}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-2 text-right font-mono text-violet-300">
-                        {formatCurrency(d.bet_total)}
-                      </td>
+
                       <td className="px-4 py-2 text-right font-mono text-violet-300">
                         {formatCurrency(d.last_bet_amount)}
                       </td>
-                      <td className="px-4 py-2 text-right font-mono text-violet-300">
-                        {formatCurrency(d.win_total)}
-                      </td>
+
                       <td
                         className={`px-4 py-2 text-right font-mono ${
                           deviceHouseWin < 0 ? 'text-red-300 animate-pulse' : 'text-orange-300'
                         }`}
                       >
                         {formatCurrency(deviceHouseWin)}
-                      </td>
-                      <td className="px-4 py-2 text-right font-mono text-cyan-300">
-                        {asNumber(d.spins_total).toLocaleString()}
-                      </td>
-                      <td className="px-4 py-2 text-right font-mono text-fuchsia-300">
-                        {formatPercent(deviceRtp)}
                       </td>
                       <td className="px-4 py-2 text-right text-xs text-slate-400">
                         {d.updated_at ? moment(d.updated_at).format('YYYY-MM-DD HH:mm') : '—'}
@@ -757,10 +922,33 @@ export default function Dashboard() {
             </table>
           </div>
           {visibleDevices.length === 0 && (
-            <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-6 text-center text-sm text-slate-400">
+            <div className="rounded-lg border border-slate-800 bg-slate-900/40 light:bg-slate-100 p-6 text-center text-sm text-slate-400">
               {searchTerm ? `No devices found for "${searchTerm}".` : 'No devices found.'}
             </div>
           )}
+          <div className="mt-4 flex items-center justify-between text-sm">
+            <div className="text-slate-400">
+              Page {currentPage} of {totalPages || 1}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                className="px-3 py-1 rounded border border-slate-700 bg-slate-900 disabled:opacity-40"
+              >
+                Prev
+              </button>
+
+              <button
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                className="px-3 py-1 rounded border border-slate-700 bg-slate-900 disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          </div>
           <div className="mt-2 text-xs text-slate-500">
             Sorted by {sortLabel} ({sortDirection.toUpperCase()})
           </div>
@@ -770,13 +958,14 @@ export default function Dashboard() {
       {selectedDevice && (
         <DeviceModal
           device={{ ...selectedDevice, hopper_alert_threshold: hopperAlertThreshold }}
+          hopperAlertsEnabled={hopperAlertsEnabled}
           onClose={() => setSelectedDevice(null)}
         />
       )}
 
       {showHappyPotsModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 p-4">
-          <div className="mx-auto max-w-2xl rounded-lg border border-slate-700 bg-slate-950 p-4">
+        <div className="fixed inset-0 z-50 bg-black/80 p-5 sm:p-6">
+          <div className="mx-auto max-w-2xl rounded-lg border border-slate-700 bg-slate-950 p-5 sm:p-6">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-lg font-semibold">Happy Hour Pots Queue</h3>
               <button
@@ -806,8 +995,8 @@ export default function Dashboard() {
       )}
 
       {showJackpotPotsModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 p-4">
-          <div className="mx-auto max-w-2xl rounded-lg border border-slate-700 bg-slate-950 p-4">
+        <div className="fixed inset-0 z-50 bg-black/80 p-5 sm:p-6">
+          <div className="mx-auto max-w-2xl rounded-lg border border-slate-700 bg-slate-950 p-5 sm:p-6">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-lg font-semibold">Jackpot Pots Queue</h3>
               <button

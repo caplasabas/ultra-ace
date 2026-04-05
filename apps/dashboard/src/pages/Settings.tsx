@@ -95,6 +95,136 @@ export default function Settings() {
   const [overCapWinsLoading, setOverCapWinsLoading] = useState(false)
   const [overCapWinsError, setOverCapWinsError] = useState<string | null>(null)
 
+  // Agents & Areas state
+  const [agents, setAgents] = useState<any[]>([])
+  const [areas, setAreas] = useState<any[]>([])
+  const [newAgentName, setNewAgentName] = useState('')
+  const [newAreaName, setNewAreaName] = useState('')
+  const [selectedAgentForArea, setSelectedAgentForArea] = useState<string>('')
+
+  // Load agents and areas
+  useEffect(() => {
+    async function loadAgentsAreas() {
+      const { data: a } = await supabase.from('agents').select('*').order('name')
+      const { data: ar } = await supabase.from('areas').select('*').order('name')
+      setAgents(a ?? [])
+      setAreas(ar ?? [])
+    }
+
+    loadAgentsAreas()
+  }, [])
+
+  // CRUD functions for agents and areas
+  async function createAgent() {
+    if (!newAgentName.trim()) return
+
+    await supabase.from('agents').insert({ name: newAgentName.trim() })
+    setNewAgentName('')
+
+    const { data } = await supabase.from('agents').select('*').order('name')
+    setAgents(data ?? [])
+  }
+
+  async function createArea() {
+    if (!newAreaName.trim() || !selectedAgentForArea) return
+
+    await supabase.from('areas').insert({
+      name: newAreaName.trim(),
+      agent_id: selectedAgentForArea,
+    })
+
+    setNewAreaName('')
+    setSelectedAgentForArea('')
+
+    const { data } = await supabase.from('areas').select('*').order('name')
+    setAreas(data ?? [])
+  }
+
+  // --- Helper functions for edit/delete ---
+  async function deleteAgent(id: string) {
+    if (!confirm('Delete this agent?')) return
+
+    const { count } = await supabase
+      .from('devices')
+      .select('*', { count: 'exact', head: true })
+      .eq('agent_id', id)
+
+    if ((count ?? 0) > 0) {
+      alert('Cannot delete agent: devices are still assigned')
+      return
+    }
+
+    await supabase.from('agents').delete().eq('id', id)
+
+    const { data } = await supabase.from('agents').select('*').order('name')
+    setAgents(data ?? [])
+  }
+
+  async function deleteArea(id: string) {
+    if (!confirm('Delete this area?')) return
+
+    const { count } = await supabase
+      .from('devices')
+      .select('*', { count: 'exact', head: true })
+      .eq('area_id', id)
+
+    if ((count ?? 0) > 0) {
+      alert('Cannot delete area: devices are still assigned')
+      return
+    }
+
+    await supabase.from('areas').delete().eq('id', id)
+
+    const { data } = await supabase.from('areas').select('*').order('name')
+    setAreas(data ?? [])
+  }
+
+  async function renameAgent(id: string, current: string) {
+    const next = prompt('Rename agent', current)
+    if (!next || !next.trim()) return
+
+    await supabase.from('agents').update({ name: next.trim() }).eq('id', id)
+
+    const { data } = await supabase.from('agents').select('*').order('name')
+    setAgents(data ?? [])
+  }
+
+  async function renameArea(id: string, current: string) {
+    const next = prompt('Rename area', current)
+    if (!next || !next.trim()) return
+
+    await supabase.from('areas').update({ name: next.trim() }).eq('id', id)
+
+    const { data } = await supabase.from('areas').select('*').order('name')
+    setAreas(data ?? [])
+  }
+
+  // --- Mass Assignment state ---
+  const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([])
+  const [bulkAgentId, setBulkAgentId] = useState('')
+  const [bulkAreaId, setBulkAreaId] = useState('')
+
+  // --- Mass Assignment function ---
+  async function bulkAssign() {
+    if (selectedDeviceIds.length === 0) {
+      alert('No devices selected')
+      return
+    }
+
+    if (!confirm('Apply assignment to selected devices?')) return
+
+    await supabase
+      .from('devices')
+      .update({
+        agent_id: bulkAgentId || null,
+        area_id: bulkAreaId || null,
+      })
+      .in('device_id', selectedDeviceIds)
+
+    alert('Assignment applied')
+    setSelectedDeviceIds([])
+  }
+
   function applyRuntimeToForm() {
     if (!runtime) return
     setBaseProfileId(runtime.base_profile_id)
@@ -147,6 +277,7 @@ export default function Settings() {
   }, [testResultMessage])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability
     void loadOverCapWins()
   }, [])
 
@@ -511,7 +642,7 @@ export default function Settings() {
         </div>
       )}
 
-      <section className="rounded-lg border border-slate-800 bg-slate-900/40 p-4 space-y-4">
+      <section className="rounded-lg border border-slate-700 bg-slate-800 p-4 space-y-4">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold">Global Device Controls</h2>
@@ -525,7 +656,7 @@ export default function Settings() {
         </div>
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)]">
-          <div className="rounded border border-slate-700 bg-slate-950/70 p-3">
+          <div className="rounded border border-slate-700 bg-slate-800 p-3">
             <div className="text-xs text-slate-400 mb-3">
               Queue a power command for all devices.
             </div>
@@ -557,7 +688,7 @@ export default function Settings() {
             </div>
           </div>
 
-          <div className="rounded border border-slate-700 bg-slate-950/70 p-3">
+          <div className="rounded border border-slate-700 bg-slate-800 p-3">
             <div className="text-xs text-slate-400 mb-2">Global Accounting Balance Override</div>
             <div className="grid grid-cols-3 gap-2 mb-2">
               <select
@@ -608,7 +739,7 @@ export default function Settings() {
             </button>
           </div>
 
-          <div className="rounded border border-slate-700 bg-slate-950/70 p-3">
+          <div className="rounded border border-slate-700 bg-slate-800 p-3">
             <div className="text-xs text-slate-400 mb-2">Global Hopper Override</div>
             <div className="grid grid-cols-3 gap-2 mb-2">
               <select
@@ -661,7 +792,7 @@ export default function Settings() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-slate-800 bg-slate-900/40 p-4 space-y-4">
+      <section className="rounded-lg border border-slate-700 bg-slate-800 p-4 space-y-4">
         <h2 className="text-lg font-semibold">Happy Hour Control</h2>
 
         <div className="text-sm text-slate-300">
@@ -725,7 +856,7 @@ export default function Settings() {
         </p>
       </section>
 
-      <section className="rounded-lg border border-slate-800 bg-slate-900/40 p-4 space-y-4">
+      <section className="rounded-lg border border-slate-700 bg-slate-800 p-4 space-y-4">
         <h2 className="text-lg font-semibold">RTP Runtime Settings</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1269,7 +1400,7 @@ export default function Settings() {
               return (
                 <label
                   key={device.device_id}
-                  className="flex items-center justify-between gap-2 rounded border border-indigo-900/70 bg-slate-900/60 px-2 py-1.5 text-xs"
+                  className="flex items-center justify-between gap-2 rounded border border-indigo-900/70 bg-slate-900/60 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs"
                 >
                   <span className="truncate">
                     <input
@@ -1311,7 +1442,7 @@ export default function Settings() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-slate-800 bg-slate-900/40 p-4 space-y-4">
+      <section className="rounded-lg border border-slate-800 bg-slate-900/40 light:bg-slate-100 p-4 space-y-4">
         <h2 className="text-lg font-semibold">Global Games</h2>
         <div className="flex items-center gap-3">
           <button
@@ -1416,6 +1547,174 @@ export default function Settings() {
         </div>
       </section>
 
+      <section className="rounded-lg border border-slate-800 bg-slate-900/40 light:bg-slate-100 p-4 space-y-4">
+        <h2 className="text-lg font-semibold">Agents & Areas</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* AGENTS */}
+          <div className="space-y-3">
+            <div className="text-sm font-semibold text-slate-300">Agents</div>
+
+            <div className="flex gap-2">
+              <input
+                value={newAgentName}
+                onChange={e => setNewAgentName(e.target.value)}
+                placeholder="New agent"
+                className="flex-1 px-2 py-1 text-sm bg-slate-900 border border-slate-700 rounded"
+              />
+              <button onClick={createAgent} className="px-3 py-1 text-xs bg-blue-600 rounded">
+                Add
+              </button>
+            </div>
+
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {agents.length === 0 && (
+                <div className="text-xs text-slate-500 text-center py-2">No agents yet</div>
+              )}
+
+              {agents.map(a => (
+                <div
+                  key={a.id}
+                  className="flex items-center justify-between text-sm px-2 py-1 border border-slate-800 rounded"
+                >
+                  <span>{a.name}</span>
+                  <div className="flex gap-2 text-xs">
+                    <button onClick={() => renameAgent(a.id, a.name)} className="text-blue-400">
+                      Edit
+                    </button>
+                    <button onClick={() => deleteAgent(a.id)} className="text-red-400">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* AREAS */}
+          <div className="space-y-3">
+            <div className="text-sm font-semibold text-slate-300">Areas</div>
+
+            <select
+              value={selectedAgentForArea}
+              onChange={e => setSelectedAgentForArea(e.target.value)}
+              className="w-full px-2 py-1 text-sm bg-slate-900 border border-slate-700 rounded"
+            >
+              <option value="">Select Agent</option>
+              {agents.map(a => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+
+            <div className="flex gap-2">
+              <input
+                value={newAreaName}
+                onChange={e => setNewAreaName(e.target.value)}
+                placeholder="New area"
+                className="flex-1 px-2 py-1 text-sm bg-slate-900 border border-slate-700 rounded"
+              />
+              <button onClick={createArea} className="px-3 py-1 text-xs bg-blue-600 rounded">
+                Add
+              </button>
+            </div>
+
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {areas.length === 0 && (
+                <div className="text-xs text-slate-500 text-center py-2">No areas yet</div>
+              )}
+
+              {areas.map(a => {
+                const agent = agents.find(x => x.id === a.agent_id)
+
+                return (
+                  <div
+                    key={a.id}
+                    className="flex items-center justify-between text-sm px-2 py-1 border border-slate-800 rounded"
+                  >
+                    <div>
+                      {a.name}
+                      <span className="text-xs text-slate-400 ml-2">
+                        {agent?.name ?? 'No Agent'}
+                      </span>
+                    </div>
+                    <div className="flex gap-2 text-xs">
+                      <button onClick={() => renameArea(a.id, a.name)} className="text-blue-400">
+                        Edit
+                      </button>
+                      <button onClick={() => deleteArea(a.id)} className="text-red-400">
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* MASS ASSIGNMENT SECTION */}
+        <div className="mt-4 border-t border-slate-800 pt-4 space-y-3">
+          <div className="text-sm font-semibold text-slate-300">Mass Assignment</div>
+
+          <div className="flex gap-2">
+            <select
+              value={bulkAgentId}
+              onChange={e => setBulkAgentId(e.target.value)}
+              className="px-2 py-1 text-sm bg-slate-900 border border-slate-700 rounded"
+            >
+              <option value="">No Agent</option>
+              {agents.map(a => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={bulkAreaId}
+              onChange={e => setBulkAreaId(e.target.value)}
+              className="px-2 py-1 text-sm bg-slate-900 border border-slate-700 rounded"
+            >
+              <option value="">No Area</option>
+              {areas.map(a => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+
+            <button onClick={bulkAssign} className="px-3 py-1 text-xs bg-green-600 rounded">
+              Apply
+            </button>
+          </div>
+
+          <div className="max-h-40 overflow-auto border border-slate-800 rounded p-2">
+            {devices.map(d => {
+              const checked = selectedDeviceIds.includes(d.device_id)
+
+              return (
+                <label key={d.device_id} className="flex items-center gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={e => {
+                      if (e.target.checked) {
+                        setSelectedDeviceIds(prev => [...prev, d.device_id])
+                      } else {
+                        setSelectedDeviceIds(prev => prev.filter(id => id !== d.device_id))
+                      }
+                    }}
+                  />
+                  {d.name || d.device_id}
+                </label>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
       <section className="rounded-lg border border-rose-800/70 bg-rose-950/20 p-4 space-y-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -1442,7 +1741,7 @@ export default function Settings() {
 
         <div className="overflow-x-auto rounded border border-rose-900/60">
           <table className="min-w-full divide-y divide-rose-900/60 text-sm">
-            <thead className="bg-slate-950/70 text-xs uppercase tracking-wide text-rose-200/80">
+            <thead className="bg-slate-950/70 bg-white dark:bg-slate-900 text-xs uppercase tracking-wide text-rose-200/80">
               <tr>
                 <th className="px-3 py-2 text-left">Time</th>
                 <th className="px-3 py-2 text-left">Cabinet</th>
@@ -1472,7 +1771,9 @@ export default function Settings() {
                       {formatDateTime(row.event_ts)}
                     </td>
                     <td className="px-3 py-2">
-                      <div className="font-medium text-slate-100">{displayName}</div>
+                      <div className="font-medium text-slate-100 text-slate-900 dark:text-slate-100">
+                        {displayName}
+                      </div>
                       <div className="text-[11px] text-slate-400">{row.device_id}</div>
                     </td>
                     <td className="px-3 py-2 text-right text-rose-100">
