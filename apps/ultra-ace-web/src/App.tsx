@@ -884,7 +884,7 @@ export default function App() {
   const showFreeSpinModeUi = isFreeGame || isFreeSpinPreview || showScatterWinBanner || freezeUI
   const showFreeSpinCount = (isFreeGame || isFreeSpinPreview) && freeSpinDisplayCount > 0
   const useFreeSpinWinCounter = isFreeGame || pauseColumn !== null || freeSpinsLeft > 0
-  const overlayAmount = Math.max(activeCascade?.win ?? 0, totalWin)
+  const overlayAmount = activeCascade?.win ?? 0
   const overlayTitle = getWinOverlayTitle(overlayAmount, bet)
 
   useEffect(() => {

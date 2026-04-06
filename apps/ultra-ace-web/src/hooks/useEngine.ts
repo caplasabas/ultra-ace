@@ -1278,6 +1278,9 @@ export function useEngine() {
       setTotalWin(0)
     }
 
+    setPendingCascades([])
+    setSpinId(v => v + 1)
+
     let queueBeforeSpin = isFreeGame ? activeJackpotQueue : null
     const isJackpotFreeSpin = isFreeGame && jackpotFreeSpinModeRef.current
 
@@ -1436,75 +1439,77 @@ export function useEngine() {
     let jackpotPayoutForSpin = 0
 
     if (deviceIdRef.current) {
-      try {
-        const accounting = await commitSpinAccounting({
-          deviceId: deviceIdRef.current,
-          spinId: nextSpinId,
-          isFreeGame,
-          betAmount: isFreeGame ? 0 : spinAmount,
-          totalWin: isJackpotFreeSpin ? 0 : engineTotalWin,
-          freeSpinsAwarded: isJackpotFreeSpin ? 0 : (outcome.freeSpinsAwarded ?? 0),
-          cascades: isJackpotFreeSpin ? 0 : (outcome.cascades?.length ?? 0),
-          triggerType: scatterTriggerType ?? null,
-        })
-        jackpotPayoutForSpin = Number(accounting?.jackpotPayout ?? 0)
+      commitSpinAccounting({
+        deviceId: deviceIdRef.current,
+        spinId: nextSpinId,
+        isFreeGame,
+        betAmount: isFreeGame ? 0 : spinAmount,
+        totalWin: isJackpotFreeSpin ? 0 : engineTotalWin,
+        freeSpinsAwarded: isJackpotFreeSpin ? 0 : (outcome.freeSpinsAwarded ?? 0),
+        cascades: isJackpotFreeSpin ? 0 : (outcome.cascades?.length ?? 0),
+        triggerType: scatterTriggerType ?? null,
+      })
+        .then(async accounting => {
+          jackpotPayoutForSpin = Number(accounting?.jackpotPayout ?? 0)
 
-        if (jackpotPayoutForSpin <= 0 && queueBeforeSpin) {
-          try {
-            const queueAfterSpin = await fetchActiveJackpotQueue(deviceIdRef.current)
-            const inferred = inferJackpotPayoutFromQueue(queueBeforeSpin, queueAfterSpin)
-            if (inferred > 0) {
-              jackpotPayoutForSpin = inferred
+          if (jackpotPayoutForSpin <= 0 && queueBeforeSpin && deviceIdRef.current) {
+            try {
+              const queueAfterSpin = await fetchActiveJackpotQueue(deviceIdRef.current)
+              const inferred = inferJackpotPayoutFromQueue(queueBeforeSpin, queueAfterSpin)
+              if (inferred > 0) {
+                jackpotPayoutForSpin = inferred
+              }
+              setActiveJackpotQueue(queueAfterSpin)
+            } catch {
+              // no-op
             }
-            setActiveJackpotQueue(queueAfterSpin)
-          } catch {
-            // no-op
-          }
-        }
-
-        if (authPlanState && authPlanStep) {
-          authPlanState.nextIndex = Math.min(
-            authPlanState.nextIndex + 1,
-            authPlanState.steps.length,
-          )
-          if (authPlanState.nextIndex >= authPlanState.steps.length) {
-            activeAuthPlanRef.current = null
           }
 
-          if (Math.abs(jackpotPayoutForSpin - authPlanStep.expectedAmount) > 0.01) {
-            console.warn('[engine] authentic jackpot payout mismatch', {
-              queueId: authPlanState.queueId,
-              campaignId: authPlanState.campaignId,
-              expected: authPlanStep.expectedAmount,
-              actual: jackpotPayoutForSpin,
-              planTotal: authPlanState.total,
-              tolerance: authPlanState.tolerance,
-            })
+          if (authPlanState && authPlanStep) {
+            authPlanState.nextIndex = Math.min(
+              authPlanState.nextIndex + 1,
+              authPlanState.steps.length,
+            )
+            if (authPlanState.nextIndex >= authPlanState.steps.length) {
+              activeAuthPlanRef.current = null
+            }
+
+            if (Math.abs(jackpotPayoutForSpin - authPlanStep.expectedAmount) > 0.01) {
+              console.warn('[engine] authentic jackpot payout mismatch', {
+                queueId: authPlanState.queueId,
+                campaignId: authPlanState.campaignId,
+                expected: authPlanStep.expectedAmount,
+                actual: jackpotPayoutForSpin,
+                planTotal: authPlanState.total,
+                tolerance: authPlanState.tolerance,
+              })
+            }
           }
-        }
-      } catch (error) {
-        console.error('[engine] spin accounting failed, skipping animation start', error)
-        if (forceJackpotScatter) {
-          forceJackpotScatterRef.current = true
-        }
-        if (!isFreeGame) {
-          baseSpinVisualBalanceLockRef.current = false
-          baseSpinQueuedAuthoritativeBalanceRef.current = null
-          suppressBalanceDropUntilRef.current = 0
-          const fallbackBalance = lastAuthoritativeBalanceRef.current
-          if (displayBalanceFrozenRef.current) {
-            queuedDisplayBalanceRef.current = fallbackBalance
-          } else {
-            setBalance(current => (current === fallbackBalance ? current : fallbackBalance))
+        })
+        .catch(() => {
+          if (forceJackpotScatter) {
+            forceJackpotScatterRef.current = true
           }
-          setFreeSpinTotal(0)
-        }
-        spinLockRef.current = false
-        setSpinning(false)
-        spinVisualTargetWinRef.current = null
-        spinVisualCommittedWinRef.current = 0
-        return
-      }
+          if (!isFreeGame) {
+            baseSpinVisualBalanceLockRef.current = false
+            baseSpinQueuedAuthoritativeBalanceRef.current = null
+            suppressBalanceDropUntilRef.current = 0
+            const fallbackBalance = lastAuthoritativeBalanceRef.current
+            if (displayBalanceFrozenRef.current) {
+              queuedDisplayBalanceRef.current = fallbackBalance
+            } else {
+              setBalance(current => (current === fallbackBalance ? current : fallbackBalance))
+            }
+            setFreeSpinTotal(0)
+          }
+          setPendingCascades([]) // trigger reel sweep
+          setSpinId(v => v + 1)
+          spinLockRef.current = false
+          setSpinning(false)
+          spinVisualTargetWinRef.current = null
+          spinVisualCommittedWinRef.current = 0
+          return
+        })
     }
 
     let presentedOutcome = outcome
@@ -1577,7 +1582,6 @@ export function useEngine() {
     }
 
     setPendingCascades(presentedOutcome.cascades ?? [])
-    setSpinId(v => v + 1)
 
     setDebugInfo({
       seed: seedRef?.current ?? undefined,
