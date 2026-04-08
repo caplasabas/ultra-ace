@@ -1,8 +1,9 @@
 import { supabase } from './supabase'
+import { applyMetricEventsViaShellParent, isShellIframe } from './shellBridge'
 
 type MetricEventType = 'coins_in' | 'hopper_in' | 'withdrawal' | 'bet' | 'win' | 'spin'
 
-type MetricEventPayload = {
+export type MetricEventPayload = {
   device_id: string
   event_type: MetricEventType
   amount: number
@@ -10,12 +11,26 @@ type MetricEventPayload = {
   metadata?: Record<string, any>
 }
 
-async function pushEvents(events: MetricEventPayload[]) {
+async function pushEvents(
+  events: MetricEventPayload[],
+  options?: { deviceId?: string; spinKey?: string | null },
+) {
+  if (isShellIframe() && options?.deviceId) {
+    return applyMetricEventsViaShellParent({
+      deviceId: options.deviceId,
+      events,
+      spinKey: options.spinKey ?? null,
+      writeLedger: true,
+    })
+  }
+
   const { error } = await supabase.rpc('apply_metric_events', {
     p_events: events,
     p_write_ledger: true,
   })
   if (error) throw error
+
+  return { jackpotPayout: 0 }
 }
 
 function sleep(ms: number) {
@@ -127,7 +142,14 @@ export async function commitSpinAccounting({
     metadata: baseMetadata,
   })
 
-  await pushEvents(events)
+  const shellResult = await pushEvents(events, {
+    deviceId,
+    spinKey,
+  })
+  if (isShellIframe()) {
+    return { jackpotPayout: Number(shellResult?.jackpotPayout ?? 0) }
+  }
+
   const jackpotPayout = await fetchSpinJackpotPayout(deviceId, spinKey)
   return { jackpotPayout }
 }
@@ -155,13 +177,18 @@ export async function logLedgerEvent({
 
   if (!eventType) return
 
-  await pushEvents([
+  await pushEvents(
+    [
+      {
+        device_id: deviceId,
+        event_type: eventType,
+        amount,
+        event_ts: new Date().toISOString(),
+        metadata: metadata ?? { source: source ?? null },
+      },
+    ],
     {
-      device_id: deviceId,
-      event_type: eventType,
-      amount,
-      event_ts: new Date().toISOString(),
-      metadata: metadata ?? { source: source ?? null },
+      deviceId,
     },
-  ])
+  )
 }

@@ -24,6 +24,7 @@ import {
   subscribeCasinoRuntimeLive,
 } from '../lib/runtime'
 import { commitSpinAccounting } from '../lib/accounting'
+import { isShellIframe, requestShellState, subscribeShellState } from '../lib/shellBridge'
 import {
   endDeviceGameSession,
   startDeviceGameSession,
@@ -151,6 +152,21 @@ type RuntimeSpinSnapshot = {
   happyHousePct: number
 }
 
+function loggableError(err: unknown) {
+  if (!err || typeof err !== 'object') {
+    return { message: String(err ?? 'unknown error') }
+  }
+
+  return {
+    message: String((err as any).message ?? 'unknown error'),
+    code: (err as any).code ?? null,
+    details: (err as any).details ?? null,
+    hint: (err as any).hint ?? null,
+    status: (err as any).status ?? null,
+    name: (err as any).name ?? null,
+  }
+}
+
 function roundMoney(value: number): number {
   if (!Number.isFinite(value)) return 0
   return Math.round(Math.max(0, value) * 10000) / 10000
@@ -258,6 +274,7 @@ export function useEngine() {
   const spinVisualCommittedWinRef = useRef(0)
 
   const snapshotKeyRef = useRef<string | null>(null)
+  const shellBalanceRevisionRef = useRef(0)
 
   function clearFreeSpinSnapshot() {
     if (typeof window === 'undefined') return
@@ -342,9 +359,28 @@ export function useEngine() {
     })
   }, [])
 
+  const applyShellBalance = useCallback(
+    (nextBalance: number) => {
+      shellBalanceRevisionRef.current += 1
+      applyAuthoritativeBalance({
+        balance: Math.max(0, Number(nextBalance ?? 0)),
+        updatedAt: new Date().toISOString(),
+        revision: shellBalanceRevisionRef.current,
+      })
+    },
+    [applyAuthoritativeBalance],
+  )
+
   const syncBalanceFromDb = useCallback(async () => {
     const id = deviceIdRef.current
     if (!id) return
+    if (isShellIframe()) {
+      const state = await requestShellState().catch(() => null)
+      if (state) {
+        applyShellBalance(state.balance)
+      }
+      return
+    }
     if (balanceSyncInFlightRef.current) {
       balanceSyncRequestedRef.current = true
       return
@@ -365,7 +401,7 @@ export function useEngine() {
         }, 0)
       }
     }
-  }, [applyAuthoritativeBalance])
+  }, [applyAuthoritativeBalance, applyShellBalance])
 
   /* -----------------------------
      Debug
@@ -436,8 +472,29 @@ export function useEngine() {
       }
 
       const [initialBalance, persistedBet] = await Promise.all([
-        fetchDeviceBalance(id),
-        fetchDeviceLastBetAmount(id).catch(() => null),
+        isShellIframe()
+          ? requestShellState().then(state => {
+              return {
+                balance: Math.max(0, Number(state?.balance ?? 0)),
+                updatedAt: state?.updatedAt ?? new Date().toISOString(),
+                revision: ++shellBalanceRevisionRef.current,
+              } as DeviceBalanceSnapshot
+            })
+          : fetchDeviceBalance(id).catch(error => {
+              console.error(
+                '[engine] initial balance fetch failed, using fallback snapshot',
+                loggableError(error),
+              )
+              return {
+                balance: 0,
+                updatedAt: null,
+                revision: 0,
+              } as DeviceBalanceSnapshot
+            }),
+        fetchDeviceLastBetAmount(id).catch(error => {
+          console.error('[engine] last bet fetch failed', loggableError(error))
+          return null
+        }),
       ])
       applyAuthoritativeBalance(initialBalance)
       if (persistedBet && persistedBet > 0) {
@@ -451,8 +508,8 @@ export function useEngine() {
         try {
           const next = await fetchActiveJackpotQueue(id)
           if (mounted) setActiveJackpotQueue(next)
-        } catch {
-          // no-op
+        } catch (error) {
+          console.error('[engine] active jackpot queue load failed', loggableError(error))
         }
       }
       await loadActiveJackpotQueue()
@@ -484,9 +541,13 @@ export function useEngine() {
         }
       }
 
-      unsubscribe = subscribeToDeviceBalance(id, _snapshot => {
-        applyAuthoritativeBalance(_snapshot)
-      })
+      unsubscribe = isShellIframe()
+        ? subscribeShellState(state => {
+            applyShellBalance(state.balance)
+          })
+        : subscribeToDeviceBalance(id, _snapshot => {
+            applyAuthoritativeBalance(_snapshot)
+          })
       jackpotQueueChannel = subscribeActiveJackpotQueue(id, next => {
         setActiveJackpotQueue(next)
       })
@@ -515,7 +576,7 @@ export function useEngine() {
     }
 
     init().catch(err => {
-      console.error('Boot failed', err)
+      console.error('Boot failed', loggableError(err))
     })
 
     return () => {
@@ -535,7 +596,7 @@ export function useEngine() {
         })
       }
     }
-  }, [])
+  }, [applyAuthoritativeBalance, applyShellBalance])
 
   useEffect(() => {
     if (!ENABLE_DEVICE_STATE_SYNC) return
@@ -1279,7 +1340,6 @@ export function useEngine() {
     }
 
     setPendingCascades([])
-    setSpinId(v => v + 1)
 
     let queueBeforeSpin = isFreeGame ? activeJackpotQueue : null
     const isJackpotFreeSpin = isFreeGame && jackpotFreeSpinModeRef.current
@@ -1438,78 +1498,94 @@ export function useEngine() {
 
     let jackpotPayoutForSpin = 0
 
-    if (deviceIdRef.current) {
-      commitSpinAccounting({
-        deviceId: deviceIdRef.current,
-        spinId: nextSpinId,
-        isFreeGame,
-        betAmount: isFreeGame ? 0 : spinAmount,
-        totalWin: isJackpotFreeSpin ? 0 : engineTotalWin,
-        freeSpinsAwarded: isJackpotFreeSpin ? 0 : (outcome.freeSpinsAwarded ?? 0),
-        cascades: isJackpotFreeSpin ? 0 : (outcome.cascades?.length ?? 0),
-        triggerType: scatterTriggerType ?? null,
-      })
-        .then(async accounting => {
-          jackpotPayoutForSpin = Number(accounting?.jackpotPayout ?? 0)
+    const accountingDeviceId = deviceIdRef.current
+    const accountingTask = accountingDeviceId
+      ? (async () => {
+          let resolvedJackpotPayout = 0
 
-          if (jackpotPayoutForSpin <= 0 && queueBeforeSpin && deviceIdRef.current) {
-            try {
-              const queueAfterSpin = await fetchActiveJackpotQueue(deviceIdRef.current)
-              const inferred = inferJackpotPayoutFromQueue(queueBeforeSpin, queueAfterSpin)
-              if (inferred > 0) {
-                jackpotPayoutForSpin = inferred
+          try {
+            const accounting = await commitSpinAccounting({
+              deviceId: accountingDeviceId,
+              spinId: nextSpinId,
+              isFreeGame,
+              betAmount: isFreeGame ? 0 : spinAmount,
+              totalWin: isJackpotFreeSpin ? 0 : engineTotalWin,
+              freeSpinsAwarded: isJackpotFreeSpin ? 0 : (outcome.freeSpinsAwarded ?? 0),
+              cascades: isJackpotFreeSpin ? 0 : (outcome.cascades?.length ?? 0),
+              triggerType: scatterTriggerType ?? null,
+            })
+            resolvedJackpotPayout = Number(accounting?.jackpotPayout ?? 0)
+
+            if (resolvedJackpotPayout <= 0 && queueBeforeSpin) {
+              try {
+                const queueAfterSpin = await fetchActiveJackpotQueue(accountingDeviceId)
+                const inferred = inferJackpotPayoutFromQueue(queueBeforeSpin, queueAfterSpin)
+                if (inferred > 0) {
+                  resolvedJackpotPayout = inferred
+                }
+                setActiveJackpotQueue(queueAfterSpin)
+              } catch {
+                // no-op
               }
-              setActiveJackpotQueue(queueAfterSpin)
-            } catch {
-              // no-op
-            }
-          }
-
-          if (authPlanState && authPlanStep) {
-            authPlanState.nextIndex = Math.min(
-              authPlanState.nextIndex + 1,
-              authPlanState.steps.length,
-            )
-            if (authPlanState.nextIndex >= authPlanState.steps.length) {
-              activeAuthPlanRef.current = null
             }
 
-            if (Math.abs(jackpotPayoutForSpin - authPlanStep.expectedAmount) > 0.01) {
-              console.warn('[engine] authentic jackpot payout mismatch', {
-                queueId: authPlanState.queueId,
-                campaignId: authPlanState.campaignId,
-                expected: authPlanStep.expectedAmount,
-                actual: jackpotPayoutForSpin,
-                planTotal: authPlanState.total,
-                tolerance: authPlanState.tolerance,
-              })
+            if (authPlanState && authPlanStep) {
+              authPlanState.nextIndex = Math.min(
+                authPlanState.nextIndex + 1,
+                authPlanState.steps.length,
+              )
+              if (authPlanState.nextIndex >= authPlanState.steps.length) {
+                activeAuthPlanRef.current = null
+              }
+
+              if (Math.abs(resolvedJackpotPayout - authPlanStep.expectedAmount) > 0.01) {
+                console.warn('[engine] authentic jackpot payout mismatch', {
+                  queueId: authPlanState.queueId,
+                  campaignId: authPlanState.campaignId,
+                  expected: authPlanStep.expectedAmount,
+                  actual: resolvedJackpotPayout,
+                  planTotal: authPlanState.total,
+                  tolerance: authPlanState.tolerance,
+                })
+              }
             }
-          }
-        })
-        .catch(() => {
-          if (forceJackpotScatter) {
-            forceJackpotScatterRef.current = true
-          }
-          if (!isFreeGame) {
-            baseSpinVisualBalanceLockRef.current = false
-            baseSpinQueuedAuthoritativeBalanceRef.current = null
-            suppressBalanceDropUntilRef.current = 0
-            const fallbackBalance = lastAuthoritativeBalanceRef.current
-            if (displayBalanceFrozenRef.current) {
-              queuedDisplayBalanceRef.current = fallbackBalance
-            } else {
-              setBalance(current => (current === fallbackBalance ? current : fallbackBalance))
+
+            return resolvedJackpotPayout
+          } catch (error) {
+            if (forceJackpotScatter) {
+              forceJackpotScatterRef.current = true
             }
-            setFreeSpinTotal(0)
+            if (!isFreeGame) {
+              baseSpinVisualBalanceLockRef.current = false
+              baseSpinQueuedAuthoritativeBalanceRef.current = null
+              suppressBalanceDropUntilRef.current = 0
+              const fallbackBalance = lastAuthoritativeBalanceRef.current
+              if (displayBalanceFrozenRef.current) {
+                queuedDisplayBalanceRef.current = fallbackBalance
+              } else {
+                setBalance(current => (current === fallbackBalance ? current : fallbackBalance))
+              }
+              setFreeSpinTotal(0)
+            }
+            setPendingCascades([]) // trigger reel sweep
+            setSpinId(v => v + 1)
+            spinLockRef.current = false
+            setSpinning(false)
+            spinVisualTargetWinRef.current = null
+            spinVisualCommittedWinRef.current = 0
+            throw error
           }
-          setPendingCascades([]) // trigger reel sweep
-          setSpinId(v => v + 1)
-          spinLockRef.current = false
-          setSpinning(false)
-          spinVisualTargetWinRef.current = null
-          spinVisualCommittedWinRef.current = 0
-          return
-        })
+        })()
+      : null
+
+    if (isJackpotFreeSpin && accountingTask) {
+      try {
+        jackpotPayoutForSpin = await accountingTask
+      } catch {
+        return
+      }
+    } else if (accountingTask) {
+      void accountingTask.catch(() => {})
     }
 
     let presentedOutcome = outcome
@@ -1581,6 +1657,7 @@ export function useEngine() {
       consumeFreeSpinOnSpinStart()
     }
 
+    setSpinId(nextSpinId)
     setPendingCascades(presentedOutcome.cascades ?? [])
 
     setDebugInfo({
@@ -1681,6 +1758,10 @@ export function useEngine() {
       })
     }
 
+    // Buy-bonus flow should visibly deduct the purchase cost before free-spin wins are revealed.
+    freezeDisplayedBalance()
+    setBalance(current => Math.max(0, current - cost))
+
     try {
       await commitSpinAccounting({
         deviceId: deviceIdRef.current,
@@ -1695,6 +1776,8 @@ export function useEngine() {
       await persistDeviceLastBetAmount(deviceIdRef.current, betAmount)
     } catch (error) {
       console.error('[engine] buy spin accounting failed, skipping animation start', error)
+      releaseDisplayedBalance()
+      void syncBalanceFromDb()
       spinLockRef.current = false
       setSpinning(false)
       return
@@ -1708,7 +1791,6 @@ export function useEngine() {
     setSpinId(v => v + 1)
 
     if (outcome.freeSpinsAwarded > 0) {
-      freezeDisplayedBalance()
       setPendingFreeSpins(outcome.freeSpinsAwarded)
     }
   }

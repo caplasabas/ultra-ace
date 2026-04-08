@@ -417,7 +417,8 @@ export default function Dashboard() {
                 </div>
 
                 <div className="text-xs text-indigo-700/80 dark:text-indigo-200/80 font-mono">
-                  Jackpot Pool {formatCurrency(runtime?.jackpot_pool_balance)}
+                  Jackpot Pool {formatCurrency(runtime?.jackpot_pool_balance)}/{' '}
+                  {formatCurrency(runtime?.jackpot_pool_goal)}
                 </div>
 
                 <div className="text-xs text-emerald-700/60 dark:text-emerald-200/60 font-mono">

@@ -3,6 +3,20 @@ import { v4 as uuidv4 } from 'uuid'
 
 let cachedDeviceId: string
 
+function normalizeError(err: unknown) {
+  if (!err || typeof err !== 'object') {
+    return { message: String(err ?? 'unknown error') }
+  }
+
+  return {
+    message: String((err as any).message ?? 'unknown error'),
+    code: (err as any).code ?? null,
+    details: (err as any).details ?? null,
+    hint: (err as any).hint ?? null,
+    status: (err as any).status ?? null,
+  }
+}
+
 supabase.channel('debug').subscribe(status => {
   console.log('Realtime status:', status)
 })
@@ -14,8 +28,6 @@ export async function getDeviceId(): Promise<string> {
     console.log('Fetching hardware ID...')
     const res = await fetch('http://localhost:5174/device-id', {
       signal: AbortSignal.timeout(3000),
-    }).catch(e => {
-      return e
     })
     console.log('Response status:', res.status)
 
@@ -56,7 +68,25 @@ export async function ensureDeviceRegistered(name?: string) {
     .eq('device_id', deviceId)
     .maybeSingle()
 
-  if (lookupError) throw lookupError
+  if (lookupError) {
+    console.error('[DEVICE] browser lookup failed, trying local register fallback', normalizeError(lookupError))
+
+    const response = await fetch('http://localhost:5174/device-register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        deviceId,
+        name: nextName || null,
+      }),
+    })
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '')
+      throw new Error(`local device register failed (${response.status})${text ? `: ${text}` : ''}`)
+    }
+
+    return deviceId
+  }
 
   const payload =
     existing && existing.device_id
@@ -67,7 +97,23 @@ export async function ensureDeviceRegistered(name?: string) {
 
   const { error } = await supabase.from('devices').upsert(payload, { onConflict: 'device_id' })
 
-  if (error) throw error
+  if (error) {
+    console.error('[DEVICE] browser upsert failed, trying local register fallback', normalizeError(error))
+
+    const response = await fetch('http://localhost:5174/device-register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        deviceId,
+        name: nextName || null,
+      }),
+    })
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '')
+      throw new Error(`local device register failed (${response.status})${text ? `: ${text}` : ''}`)
+    }
+  }
 
   return deviceId
 }

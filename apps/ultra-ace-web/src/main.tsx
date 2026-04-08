@@ -11,11 +11,13 @@ import App from './App'
 import './index.css'
 import './App.css'
 
+const INPUT_WS_URL = 'ws://localhost:5175'
+
 function connect() {
-  const ws = new WebSocket('ws://localhost:5175')
+  const ws = new WebSocket(INPUT_WS_URL)
 
   ws.onopen = () => {
-    console.log(`[WS_OPEN]: ${'ws://localhost:5175'}`)
+    console.log(`[WS_OPEN]: ${INPUT_WS_URL}`)
   }
 
   ws.onmessage = e => {
@@ -39,7 +41,11 @@ function connect() {
   }
 }
 
-connect()
+if (window.parent === window) {
+  connect()
+} else {
+  console.log('[WS] skipped inside iframe; using parent arcade input bridge')
+}
 
 // if (import.meta.hot) {
 //   import.meta.hot.accept()

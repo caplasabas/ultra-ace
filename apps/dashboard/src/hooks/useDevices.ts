@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
+const DEVICES_POLL_MS = 1000
+
 export type DeviceRow = {
   device_id: string
   name?: string | null
@@ -65,21 +67,7 @@ export function useDevices() {
 
     const channel = supabase
       .channel('dashboard-devices')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'devices' }, payload => {
-        const changed = payload.new ?? {}
-        // only refetch for critical realtime fields
-        if (
-          'balance' in changed ||
-          'coins_in_total' in changed ||
-          'hopper_balance' in changed ||
-          'last_bet_amount' in changed ||
-          'bet_total' in changed ||
-          'win_total' in changed ||
-          'spins_total' in changed
-        ) {
-          fetchAll()
-        }
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'devices' }, fetchAll)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'device_game_sessions' },
@@ -90,10 +78,23 @@ export function useDevices() {
         { event: '*', schema: 'public', table: 'jackpot_payout_queue' },
         fetchAll,
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'device_admin_commands' },
+        fetchAll,
+      )
       .subscribe()
 
+    const poll = window.setInterval(() => {
+      void fetchAll()
+    }, DEVICES_POLL_MS)
+
     return () => {
-      // No poll to clear
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current)
+        fetchTimeoutRef.current = null
+      }
+      window.clearInterval(poll)
       void supabase.removeChannel(channel)
     }
   }, [])
