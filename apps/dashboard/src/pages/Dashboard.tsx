@@ -22,6 +22,7 @@ type SortField =
   | 'updated_at'
 
 type SortDirection = 'asc' | 'desc'
+type DeploymentFilter = 'online' | 'maintenance' | 'all'
 
 const SORT_OPTIONS: { field: SortField; label: string }[] = [
   { field: 'updated_at', label: 'Last Seen' },
@@ -50,7 +51,7 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState('')
   const [sortField, setSortField] = useState<SortField>('balance')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
-  const [showMaintenance, setShowMaintenance] = useState(false)
+  const [deploymentFilter, setDeploymentFilter] = useState<DeploymentFilter>('online')
   const [showHappyPotsModal, setShowHappyPotsModal] = useState(false)
   const [showJackpotPotsModal, setShowJackpotPotsModal] = useState(false)
   const [showJackpotQueuesModal, setShowJackpotQueuesModal] = useState(false)
@@ -202,7 +203,7 @@ export default function Dashboard() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1)
-  }, [searchTerm, sortField, sortDirection, showMaintenance])
+  }, [deploymentFilter, searchTerm, sortField, sortDirection])
 
   const getDeviceGameType = (device: DeviceRow): 'arcade' | 'casino' => {
     const sessionType = String((device.session_metadata as any)?.gameType ?? '')
@@ -282,9 +283,14 @@ export default function Dashboard() {
         })
       : [...devices]
 
-    const maintenanceFiltered = showMaintenance
-      ? filtered
-      : filtered.filter(d => (d.deployment_mode ?? 'online') !== 'maintenance')
+    const deploymentFiltered =
+      deploymentFilter === 'all'
+        ? filtered
+        : filtered.filter(d =>
+            deploymentFilter === 'maintenance'
+              ? (d.deployment_mode ?? 'online') === 'maintenance'
+              : (d.deployment_mode ?? 'online') !== 'maintenance',
+          )
 
     const getPriorityRank = (device: DeviceRow) => {
       const deploymentMode = device.deployment_mode ?? 'online'
@@ -294,7 +300,7 @@ export default function Dashboard() {
       return 1
     }
 
-    maintenanceFiltered.sort((a, b) => {
+    deploymentFiltered.sort((a, b) => {
       const priorityCompare = getPriorityRank(a) - getPriorityRank(b)
       if (priorityCompare !== 0) return priorityCompare
 
@@ -324,8 +330,8 @@ export default function Dashboard() {
       })
     })
 
-    return maintenanceFiltered
-  }, [devices, searchTerm, showMaintenance, sortField, sortDirection])
+    return deploymentFiltered
+  }, [deploymentFilter, devices, searchTerm, sortField, sortDirection])
 
   const onSort = (field: SortField) => {
     if (field === sortField) {
@@ -522,20 +528,32 @@ export default function Dashboard() {
                     placeholder="Search device ID or name"
                     className="rounded-lg border border-slate-700 bg-white dark:bg-slate-900 px-3 min-w-64 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-500 focus:border-slate-500 focus:outline-none"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowMaintenance(prev => !prev)}
+                  <select
+                    value={deploymentFilter}
+                    onChange={e =>
+                      setDeploymentFilter(
+                        e.target.value === 'maintenance'
+                          ? 'maintenance'
+                          : e.target.value === 'all'
+                            ? 'all'
+                            : 'online',
+                      )
+                    }
                     className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200 hover:border-slate-500"
                   >
-                    {showMaintenance ? 'Hide Maintenance' : 'Show Maintenance'}
-                  </button>
+                    <option value="online">Show Online</option>
+                    <option value="maintenance">Show Maintenance</option>
+                    <option value="all">Show All</option>
+                  </select>
                 </div>
                 <div className="text-xs text-slate-400">
                   Showing {visibleDevices.length.toLocaleString()} of{' '}
                   {devices.length.toLocaleString()}
-                  {!showMaintenance && maintenanceHiddenCount > 0
+                  {deploymentFilter === 'online' && maintenanceHiddenCount > 0
                     ? ` • ${maintenanceHiddenCount.toLocaleString()} hidden (maintenance)`
-                    : ''}
+                    : deploymentFilter === 'maintenance'
+                      ? ' • maintenance only'
+                      : ''}
                 </div>
               </div>
 
