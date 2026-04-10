@@ -162,6 +162,8 @@ export default function Dashboard() {
   const globalWin = asNumber(stats?.total_win_amount)
   const globalBaseWin = devices.reduce((sum, device) => sum + getBaseWinAmount(device), 0)
   const globalBaseRtp = globalBet > 0 ? (globalBaseWin / globalBet) * 100 : 0
+  const devicesWithSpins = devices.filter(device => asNumber(device.spins_total) > 0).length
+  const globalAverageBetByDevice = devicesWithSpins > 0 ? globalBet / devicesWithSpins : 0
   const globalAverageBet =
     asNumber(stats?.total_spins) > 0 ? globalBet / asNumber(stats?.total_spins) : 0
   const globalHouseGross = asNumber(stats?.total_house_take ?? globalBet - globalWin)
@@ -413,7 +415,7 @@ export default function Dashboard() {
                 Game Flow
               </div>
 
-              <div className="flex justify-between flex-wrap space-y-2">
+              <div className="flex justify-between flex-wrap">
                 <div>
                   <div className="text-xs text-violet-700/80 dark:text-violet-200/80">
                     Total Bet
@@ -423,8 +425,8 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 items-end">
-                  <div>
+                <div className="grid grid-cols-2 gap-2 ">
+                  <div className="flex flex-col justify-end">
                     <div className="text-xs text-red-700/80 dark:text-red-200/80">Total Win</div>
                     <div className="text-lg font-mono text-red-700 dark:text-red-300">
                       {formatCurrency(stats?.total_win_amount)}
@@ -432,7 +434,9 @@ export default function Dashboard() {
                   </div>
 
                   <div className="text-xs text-violet-700/80 dark:text-violet-200/80 font-mono">
-                    Avg Bet / Spin {formatJackpotCurrency(globalAverageBet)}
+                    <div>Avg Bet {formatJackpotCurrency(globalAverageBetByDevice)}</div>
+                    <div>Total Spins {asNumber(stats?.total_spins).toLocaleString()}</div>
+                    <div>Avg Bet / Spin {formatJackpotCurrency(globalAverageBet)}</div>
                   </div>
                 </div>
               </div>
