@@ -173,16 +173,12 @@ export default function App() {
   })
 
   const [autoSpin, setAutoSpin] = useState(false)
-  const [turboStage, setTurboStage] = useState<0 | 1 | 2 | 3>(0)
+  const [turboStage, setTurboStage] = useState<0 | 1>(0)
 
   const turboMultiplier = useMemo(() => {
     switch (turboStage) {
       case 1:
         return 5
-      case 2:
-        return 7.5
-      case 3:
-        return 10
       default:
         return 1
     }
@@ -234,6 +230,7 @@ export default function App() {
     spinId,
     spin,
     commitSpin,
+    commitSpinVisualDeduction,
     commitWin,
     spinning,
     isFreeGame,
@@ -837,6 +834,14 @@ export default function App() {
   ])
 
   useEffect(() => {
+    if (phase !== 'reelSweepOut') return
+    if (spinId <= 0) return
+    if (isFreeGame) return
+
+    commitSpinVisualDeduction()
+  }, [phase, spinId, isFreeGame, commitSpinVisualDeduction])
+
+  useEffect(() => {
     if (phase !== 'highlight') return
     if (!activeCascade?.win) return
 
@@ -1189,6 +1194,15 @@ export default function App() {
         return
       }
 
+      if (payload.type === 'WITHDRAW_ABORTED') {
+        setIsWithdrawingRef.current(false)
+        setShowWithdrawModalRef.current(false)
+        setWithdrawAmount(Number(payload.requested ?? withdrawRequestedAmountRef.current ?? 20) || 20)
+        withdrawRequestedAmountRef.current = 0
+
+        return
+      }
+
       const isTurboPlayerEvent =
         payload.type === 'PLAYER' && payload.player === 'CASINO' && Number(payload.button) === 7
       const isP1StartPlayerEvent =
@@ -1319,7 +1333,7 @@ export default function App() {
         case 'TURBO': {
           if (!internetOnline) return
           if (s.balance >= s.bet && s.pauseColumn === null && !s.showBuySpinModal) {
-            setTurboStageRef.current(prev => ((prev + 1) % 4) as 0 | 1 | 2 | 3)
+            setTurboStageRef.current(prev => (prev === 0 ? 1 : 0))
           }
           break
         }
@@ -1649,14 +1663,10 @@ export default function App() {
 
                   <div className={`controls-right ${showFreeSpinIntro && 'hidden'}`}>
                     <button
-                      className={`spin-btn turbo spin-turbo-image ${turboMultiplier > 1 ? 'active' : ''} ${turboStage === 1 ? 'turbo-1' : ''} ${turboStage === 2 ? 'turbo-2' : ''}  ${turboStage === 3 ? 'turbo-3' : ''}`}
+                      className={`spin-btn turbo spin-turbo-image ${turboMultiplier > 1 ? 'active' : ''} ${turboStage === 1 ? 'turbo-1' : ''}`}
                       disabled={balance === 0 || balance < bet || pauseColumn !== null}
                       onClick={() => {
-                        setTurboStage(prev => {
-                          const next = ((prev + 1) % 4) as 0 | 1 | 2 | 3
-
-                          return next
-                        })
+                        setTurboStage(prev => (prev === 0 ? 1 : 0))
                       }}
                     />
                     <button

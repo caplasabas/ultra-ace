@@ -229,6 +229,7 @@ export function useEngine() {
 
   const [authoritativeBalance, setAuthoritativeBalance] = useState(0)
   const [balance, setBalance] = useState(0)
+  const balanceRef = useRef(0)
 
   const [totalWin, setTotalWin] = useState(0)
   const [freeSpinTotal, setFreeSpinTotal] = useState(0)
@@ -264,6 +265,11 @@ export function useEngine() {
   const queuedDisplayBalanceRef = useRef<number | null>(null)
   const baseSpinVisualBalanceLockRef = useRef(false)
   const baseSpinQueuedAuthoritativeBalanceRef = useRef<number | null>(null)
+  const baseSpinStartingBalanceRef = useRef(0)
+  const baseSpinBetAmountRef = useRef(0)
+  const baseSpinExternalDeltaRef = useRef(0)
+  const baseSpinDeductedRef = useRef(false)
+  const baseSpinExpectedFinalBalanceRef = useRef<number | null>(null)
   const suppressBalanceDropUntilRef = useRef(0)
   const isFreeGameRef = useRef(false)
   const freeSpinsLeftRef = useRef(0)
@@ -300,6 +306,23 @@ export function useEngine() {
     window.localStorage.setItem(snapshotKeyRef.current, JSON.stringify(next))
   }
 
+  const setDisplayedBalance = useCallback((nextBalance: number) => {
+    balanceRef.current = nextBalance
+    setBalance(current => (current === nextBalance ? current : nextBalance))
+  }, [])
+
+  const syncBaseSpinDisplayedBalance = useCallback(() => {
+    if (!baseSpinVisualBalanceLockRef.current) return
+
+    const visualBalance =
+      baseSpinStartingBalanceRef.current -
+      (baseSpinDeductedRef.current ? baseSpinBetAmountRef.current : 0) +
+      spinVisualCommittedWinRef.current +
+      baseSpinExternalDeltaRef.current
+
+    setDisplayedBalance(roundMoney(Math.max(0, visualBalance)))
+  }, [setDisplayedBalance])
+
   const freezeDisplayedBalance = useCallback(() => {
     displayBalanceFrozenRef.current = true
   }, [])
@@ -309,8 +332,8 @@ export function useEngine() {
     displayBalanceFrozenRef.current = false
     const latest = queuedDisplayBalanceRef.current ?? lastAuthoritativeBalanceRef.current
     queuedDisplayBalanceRef.current = null
-    setBalance(current => (current === latest ? current : latest))
-  }, [])
+    setDisplayedBalance(latest)
+  }, [setDisplayedBalance])
 
   const applyAuthoritativeBalance = useCallback((snapshot: DeviceBalanceSnapshot) => {
     const nextBalance = Number(snapshot.balance ?? 0)
@@ -341,10 +364,23 @@ export function useEngine() {
     setAuthoritativeBalance(current => (current === nextBalance ? current : nextBalance))
     if (baseSpinVisualBalanceLockRef.current) {
       baseSpinQueuedAuthoritativeBalanceRef.current = nextBalance
+      const expectedFinalBalance = baseSpinExpectedFinalBalanceRef.current
+      if (expectedFinalBalance !== null) {
+        const externalDelta = Math.max(0, roundMoney(nextBalance - expectedFinalBalance))
+        if (externalDelta !== baseSpinExternalDeltaRef.current) {
+          baseSpinExternalDeltaRef.current = externalDelta
+          syncBaseSpinDisplayedBalance()
+        }
+      }
       return
     }
     if (displayBalanceFrozenRef.current) {
       queuedDisplayBalanceRef.current = nextBalance
+      // Keep external balance additions visible immediately even while free-spin/buy flows
+      // are freezing normal spin-related balance transitions.
+      if (nextBalance > balanceRef.current) {
+        setDisplayedBalance(nextBalance)
+      }
       return
     }
     setBalance(current => {
@@ -355,16 +391,17 @@ export function useEngine() {
       ) {
         return current
       }
+      balanceRef.current = nextBalance
       return current === nextBalance ? current : nextBalance
     })
-  }, [])
+  }, [setDisplayedBalance, syncBaseSpinDisplayedBalance])
 
   const applyShellBalance = useCallback(
-    (nextBalance: number) => {
+    (nextBalance: number, updatedAt?: string | null) => {
       shellBalanceRevisionRef.current += 1
       applyAuthoritativeBalance({
         balance: Math.max(0, Number(nextBalance ?? 0)),
-        updatedAt: new Date().toISOString(),
+        updatedAt: updatedAt ?? new Date().toISOString(),
         revision: shellBalanceRevisionRef.current,
       })
     },
@@ -375,10 +412,6 @@ export function useEngine() {
     const id = deviceIdRef.current
     if (!id) return
     if (isShellIframe()) {
-      const state = await requestShellState().catch(() => null)
-      if (state) {
-        applyShellBalance(state.balance)
-      }
       return
     }
     if (balanceSyncInFlightRef.current) {
@@ -543,7 +576,7 @@ export function useEngine() {
 
       unsubscribe = isShellIframe()
         ? subscribeShellState(state => {
-            applyShellBalance(state.balance)
+            applyShellBalance(state.balance, state.updatedAt ?? null)
           })
         : subscribeToDeviceBalance(id, _snapshot => {
             applyAuthoritativeBalance(_snapshot)
@@ -1158,10 +1191,19 @@ export function useEngine() {
       displayBalanceFrozenRef.current = false
       baseSpinVisualBalanceLockRef.current = false
       baseSpinQueuedAuthoritativeBalanceRef.current = null
+      baseSpinStartingBalanceRef.current = 0
+      baseSpinBetAmountRef.current = 0
+      baseSpinExternalDeltaRef.current = 0
+      baseSpinDeductedRef.current = false
+      baseSpinExpectedFinalBalanceRef.current = null
       suppressBalanceDropUntilRef.current = 0
       activeAuthPlanRef.current = null
     }
   }, [deviceId])
+
+  useEffect(() => {
+    balanceRef.current = balance
+  }, [balance])
 
   useEffect(() => {
     const syncOnlineState = () => {
@@ -1332,7 +1374,11 @@ export function useEngine() {
     if (!isFreeGame) {
       baseSpinVisualBalanceLockRef.current = true
       baseSpinQueuedAuthoritativeBalanceRef.current = null
-      setBalance(current => Math.max(0, current - spinAmount))
+      baseSpinStartingBalanceRef.current = balanceRef.current
+      baseSpinBetAmountRef.current = spinAmount
+      baseSpinExternalDeltaRef.current = 0
+      baseSpinDeductedRef.current = false
+      baseSpinExpectedFinalBalanceRef.current = null
       setTotalWin(0)
       setFreeSpinTotal(0)
     } else {
@@ -1467,13 +1513,14 @@ export function useEngine() {
       freeSpinSource: isFreeGame ? freeSpinSource : undefined,
     } satisfies Parameters<typeof spin>[1]
     const seededOutcome: SpinOutcome = authPlanStep?.outcome ?? spin(rngRef.current, spinInput)
-    currentSpinMaxWinRef.current = isJackpotFreeSpin
-      ? null
-      : getMaxWinCapForBet(isFreeGame ? bet : spinAmount)
-    const normalWinCap = isJackpotFreeSpin
-      ? null
-      : getFundableNormalWinCap(runtimeSnapshot, isFreeGame ? 0 : spinAmount)
-    const selectedNormalSpin = !isJackpotFreeSpin
+    currentSpinMaxWinRef.current = isJackpotFreeSpin ? null : getMaxWinCapForBet(spinAmount)
+    // Only apply the live-funding reroll cap to paid base spins. Free spins should not be
+    // collapsed toward zero by passing a zero bet amount into the funding-budget path.
+    const normalWinCap =
+      !isJackpotFreeSpin && !isFreeGame
+        ? getFundableNormalWinCap(runtimeSnapshot, spinAmount)
+        : null
+    const selectedNormalSpin = !isJackpotFreeSpin && !isFreeGame
       ? selectNormalOutcomeWithinCap({
           initialOutcome: seededOutcome,
           winCap: normalWinCap,
@@ -1514,6 +1561,7 @@ export function useEngine() {
               cascades: isJackpotFreeSpin ? 0 : (outcome.cascades?.length ?? 0),
               triggerType: scatterTriggerType ?? null,
             })
+            void syncBalanceFromDb()
             resolvedJackpotPayout = Number(accounting?.jackpotPayout ?? 0)
 
             if (resolvedJackpotPayout <= 0 && queueBeforeSpin) {
@@ -1558,12 +1606,17 @@ export function useEngine() {
             if (!isFreeGame) {
               baseSpinVisualBalanceLockRef.current = false
               baseSpinQueuedAuthoritativeBalanceRef.current = null
+              baseSpinStartingBalanceRef.current = 0
+              baseSpinBetAmountRef.current = 0
+              baseSpinExternalDeltaRef.current = 0
+              baseSpinDeductedRef.current = false
+              baseSpinExpectedFinalBalanceRef.current = null
               suppressBalanceDropUntilRef.current = 0
               const fallbackBalance = lastAuthoritativeBalanceRef.current
               if (displayBalanceFrozenRef.current) {
                 queuedDisplayBalanceRef.current = fallbackBalance
               } else {
-                setBalance(current => (current === fallbackBalance ? current : fallbackBalance))
+                setDisplayedBalance(fallbackBalance)
               }
               setFreeSpinTotal(0)
             }
@@ -1649,6 +1702,14 @@ export function useEngine() {
     }
     const presentedTotalWin = clampToCurrentSpinMax(Number(presentedOutcome.win ?? 0))
     spinVisualTargetWinRef.current = roundMoney(Math.max(0, presentedTotalWin))
+    if (!isFreeGame) {
+      baseSpinExpectedFinalBalanceRef.current = roundMoney(
+        Math.max(
+          0,
+          baseSpinStartingBalanceRef.current - baseSpinBetAmountRef.current + presentedTotalWin,
+        ),
+      )
+    }
     spinVisualCommittedWinRef.current = 0
 
     lastOutcomeRef.current = presentedOutcome
@@ -1687,6 +1748,14 @@ export function useEngine() {
   /* -----------------------------
      Visual win accumulator
   ----------------------------- */
+  function commitSpinVisualDeduction() {
+    if (!baseSpinVisualBalanceLockRef.current) return
+    if (baseSpinDeductedRef.current) return
+
+    baseSpinDeductedRef.current = true
+    syncBaseSpinDisplayedBalance()
+  }
+
   function commitWin(amount: number) {
     const target = spinVisualTargetWinRef.current
     setTotalWin(current => {
@@ -1708,7 +1777,7 @@ export function useEngine() {
       if (routeToFreeSpinTotal) {
         setFreeSpinTotal(v => v + delta)
       } else if (baseSpinVisualBalanceLockRef.current) {
-        setBalance(v => v + delta)
+        syncBaseSpinDisplayedBalance()
       }
       return next
     })
@@ -1878,21 +1947,14 @@ export function useEngine() {
 
     if (baseSpinVisualBalanceLockRef.current) {
       baseSpinVisualBalanceLockRef.current = false
-      suppressBalanceDropUntilRef.current = Date.now() + 1800
-      const queuedBalance = baseSpinQueuedAuthoritativeBalanceRef.current
+      baseSpinDeductedRef.current = false
+      baseSpinExternalDeltaRef.current = 0
+      baseSpinExpectedFinalBalanceRef.current = null
       baseSpinQueuedAuthoritativeBalanceRef.current = null
-
-      if (queuedBalance === null) {
-        void syncBalanceFromDb()
-        return
-      }
-
-      if (displayBalanceFrozenRef.current) {
-        queuedDisplayBalanceRef.current = queuedBalance
-      } else {
-        setBalance(current => (queuedBalance > current ? queuedBalance : current))
-      }
+      baseSpinStartingBalanceRef.current = 0
+      baseSpinBetAmountRef.current = 0
     }
+
     void syncBalanceFromDb()
   }
 
@@ -1905,6 +1967,7 @@ export function useEngine() {
     spinId,
     spin: spinNow,
     commitSpin,
+    commitSpinVisualDeduction,
     commitWin,
 
     deviceId: deviceIdRef.current,

@@ -323,7 +323,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <div>
                     <div className="text-xs text-sky-700/80 dark:text-sky-200/80">Coins-In</div>
                     <div className="text-lg font-mono text-sky-700 dark:text-sky-300">
@@ -335,6 +335,15 @@ export default function Dashboard() {
                     <div className="text-xs text-amber-700/80 dark:text-amber-200/80">Hopper</div>
                     <div className="text-lg font-mono text-amber-700 dark:text-amber-300">
                       {formatCurrency(stats?.total_hopper)}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs text-rose-700/80 dark:text-rose-200/80">
+                      Withdraw Total
+                    </div>
+                    <div className="text-lg font-mono text-rose-700 dark:text-rose-300">
+                      {formatCurrency(stats?.total_withdraw_amount)}
                     </div>
                   </div>
                 </div>
