@@ -364,7 +364,7 @@ export default function Dashboard() {
                 Money Flow
               </div>
 
-              <div className="space-y-3">
+              <div className="flex justify-between flex-wrap space-y-2">
                 <div>
                   <div className="text-xs text-green-700/80 dark:text-green-200/80">
                     Total Balance
@@ -413,7 +413,7 @@ export default function Dashboard() {
                 Game Flow
               </div>
 
-              <div className="space-y-3">
+              <div className="flex justify-between flex-wrap space-y-2">
                 <div>
                   <div className="text-xs text-violet-700/80 dark:text-violet-200/80">
                     Total Bet
@@ -504,12 +504,12 @@ export default function Dashboard() {
 
         <section>
           <div className="mb-3 flex flex-col gap-3">
-            <div className="flex justify-between gap-2 sm:gap-3 items-center">
-              <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap justify-between gap-2 sm:gap-3 items-center">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="gap-3">
                   <h2 className="text-lg font-semibold">Devices</h2>
                 </div>
-                <div className="flex items-center gap-5 text-sm text-slate-300">
+                <div className="flex  flex-wrap items-center gap-5 text-sm text-slate-300">
                   <input
                     type="search"
                     value={searchTerm}
@@ -517,14 +517,14 @@ export default function Dashboard() {
                     placeholder="Search device ID or name"
                     className="rounded-lg border border-slate-700 bg-white dark:bg-slate-900 px-3 min-w-64 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-500 focus:border-slate-500 focus:outline-none"
                   />
-                  <div className="text-xs text-slate-400">
-                    Showing {visibleDevices.length.toLocaleString()} of{' '}
-                    {devices.length.toLocaleString()}
-                  </div>
+                </div>
+                <div className="text-xs text-slate-400">
+                  Showing {visibleDevices.length.toLocaleString()} of{' '}
+                  {devices.length.toLocaleString()}
                 </div>
               </div>
 
-              <div className="flex items-center gap-5 text-sm text-slate-300">
+              <div className="flex flex-wrap justify-center items-center gap-5 text-sm text-slate-300">
                 <div className="text-xs text-green-300">
                   🟢 Online:{' '}
                   {
