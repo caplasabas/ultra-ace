@@ -35,6 +35,10 @@ const SORT_OPTIONS: { field: SortField; label: string }[] = [
   { field: 'rtp', label: 'RTP' },
 ]
 
+// const ENGINE_SIM_BASE_RTP_PCT = 67.29
+// const ENGINE_SIM_FREE_RTP_PCT = 6.16
+const ENGINE_SIM_TOTAL_RTP_PCT = 73.44
+
 export default function Dashboard() {
   const devices = useDevices()
   const games = useGames()
@@ -52,7 +56,7 @@ export default function Dashboard() {
   const [happyPots, setHappyPots] = useState<any[]>([])
   const [jackpotPots, setJackpotPots] = useState<any[]>([])
   const [jackpotQueues, setJackpotQueues] = useState<any[]>([])
-  const [hopperAlertsEnabled, setHopperAlertsEnabled] = useState(() => {
+  const [hopperAlertsEnabled] = useState(() => {
     try {
       return localStorage.getItem('hopperAlertsEnabled') === 'true'
     } catch {
@@ -168,7 +172,6 @@ export default function Dashboard() {
   const activeHousePct = asNumber(activeProfile?.house_pct)
   const activeJackpotPct = Math.max(0, asNumber(activeProfile?.pool_pct))
   const activeHappyPct = Math.max(0, asNumber(activeProfile?.player_pct))
-  const activeTargetRtpPct = asNumber(runtime?.active_target_rtp_pct ?? activeProfile?.player_pct)
   const deviceNameById = useMemo(() => {
     const index = new Map<string, string>()
     for (const device of devices) {
@@ -447,7 +450,7 @@ export default function Dashboard() {
                     {formatPercent(globalBaseRtp)}
                   </div>
                   <div className="text-xs text-fuchsia-700/80 dark:text-fuchsia-200/80">
-                    Target {formatPercent(activeTargetRtpPct)}
+                    Target {formatPercent(ENGINE_SIM_TOTAL_RTP_PCT)}
                   </div>
                 </div>
 
@@ -501,97 +504,79 @@ export default function Dashboard() {
 
         <section>
           <div className="mb-3 flex flex-col gap-3">
-            <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto_auto] gap-2 sm:gap-3 items-center">
+            <div className="flex justify-between gap-2 sm:gap-3 items-center">
               <div className="flex items-center justify-between gap-3">
                 <div className="gap-3">
                   <h2 className="text-lg font-semibold">Devices</h2>
                 </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  <div className="text-xs text-red-300">
-                    🔴 Offline {devices.filter(d => d.device_status === 'offline').length}
+                <div className="flex items-center gap-5 text-sm text-slate-300">
+                  <input
+                    type="search"
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    placeholder="Search device ID or name"
+                    className="rounded-lg border border-slate-700 bg-white dark:bg-slate-900 px-3 min-w-64 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-500 focus:border-slate-500 focus:outline-none"
+                  />
+                  <div className="text-xs text-slate-400">
+                    Showing {visibleDevices.length.toLocaleString()} of{' '}
+                    {devices.length.toLocaleString()}
                   </div>
-
-                  {/*<div className="text-xs text-yellow-300">*/}
-                  {/*  🟡 Stuck{' '}*/}
-                  {/*  {*/}
-                  {/*    devices.filter(d => {*/}
-                  {/*      return (*/}
-                  {/*        d.device_status === 'playing' &&*/}
-                  {/*        Date.now() - new Date((d as any)?.session_last_heartbeat ?? 0).getTime() >*/}
-                  {/*          120000*/}
-                  {/*      )*/}
-                  {/*    }).length*/}
-                  {/*  }*/}
-                  {/*</div>*/}
-
-                  <div className="text-xs text-orange-300">
-                    🟠 Low Hopper{' '}
-                    {hopperAlertsEnabled
-                      ? devices.filter(d => {
-                          const threshold = asNumber((d as any)?.hopper_alert_threshold ?? 500)
-                          return asNumber(d.hopper_balance) <= threshold
-                        }).length
-                      : 0}
-                  </div>
-
-                  <div className="text-xs text-fuchsia-300">
-                    🟣 High RTP{' '}
-                    {
-                      devices.filter(d => {
-                        const rtp = getDeviceRtp(d)
-                        return rtp > 110
-                      }).length
-                    }
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 text-sm text-slate-300">
-                  <span className="text-slate-400">Alerts</span>
-
-                  <select
-                    value={hopperAlertsEnabled ? 'on' : 'off'}
-                    onChange={e => setHopperAlertsEnabled(e.target.value === 'on')}
-                    className="rounded border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200"
-                  >
-                    <option value="on">Hopper Alerts: ON</option>
-                    <option value="off">Hopper Alerts: OFF</option>
-                  </select>
                 </div>
               </div>
 
               <div className="flex items-center gap-5 text-sm text-slate-300">
-                <input
-                  type="search"
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  placeholder="Search device ID or name"
-                  className="rounded-lg border border-slate-700 bg-white dark:bg-slate-900 px-3 min-w-64 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-500 focus:border-slate-500 focus:outline-none"
-                />
-                <select
-                  value={sortField}
-                  onChange={e => onSort(e.target.value as SortField)}
-                  className="rounded-lg border border-slate-700 bg-white dark:bg-slate-900 px-3 min-w-36 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-slate-500 focus:outline-none"
-                >
-                  {SORT_OPTIONS.map(option => (
-                    <option key={option.field} value={option.field}>
-                      Sort: {option.label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'))}
-                  className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
-                >
-                  {sortDirection === 'asc' ? 'Ascending' : 'Descending'}
-                </button>
+                <div className="text-xs text-green-300">
+                  🟢 Online:{' '}
+                  {
+                    devices.filter(
+                      d => Math.abs(moment().diff(moment(d.updated_at), 'minutes')) <= 5,
+                    ).length
+                  }
+                </div>
+                <div className="text-xs text-red-300">
+                  🔴 Offline: {devices.filter(d => d.device_status === 'offline').length}
+                </div>
+
+                <div className="text-xs text-blue-300">
+                  🔵 Active: {devices.filter(d => d.device_status === 'playing').length}
+                </div>
+
+                <div className="text-xs text-yellow-300">
+                  🟡 Idle: {devices.filter(d => d.device_status === 'idle').length}
+                </div>
+
+                <div className="text-xs text-orange-300">
+                  🟠 Low Hopper:{' '}
+                  {hopperAlertsEnabled
+                    ? devices.filter(d => {
+                        const threshold = asNumber((d as any)?.hopper_alert_threshold ?? 500)
+                        return asNumber(d.hopper_balance) <= threshold
+                      }).length
+                    : 0}
+                </div>
+                <div className="text-xs text-fuchsia-300">
+                  🟣 High RTP:{' '}
+                  {
+                    devices.filter(d => {
+                      const rtp = getDeviceRtp(d)
+                      return rtp > 110
+                    }).length
+                  }
+                </div>
               </div>
 
-              <div className="text-xs text-slate-400">
-                Showing {visibleDevices.length.toLocaleString()} of{' '}
-                {devices.length.toLocaleString()}
-              </div>
+              {/*<div className="flex items-center gap-2 text-sm text-slate-300">*/}
+              {/*  <span className="text-slate-400">Alerts</span>*/}
+
+              {/*  <select*/}
+              {/*    value={hopperAlertsEnabled ? 'on' : 'off'}*/}
+              {/*    onChange={e => setHopperAlertsEnabled(e.target.value === 'on')}*/}
+              {/*    className="rounded border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200"*/}
+              {/*  >*/}
+              {/*    <option value="on">Hopper Alerts: ON</option>*/}
+              {/*    <option value="off">Hopper Alerts: OFF</option>*/}
+              {/*  </select>*/}
+              {/*</div>*/}
             </div>
           </div>
 
