@@ -146,7 +146,9 @@ export default function Dashboard() {
       maximumFractionDigits: 2,
     })}`
   const formatPercent = (v: number | string | null | undefined) => `${asNumber(v).toFixed(2)}%`
-  const getBaseWinAmount = (row: Pick<DeviceRow, 'win_total' | 'jackpot_win_total' | 'prize_pool_paid_total'>) =>
+  const getBaseWinAmount = (
+    row: Pick<DeviceRow, 'win_total' | 'jackpot_win_total' | 'prize_pool_paid_total'>,
+  ) =>
     asNumber(row.win_total) - asNumber(row.jackpot_win_total) - asNumber(row.prize_pool_paid_total)
   const getDeviceRtp = (
     row: Pick<DeviceRow, 'bet_total' | 'win_total' | 'jackpot_win_total' | 'prize_pool_paid_total'>,
@@ -386,7 +388,7 @@ export default function Dashboard() {
 
                   <div>
                     <div className="text-xs text-rose-700/80 dark:text-rose-200/80">
-                      Withdraw Total
+                      Withdrawals
                     </div>
                     <div className="text-lg font-mono text-rose-700 dark:text-rose-300">
                       {formatCurrency(stats?.total_withdraw_amount)}
@@ -394,9 +396,7 @@ export default function Dashboard() {
                   </div>
 
                   <div>
-                    <div className="text-xs text-indigo-700/80 dark:text-indigo-200/80">
-                      Arcade Total
-                    </div>
+                    <div className="text-xs text-indigo-700/80 dark:text-indigo-200/80">Arcade</div>
                     <div className="text-lg font-mono text-indigo-700 dark:text-indigo-300">
                       {formatCurrency(stats?.total_arcade_amount)}
                     </div>
@@ -790,17 +790,7 @@ export default function Dashboard() {
                       Balance {sortField === 'balance' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
-                  <th className="px-4 py-2 text-right">Stats</th>
-                  <th className="px-4 py-2 text-right">
-                    <button
-                      type="button"
-                      className="hover:text-white"
-                      onClick={() => onSort('coins_in_total')}
-                    >
-                      Coins-In{' '}
-                      {sortField === 'coins_in_total' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
-                    </button>
-                  </th>
+                  <th className="px-4 py-2 text-right">Money Flow</th>
                   <th className="px-4 py-2 text-right">
                     <button
                       type="button"
@@ -811,9 +801,8 @@ export default function Dashboard() {
                       {sortField === 'hopper_balance' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
-                  <th className="px-4 py-2 text-right">Arcade Total</th>
-                  <th className="px-4 py-2 text-right">Stats</th>
                   <th className="px-4 py-2 text-right">Withdraw</th>
+                  <th className="px-4 py-2 text-right">Stats</th>
 
                   <th className="px-4 py-2 text-right">
                     <button
@@ -962,8 +951,15 @@ export default function Dashboard() {
                       <td className="px-4 py-2 text-right font-mono font-bold text-green-400">
                         {formatCurrency(d.balance)}
                       </td>
-                      <td className="px-4 py-2 text-right font-mono text-sky-300">
-                        {formatCurrency(d.coins_in_total)}
+                      <td className="px-4 py-2 text-right">
+                        <div className="flex gap-2 justify-end font-mono text-sm text-sky-300">
+                          Coins-In:
+                          <span className="font-extrabold">{formatCurrency(d.coins_in_total)}</span>
+                        </div>
+                        <div className="flex gap-2 justify-end font-mono text-sm text-indigo-300">
+                          Arcade:
+                          <span className="font-extrabold">{formatCurrency(d.arcade_total)}</span>
+                        </div>
                       </td>
                       <td className="px-4 py-2 text-right font-mono">
                         <div
@@ -981,8 +977,8 @@ export default function Dashboard() {
                           <span>{formatCurrency(d.hopper_balance)}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-2 text-right font-mono text-indigo-300">
-                        {formatCurrency(d.arcade_total)}
+                      <td className="px-4 py-2 text-right font-mono text-rose-300">
+                        {formatCurrency(d.withdraw_total)}
                       </td>
                       <td className="px-4 py-2 text-right">
                         <div className="flex gap-2 justify-end font-mono text-sm text-slate-300">
@@ -997,10 +993,6 @@ export default function Dashboard() {
                           RTP:
                           <span className="font-extrabold">{formatPercent(deviceRtp)}</span>
                         </div>
-                      </td>
-
-                      <td className="px-4 py-2 text-right font-mono text-rose-300">
-                        {formatCurrency(d.withdraw_total)}
                       </td>
 
                       <td className="px-4 py-2 text-right font-mono text-violet-300">
@@ -1198,14 +1190,22 @@ export default function Dashboard() {
                       <div>
                         <div className="text-slate-500">Created</div>
                         <div className="font-mono">
-                          {queue.created_at ? moment(queue.created_at).format('MM-DD HH:mm:ss') : '—'}
+                          {queue.created_at
+                            ? moment(queue.created_at).format('MM-DD HH:mm:ss')
+                            : '—'}
                         </div>
                       </div>
                     </div>
                     <div className="mt-2 text-xs text-slate-400">
-                      Ready {queue.payout_ready_at ? moment(queue.payout_ready_at).format('MM-DD HH:mm:ss') : '—'}
+                      Ready{' '}
+                      {queue.payout_ready_at
+                        ? moment(queue.payout_ready_at).format('MM-DD HH:mm:ss')
+                        : '—'}
                       {' • '}
-                      Completed {queue.completed_at ? moment(queue.completed_at).format('MM-DD HH:mm:ss') : '—'}
+                      Completed{' '}
+                      {queue.completed_at
+                        ? moment(queue.completed_at).format('MM-DD HH:mm:ss')
+                        : '—'}
                     </div>
                   </div>
                 )
