@@ -25,6 +25,7 @@ export type DeviceRow = {
   current_game_type?: 'arcade' | 'casino' | null
   device_status?: 'idle' | 'playing' | 'offline' | null
   deployment_mode?: 'online' | 'maintenance' | null
+  withdraw_enabled?: boolean | null
   active_session_id?: number | null
   session_started_at?: string | null
   session_last_heartbeat?: string | null
