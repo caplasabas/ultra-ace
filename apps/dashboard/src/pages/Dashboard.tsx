@@ -48,8 +48,9 @@ export default function Dashboard() {
   const [selectedDevice, setSelectedDevice] = useState<any | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [sortField, setSortField] = useState<SortField>('name')
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+  const [sortField, setSortField] = useState<SortField>('balance')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [showMaintenance, setShowMaintenance] = useState(false)
   const [showHappyPotsModal, setShowHappyPotsModal] = useState(false)
   const [showJackpotPotsModal, setShowJackpotPotsModal] = useState(false)
   const [showJackpotQueuesModal, setShowJackpotQueuesModal] = useState(false)
@@ -201,7 +202,7 @@ export default function Dashboard() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1)
-  }, [searchTerm, sortField, sortDirection])
+  }, [searchTerm, sortField, sortDirection, showMaintenance])
 
   const getDeviceGameType = (device: DeviceRow): 'arcade' | 'casino' => {
     const sessionType = String((device.session_metadata as any)?.gameType ?? '')
@@ -276,11 +277,27 @@ export default function Dashboard() {
     const filtered = search
       ? devices.filter(d => {
           const name = (d.name ?? '').toLowerCase()
-          return name.includes(search)
+          const deviceId = String(d.device_id ?? '').toLowerCase()
+          return name.includes(search) || deviceId.includes(search)
         })
       : [...devices]
 
-    filtered.sort((a, b) => {
+    const maintenanceFiltered = showMaintenance
+      ? filtered
+      : filtered.filter(d => (d.deployment_mode ?? 'online') !== 'maintenance')
+
+    const getPriorityRank = (device: DeviceRow) => {
+      const deploymentMode = device.deployment_mode ?? 'online'
+      if (deploymentMode === 'maintenance') return 3
+      if (device.device_status === 'playing') return 0
+      if (device.device_status === 'offline') return 2
+      return 1
+    }
+
+    maintenanceFiltered.sort((a, b) => {
+      const priorityCompare = getPriorityRank(a) - getPriorityRank(b)
+      if (priorityCompare !== 0) return priorityCompare
+
       const left = getSortValue(a, sortField)
       const right = getSortValue(b, sortField)
 
@@ -297,11 +314,18 @@ export default function Dashboard() {
       }
 
       const compare = left - right
-      return sortDirection === 'asc' ? compare : -compare
+      if (compare !== 0) {
+        return sortDirection === 'asc' ? compare : -compare
+      }
+
+      return String(a.name ?? a.device_id ?? '').localeCompare(String(b.name ?? b.device_id ?? ''), undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      })
     })
 
-    return filtered
-  }, [devices, searchTerm, sortField, sortDirection])
+    return maintenanceFiltered
+  }, [devices, searchTerm, showMaintenance, sortField, sortDirection])
 
   const onSort = (field: SortField) => {
     if (field === sortField) {
@@ -313,35 +337,12 @@ export default function Dashboard() {
   }
 
   const sortLabel = SORT_OPTIONS.find(option => option.field === sortField)?.label ?? 'Last Seen'
-  const prioritizedDevices = [...visibleDevices].sort((a, b) => {
-    const computeRisk = (d: any) => {
-      const deviceRtp = getDeviceRtp(d)
+  const maintenanceHiddenCount = devices.filter(
+    d => (d.deployment_mode ?? 'online') === 'maintenance',
+  ).length
+  const totalPages = Math.max(1, Math.ceil(visibleDevices.length / pageSize))
 
-      const threshold = asNumber((d as any)?.hopper_alert_threshold ?? 500)
-      const hopperLow = asNumber(d.hopper_balance) <= threshold
-
-      const highRtp = deviceRtp > 110
-
-      // const lastHeartbeat = new Date((d as any)?.session_last_heartbeat ?? 0).getTime()
-      // const stuckSession =
-      //   d.device_status === 'playing' && Date.now() - lastHeartbeat > 1000 * 60 * 2
-
-      const offline = d.device_status === 'offline'
-
-      let score = 0
-      if (offline) score += 100
-      // if (stuckSession) score += 80
-      if (hopperLow) score += 60
-      if (highRtp) score += 40
-
-      return score
-    }
-
-    return computeRisk(b) - computeRisk(a)
-  })
-  const totalPages = Math.max(1, Math.ceil(prioritizedDevices.length / pageSize))
-
-  const paginatedDevices = prioritizedDevices.slice(
+  const paginatedDevices = visibleDevices.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize,
   )
@@ -521,10 +522,20 @@ export default function Dashboard() {
                     placeholder="Search device ID or name"
                     className="rounded-lg border border-slate-700 bg-white dark:bg-slate-900 px-3 min-w-64 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-500 focus:border-slate-500 focus:outline-none"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowMaintenance(prev => !prev)}
+                    className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200 hover:border-slate-500"
+                  >
+                    {showMaintenance ? 'Hide Maintenance' : 'Show Maintenance'}
+                  </button>
                 </div>
                 <div className="text-xs text-slate-400">
                   Showing {visibleDevices.length.toLocaleString()} of{' '}
                   {devices.length.toLocaleString()}
+                  {!showMaintenance && maintenanceHiddenCount > 0
+                    ? ` • ${maintenanceHiddenCount.toLocaleString()} hidden (maintenance)`
+                    : ''}
                 </div>
               </div>
 
@@ -533,9 +544,15 @@ export default function Dashboard() {
                   🟢 Online:{' '}
                   {
                     devices.filter(
-                      d => Math.abs(moment().diff(moment(d.updated_at), 'minutes')) <= 5,
+                      d =>
+                        d.device_status !== 'offline' &&
+                        (d.deployment_mode ?? 'online') !== 'maintenance',
                     ).length
                   }
+                </div>
+                <div className="text-xs text-violet-300">
+                  🛠 Maintenance:{' '}
+                  {devices.filter(d => (d.deployment_mode ?? 'online') === 'maintenance').length}
                 </div>
                 <div className="text-xs text-red-300">
                   🔴 Offline: {devices.filter(d => d.device_status === 'offline').length}
@@ -641,6 +658,11 @@ export default function Dashboard() {
                           <span className="rounded border border-slate-700 bg-slate-800/60 px-1.5 py-0.5 text-[10px] text-slate-300">
                             {gameType.toUpperCase()}
                           </span>
+                          {(d.deployment_mode ?? 'online') === 'maintenance' && (
+                            <span className="rounded border border-violet-700 bg-violet-900/40 px-1.5 py-0.5 text-[10px] text-violet-200">
+                              MAINT
+                            </span>
+                          )}
                         </div>
                         <div className="mt-1 text-[10px] text-slate-300">{telemetryLabel}</div>
 
@@ -910,6 +932,11 @@ export default function Dashboard() {
                           {d.jackpot_selected && (
                             <span className="rounded border border-amber-400/70 bg-amber-900/50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200">
                               JACKPOT
+                            </span>
+                          )}
+                          {(d.deployment_mode ?? 'online') === 'maintenance' && (
+                            <span className="rounded border border-violet-700 bg-violet-900/40 px-1.5 py-0.5 text-[10px] font-semibold text-violet-200">
+                              MAINT
                             </span>
                           )}
                         </div>

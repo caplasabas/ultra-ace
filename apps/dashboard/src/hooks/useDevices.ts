@@ -22,11 +22,15 @@ export type DeviceRow = {
   arcade_total?: number | null
   current_game_id?: string | null
   current_game_name?: string | null
+  current_game_type?: 'arcade' | 'casino' | null
   device_status?: 'idle' | 'playing' | 'offline' | null
+  deployment_mode?: 'online' | 'maintenance' | null
   active_session_id?: number | null
   session_started_at?: string | null
   session_last_heartbeat?: string | null
   session_ended_at?: string | null
+  last_seen_at?: string | null
+  last_activity_at?: string | null
   runtime_mode?: 'BASE' | 'HAPPY' | null
   is_free_game?: boolean | null
   free_spins_left?: number | null

@@ -21,6 +21,10 @@ export function DeviceModal({
   )
   const [nameBusy, setNameBusy] = useState(false)
   const [deviceName, setDeviceName] = useState(String(device.name ?? ''))
+  const [deploymentMode, setDeploymentMode] = useState<'online' | 'maintenance'>(
+    device.deployment_mode === 'maintenance' ? 'maintenance' : 'online',
+  )
+  const [deploymentBusy, setDeploymentBusy] = useState(false)
   const [activeTab, setActiveTab] = useState<'overview' | 'controls' | 'games'>('overview')
 
   // Assignment UI/Logic state
@@ -157,6 +161,10 @@ export function DeviceModal({
     setHopperAmount('0')
     setDeviceName(String(device.name ?? ''))
   }, [device.device_id, device.balance, device.hopper_balance])
+
+  useEffect(() => {
+    setDeploymentMode(device.deployment_mode === 'maintenance' ? 'maintenance' : 'online')
+  }, [device.device_id, device.deployment_mode])
 
   useEffect(() => {
     setSelectedAgentId(device.agent_id ?? null)
@@ -303,6 +311,34 @@ export function DeviceModal({
     setErrorMessage(null)
   }
 
+  async function saveDeploymentMode() {
+    if (!device?.device_id) return
+
+    setDeploymentBusy(true)
+
+    const { error } = await supabase
+      .from('devices')
+      .update({
+        deployment_mode: deploymentMode,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('device_id', device.device_id)
+
+    setDeploymentBusy(false)
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+
+    setSuccessMessage(
+      deploymentMode === 'maintenance'
+        ? `Device set to maintenance mode`
+        : `Device set to online mode`,
+    )
+    setErrorMessage(null)
+  }
+
   return (
     <div className="fixed inset-0   bg-black/50 dark:bg-black/85 z-50 overflow-y-auto">
       <div className="min-h-full flex items-start md:items-center justify-center p-4">
@@ -342,6 +378,9 @@ export function DeviceModal({
                   Arcade Shell: {String(device.arcade_shell_version ?? '').trim() || 'unknown'}
                   {' • '}
                   IP: {String(device.current_ip ?? '').trim() || 'n/a'}
+                </div>
+                <div className="mt-1 text-xs text-slate-400">
+                  Deployment: {(device.deployment_mode ?? 'online').toUpperCase()}
                 </div>
                 <div className="mt-1 text-xs text-slate-400">
                   Agent: {device.agent_name || 'Unassigned'}
@@ -527,6 +566,35 @@ export function DeviceModal({
                         onClick={() => void saveDeviceName()}
                       >
                         {nameBusy ? 'Saving Name...' : 'Save Name'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <h4 className="text-sm font-semibold mb-2">Deployment Mode</h4>
+                  <div className="rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 mb-4">
+                    <div className="text-xs text-slate-400 mb-3">
+                      Maintenance devices stay visible in the dashboard but are excluded from global production totals.
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <select
+                        value={deploymentMode}
+                        onChange={e =>
+                          setDeploymentMode(
+                            e.target.value === 'maintenance' ? 'maintenance' : 'online',
+                          )
+                        }
+                        className="flex-1 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+                      >
+                        <option value="online">Online</option>
+                        <option value="maintenance">Maintenance</option>
+                      </select>
+                      <button
+                        type="button"
+                        className="rounded border border-violet-600/80 bg-violet-900/30 px-3 py-2 text-xs font-semibold text-violet-200 hover:bg-violet-800/40 disabled:opacity-50"
+                        disabled={deploymentBusy || overrideBusy || powerActionBusy !== null}
+                        onClick={() => void saveDeploymentMode()}
+                      >
+                        {deploymentBusy ? 'Saving Mode...' : 'Save Mode'}
                       </button>
                     </div>
                   </div>
