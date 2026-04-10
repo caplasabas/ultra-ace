@@ -48,8 +48,10 @@ export default function Dashboard() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [showHappyPotsModal, setShowHappyPotsModal] = useState(false)
   const [showJackpotPotsModal, setShowJackpotPotsModal] = useState(false)
+  const [showJackpotQueuesModal, setShowJackpotQueuesModal] = useState(false)
   const [happyPots, setHappyPots] = useState<any[]>([])
   const [jackpotPots, setJackpotPots] = useState<any[]>([])
+  const [jackpotQueues, setJackpotQueues] = useState<any[]>([])
   const [hopperAlertsEnabled, setHopperAlertsEnabled] = useState(() => {
     try {
       return localStorage.getItem('hopperAlertsEnabled') === 'true'
@@ -102,6 +104,39 @@ export default function Dashboard() {
     }
   }, [])
 
+  useEffect(() => {
+    async function fetchJackpotQueues() {
+      const { data } = await supabase
+        .from('jackpot_payout_queue')
+        .select('*')
+        .order('completed_at', { ascending: true, nullsFirst: true })
+        .order('created_at', { ascending: false })
+        .limit(100)
+
+      setJackpotQueues(data ?? [])
+    }
+
+    void fetchJackpotQueues()
+
+    const channel = supabase
+      .channel('dashboard-jackpot-queues')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'jackpot_payout_queue' },
+        fetchJackpotQueues,
+      )
+      .subscribe()
+
+    const poll = window.setInterval(() => {
+      void fetchJackpotQueues()
+    }, 1000)
+
+    return () => {
+      window.clearInterval(poll)
+      void supabase.removeChannel(channel)
+    }
+  }, [])
+
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
   const formatCurrency = (v: number | string | null | undefined) =>
     `₱${asNumber(v).toLocaleString()}`
@@ -111,9 +146,16 @@ export default function Dashboard() {
       maximumFractionDigits: 2,
     })}`
   const formatPercent = (v: number | string | null | undefined) => `${asNumber(v).toFixed(2)}%`
+  const getBaseWinAmount = (row: Pick<DeviceRow, 'win_total' | 'jackpot_win_total' | 'prize_pool_paid_total'>) =>
+    asNumber(row.win_total) - asNumber(row.jackpot_win_total) - asNumber(row.prize_pool_paid_total)
+  const getDeviceRtp = (
+    row: Pick<DeviceRow, 'bet_total' | 'win_total' | 'jackpot_win_total' | 'prize_pool_paid_total'>,
+  ) => (asNumber(row.bet_total) > 0 ? (getBaseWinAmount(row) / asNumber(row.bet_total)) * 100 : 0)
 
   const globalBet = asNumber(stats?.total_bet_amount)
   const globalWin = asNumber(stats?.total_win_amount)
+  const globalBaseWin = devices.reduce((sum, device) => sum + getBaseWinAmount(device), 0)
+  const globalBaseRtp = globalBet > 0 ? (globalBaseWin / globalBet) * 100 : 0
   const globalAverageBet =
     asNumber(stats?.total_spins) > 0 ? globalBet / asNumber(stats?.total_spins) : 0
   const globalHouseGross = asNumber(stats?.total_house_take ?? globalBet - globalWin)
@@ -125,6 +167,15 @@ export default function Dashboard() {
   const activeJackpotPct = Math.max(0, asNumber(activeProfile?.pool_pct))
   const activeHappyPct = Math.max(0, asNumber(activeProfile?.player_pct))
   const activeTargetRtpPct = asNumber(runtime?.active_target_rtp_pct ?? activeProfile?.player_pct)
+  const deviceNameById = useMemo(() => {
+    const index = new Map<string, string>()
+    for (const device of devices) {
+      const deviceId = String(device?.device_id ?? '').trim()
+      if (!deviceId) continue
+      index.set(deviceId, String(device?.name ?? '').trim() || deviceId)
+    }
+    return index
+  }, [devices])
   const gameTypeById = useMemo(() => {
     const index = new Map<string, string>()
     for (const game of games) {
@@ -209,11 +260,7 @@ export default function Dashboard() {
       return asNumber(
         device.house_take_total ?? asNumber(device.bet_total) - asNumber(device.win_total),
       )
-    if (field === 'rtp') {
-      return asNumber(device.bet_total) > 0
-        ? (asNumber(device.win_total) / asNumber(device.bet_total)) * 100
-        : 0
-    }
+    if (field === 'rtp') return getDeviceRtp(device)
     return asNumber(device[field as keyof DeviceRow] as number | string | null | undefined)
   }
 
@@ -261,8 +308,7 @@ export default function Dashboard() {
   const sortLabel = SORT_OPTIONS.find(option => option.field === sortField)?.label ?? 'Last Seen'
   const prioritizedDevices = [...visibleDevices].sort((a, b) => {
     const computeRisk = (d: any) => {
-      const deviceRtp =
-        asNumber(d.bet_total) > 0 ? (asNumber(d.win_total) / asNumber(d.bet_total)) * 100 : 0
+      const deviceRtp = getDeviceRtp(d)
 
       const threshold = asNumber((d as any)?.hopper_alert_threshold ?? 500)
       const hopperLow = asNumber(d.hopper_balance) <= threshold
@@ -323,7 +369,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
                   <div>
                     <div className="text-xs text-sky-700/80 dark:text-sky-200/80">Coins-In</div>
                     <div className="text-lg font-mono text-sky-700 dark:text-sky-300">
@@ -344,6 +390,15 @@ export default function Dashboard() {
                     </div>
                     <div className="text-lg font-mono text-rose-700 dark:text-rose-300">
                       {formatCurrency(stats?.total_withdraw_amount)}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs text-indigo-700/80 dark:text-indigo-200/80">
+                      Arcade Total
+                    </div>
+                    <div className="text-lg font-mono text-indigo-700 dark:text-indigo-300">
+                      {formatCurrency(stats?.total_arcade_amount)}
                     </div>
                   </div>
                 </div>
@@ -389,7 +444,7 @@ export default function Dashboard() {
                 <div>
                   <div className="text-xs text-fuchsia-700/80 dark:text-fuchsia-200/80">RTP</div>
                   <div className="text-3xl font-bold font-mono text-fuchsia-700 dark:text-fuchsia-300">
-                    {formatPercent(stats?.global_rtp_percent)}
+                    {formatPercent(globalBaseRtp)}
                   </div>
                   <div className="text-xs text-fuchsia-700/80 dark:text-fuchsia-200/80">
                     Target {formatPercent(activeTargetRtpPct)}
@@ -422,13 +477,18 @@ export default function Dashboard() {
                 </div>
 
                 <div className="text-xs text-emerald-700/80 dark:text-emerald-200/80 font-mono">
-                  Happy Pool {formatCurrency(runtime?.happy_hour_prize_balance)}
+                  Happy Pool {formatCurrency(runtime?.prize_pool_balance)}/{' '}
+                  {formatCurrency(runtime?.prize_pool_goal)}
                 </div>
 
-                <div className="text-xs text-indigo-700/80 dark:text-indigo-200/80 font-mono">
+                <button
+                  type="button"
+                  onClick={() => setShowJackpotQueuesModal(true)}
+                  className="block w-full text-left text-xs text-indigo-700/80 dark:text-indigo-200/80 font-mono underline decoration-dotted underline-offset-2 transition hover:text-indigo-800 dark:hover:text-indigo-100"
+                >
                   Jackpot Pool {formatCurrency(runtime?.jackpot_pool_balance)}/{' '}
                   {formatCurrency(runtime?.jackpot_pool_goal)}
-                </div>
+                </button>
 
                 <div className="text-xs text-emerald-700/60 dark:text-emerald-200/60 font-mono">
                   H/J/P {formatPercent(activeHousePct)} / {formatPercent(activeJackpotPct)} /{' '}
@@ -479,10 +539,7 @@ export default function Dashboard() {
                     🟣 High RTP{' '}
                     {
                       devices.filter(d => {
-                        const rtp =
-                          asNumber(d.bet_total) > 0
-                            ? (asNumber(d.win_total) / asNumber(d.bet_total)) * 100
-                            : 0
+                        const rtp = getDeviceRtp(d)
                         return rtp > 110
                       }).length
                     }
@@ -541,10 +598,7 @@ export default function Dashboard() {
           <div className="overflow-hidden rounded-lg border border-slate-700 md:hidden">
             <div className="space-y-2 p-2">
               {paginatedDevices.map(d => {
-                const deviceRtp =
-                  asNumber(d.bet_total) > 0
-                    ? (asNumber(d.win_total) / asNumber(d.bet_total)) * 100
-                    : 0
+                const deviceRtp = getDeviceRtp(d)
                 const deviceHouseWin = asNumber(
                   d.house_take_total ?? asNumber(d.bet_total) - asNumber(d.win_total),
                 )
@@ -652,6 +706,12 @@ export default function Dashboard() {
                         </div>
                       </div>
                       <div>
+                        <div className="text-[10px] text-slate-500">Coins-In</div>
+                        <div className="font-mono text-sm text-sky-300">
+                          {formatCurrency(d.coins_in_total)}
+                        </div>
+                      </div>
+                      <div>
                         <div className="text-[10px] text-slate-500">Hopper</div>
                         <div
                           className={`font-mono text-sm font-bold ${
@@ -659,6 +719,18 @@ export default function Dashboard() {
                           }`}
                         >
                           {formatCurrency(d.hopper_balance)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-500">Arcade Total</div>
+                        <div className="font-mono text-sm text-indigo-300">
+                          {formatCurrency(d.arcade_total)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-500">Withdraw</div>
+                        <div className="font-mono text-sm text-rose-300">
+                          {formatCurrency(d.withdraw_total)}
                         </div>
                       </div>
                       <div>
@@ -723,12 +795,25 @@ export default function Dashboard() {
                     <button
                       type="button"
                       className="hover:text-white"
+                      onClick={() => onSort('coins_in_total')}
+                    >
+                      Coins-In{' '}
+                      {sortField === 'coins_in_total' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                    </button>
+                  </th>
+                  <th className="px-4 py-2 text-right">
+                    <button
+                      type="button"
+                      className="hover:text-white"
                       onClick={() => onSort('hopper_balance')}
                     >
                       Hopper{' '}
                       {sortField === 'hopper_balance' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
+                  <th className="px-4 py-2 text-right">Arcade Total</th>
+                  <th className="px-4 py-2 text-right">Stats</th>
+                  <th className="px-4 py-2 text-right">Withdraw</th>
 
                   <th className="px-4 py-2 text-right">
                     <button
@@ -765,10 +850,7 @@ export default function Dashboard() {
               </thead>
               <tbody className="divide-y divide-slate-800">
                 {paginatedDevices.map(d => {
-                  const deviceRtp =
-                    asNumber(d.bet_total) > 0
-                      ? (asNumber(d.win_total) / asNumber(d.bet_total)) * 100
-                      : 0
+                  const deviceRtp = getDeviceRtp(d)
                   const deviceHouseWin = asNumber(
                     d.house_take_total ?? asNumber(d.bet_total) - asNumber(d.win_total),
                   )
@@ -880,19 +962,8 @@ export default function Dashboard() {
                       <td className="px-4 py-2 text-right font-mono font-bold text-green-400">
                         {formatCurrency(d.balance)}
                       </td>
-                      <td className="px-4 py-2 text-right">
-                        <div className="flex gap-2 justify-end font-mono text-sm text-slate-300">
-                          Bets:
-                          <span className="font-extrabold">{formatCurrency(d.bet_total)}</span>
-                        </div>
-                        <div className="flex gap-2 justify-end  font-mono text-sm text-slate-300">
-                          Wins:
-                          <span className="font-extrabold">{formatCurrency(d.win_total)}</span>
-                        </div>
-                        <div className="flex gap-2 justify-end  font-mono text-sm text-fuchsia-300">
-                          RTP:
-                          <span className="font-extrabold">{formatPercent(deviceRtp)}</span>
-                        </div>
+                      <td className="px-4 py-2 text-right font-mono text-sky-300">
+                        {formatCurrency(d.coins_in_total)}
                       </td>
                       <td className="px-4 py-2 text-right font-mono">
                         <div
@@ -909,6 +980,27 @@ export default function Dashboard() {
                           )}
                           <span>{formatCurrency(d.hopper_balance)}</span>
                         </div>
+                      </td>
+                      <td className="px-4 py-2 text-right font-mono text-indigo-300">
+                        {formatCurrency(d.arcade_total)}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <div className="flex gap-2 justify-end font-mono text-sm text-slate-300">
+                          Bets:
+                          <span className="font-extrabold">{formatCurrency(d.bet_total)}</span>
+                        </div>
+                        <div className="flex gap-2 justify-end  font-mono text-sm text-slate-300">
+                          Wins:
+                          <span className="font-extrabold">{formatCurrency(d.win_total)}</span>
+                        </div>
+                        <div className="flex gap-2 justify-end  font-mono text-sm text-fuchsia-300">
+                          RTP:
+                          <span className="font-extrabold">{formatPercent(deviceRtp)}</span>
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-2 text-right font-mono text-rose-300">
+                        {formatCurrency(d.withdraw_total)}
                       </td>
 
                       <td className="px-4 py-2 text-right font-mono text-violet-300">
@@ -1030,6 +1122,94 @@ export default function Dashboard() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showJackpotQueuesModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 p-5 sm:p-6">
+          <div className="mx-auto max-w-4xl rounded-lg border border-slate-700 bg-slate-950 p-5 sm:p-6">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">Jackpot Payout Queues</h3>
+                <div className="mt-1 text-xs text-slate-400">
+                  Active rows appear first. Completed rows are kept for quick inspection.
+                </div>
+              </div>
+              <button
+                onClick={() => setShowJackpotQueuesModal(false)}
+                className="text-slate-300 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="max-h-[70vh] overflow-auto space-y-2">
+              {jackpotQueues.length === 0 && (
+                <div className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm text-slate-400">
+                  No jackpot payout queues found.
+                </div>
+              )}
+              {jackpotQueues.map(queue => {
+                const deviceId = String(queue.device_id ?? '').trim()
+                const completed = Boolean(queue.completed_at)
+                const payoutReady = Boolean(queue.payout_ready_at)
+                const deviceLabel = deviceNameById.get(deviceId) ?? deviceId
+
+                return (
+                  <div
+                    key={queue.id}
+                    className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm"
+                  >
+                    <div className="flex flex-wrap items-center gap-2 font-mono">
+                      <span>#{queue.id}</span>
+                      <span
+                        className={`rounded px-2 py-0.5 text-[10px] font-semibold ${
+                          completed
+                            ? 'border border-slate-600 bg-slate-800 text-slate-300'
+                            : payoutReady
+                              ? 'border border-emerald-700 bg-emerald-950/60 text-emerald-300'
+                              : 'border border-amber-700 bg-amber-950/60 text-amber-300'
+                        }`}
+                      >
+                        {completed ? 'COMPLETED' : payoutReady ? 'READY' : 'ARMED'}
+                      </span>
+                      <span className="text-slate-300">{deviceLabel}</span>
+                      <span className="text-slate-500">{deviceId}</span>
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-300 sm:grid-cols-4">
+                      <div>
+                        <div className="text-slate-500">Campaign</div>
+                        <div className="font-mono">{String(queue.campaign_id ?? '—')}</div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500">Target / Remaining</div>
+                        <div className="font-mono">
+                          {formatJackpotCurrency(queue.target_amount)} /{' '}
+                          {formatJackpotCurrency(queue.remaining_amount)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500">Delay / Payouts Left</div>
+                        <div className="font-mono">
+                          {asNumber(queue.spins_until_start)} / {asNumber(queue.payouts_left)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500">Created</div>
+                        <div className="font-mono">
+                          {queue.created_at ? moment(queue.created_at).format('MM-DD HH:mm:ss') : '—'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-2 text-xs text-slate-400">
+                      Ready {queue.payout_ready_at ? moment(queue.payout_ready_at).format('MM-DD HH:mm:ss') : '—'}
+                      {' • '}
+                      Completed {queue.completed_at ? moment(queue.completed_at).format('MM-DD HH:mm:ss') : '—'}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>

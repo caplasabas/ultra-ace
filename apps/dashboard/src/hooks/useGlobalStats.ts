@@ -13,6 +13,7 @@ export type GlobalStatsRow = {
   total_house_net?: number
   total_jackpot_contrib?: number
   total_jackpot_win?: number
+  total_arcade_amount?: number
   total_withdraw_amount: number
   total_spins: number
   global_rtp_percent: number
@@ -35,6 +36,7 @@ export function useGlobalStats() {
     const channel = supabase
       .channel('dashboard-global-stats')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'devices' }, () => fetchStats())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'arcade_metrics' }, () => fetchStats())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'casino_runtime' }, () => fetchStats())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'happy_hour_pots' }, () => fetchStats())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'jackpot_pots' }, () => fetchStats())

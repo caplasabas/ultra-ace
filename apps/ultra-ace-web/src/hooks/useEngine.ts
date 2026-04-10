@@ -840,6 +840,31 @@ export function useEngine() {
     }
   }
 
+  function selectZeroWinFreeSpinOutcome({
+    initialOutcome,
+    rng,
+    spinInput,
+  }: {
+    initialOutcome: SpinOutcome
+    rng: ReturnType<typeof createRNG>
+    spinInput: Parameters<typeof spin>[1]
+  }): SpinOutcome {
+    const normalizeWin = (outcome: SpinOutcome) => roundMoney(Math.max(0, Number(outcome.win ?? 0)))
+
+    if (normalizeWin(initialOutcome) <= 0.0001) {
+      return normalizeJackpotOutcomeToTarget(initialOutcome, 0)
+    }
+
+    for (let attempt = 0; attempt < NORMAL_WIN_CAP_REROLL_ATTEMPTS; attempt++) {
+      const candidate = spin(rng, spinInput)
+      if (normalizeWin(candidate) <= 0.0001) {
+        return normalizeJackpotOutcomeToTarget(candidate, 0)
+      }
+    }
+
+    return normalizeJackpotOutcomeToTarget(initialOutcome, 0)
+  }
+
   function getJackpotSpinTolerance(targetWin: number): number {
     const normalized = Math.max(0, Number(targetWin ?? 0))
     if (normalized <= 0) return 0
@@ -1642,7 +1667,13 @@ export function useEngine() {
     }
 
     let presentedOutcome = outcome
-    if (isJackpotFreeSpin && !authPlanStep) {
+    if (isJackpotFreeSpin && jackpotPayoutForSpin <= 0) {
+      presentedOutcome = selectZeroWinFreeSpinOutcome({
+        initialOutcome: outcome,
+        rng: rngRef.current,
+        spinInput,
+      })
+    } else if (isJackpotFreeSpin && !authPlanStep) {
       const targetWin = clampToCurrentSpinMax(Math.max(0, Number(jackpotPayoutForSpin ?? 0)))
       const tolerance = getJackpotSpinTolerance(targetWin)
       const composeSeed = `${seedRef.current ?? 'seed'}:jackpot:${activeJackpotQueueIdRef.current ?? 0}:${nextSpinId}:${Math.round(targetWin * 100)}`
@@ -1686,18 +1717,6 @@ export function useEngine() {
           tolerance: composed.tolerance,
           attemptCount: composed.attemptCount,
         })
-      }
-    }
-
-    if (isJackpotFreeSpin && jackpotPayoutForSpin <= 0 && Number(presentedOutcome.win ?? 0) > 0) {
-      presentedOutcome = {
-        ...presentedOutcome,
-        win: 0,
-        cascades: (presentedOutcome.cascades ?? []).map(step => ({
-          ...step,
-          win: 0,
-          lineWins: [],
-        })),
       }
     }
     const presentedTotalWin = clampToCurrentSpinMax(Number(presentedOutcome.win ?? 0))
@@ -1772,9 +1791,7 @@ export function useEngine() {
       const delta = Math.max(0, next - current)
       if (delta <= 0) return current
       spinVisualCommittedWinRef.current = roundMoney(spinVisualCommittedWinRef.current + delta)
-      const routeToFreeSpinTotal =
-        isFreeGameRef.current || pendingFreeSpinsRef.current > 0 || showFreeSpinIntroRef.current
-      if (routeToFreeSpinTotal) {
+      if (isFreeGameRef.current) {
         setFreeSpinTotal(v => v + delta)
       } else if (baseSpinVisualBalanceLockRef.current) {
         syncBaseSpinDisplayedBalance()

@@ -18,6 +18,8 @@ export type DeviceRow = {
   spins_total?: number | null
   prize_pool_contrib_total?: number | null
   prize_pool_paid_total?: number | null
+  jackpot_win_total?: number | null
+  arcade_total?: number | null
   current_game_id?: string | null
   current_game_name?: string | null
   device_status?: 'idle' | 'playing' | 'offline' | null

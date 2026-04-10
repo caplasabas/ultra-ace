@@ -80,9 +80,13 @@ export function DeviceModal({
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     })}`
+  const baseWinAmount =
+    asNumber(device.win_total) -
+    asNumber(device.jackpot_win_total) -
+    asNumber(device.prize_pool_paid_total)
   const deviceRtp =
     asNumber(device.bet_total) > 0
-      ? (asNumber(device.win_total) / asNumber(device.bet_total)) * 100
+      ? (baseWinAmount / asNumber(device.bet_total)) * 100
       : 0
   const deviceHouseWin = asNumber(
     device.house_take_total ?? asNumber(device.bet_total) - asNumber(device.win_total),
