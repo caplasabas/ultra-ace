@@ -51,14 +51,14 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState('')
   const [sortField, setSortField] = useState<SortField>('balance')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
-  const [deploymentFilter, setDeploymentFilter] = useState<DeploymentFilter>('online')
+  const [deploymentFilter, setDeploymentFilter] = useState<DeploymentFilter>('all')
   const [showHappyPotsModal, setShowHappyPotsModal] = useState(false)
   const [showJackpotPotsModal, setShowJackpotPotsModal] = useState(false)
   const [showJackpotQueuesModal, setShowJackpotQueuesModal] = useState(false)
   const [happyPots, setHappyPots] = useState<any[]>([])
   const [jackpotPots, setJackpotPots] = useState<any[]>([])
   const [jackpotQueues, setJackpotQueues] = useState<any[]>([])
-  const [hopperAlertsEnabled] = useState(() => {
+  const [hopperAlertsEnabled, setHopperAlertsEnabled] = useState(() => {
     try {
       return localStorage.getItem('hopperAlertsEnabled') === 'true'
     } catch {
@@ -324,10 +324,14 @@ export default function Dashboard() {
         return sortDirection === 'asc' ? compare : -compare
       }
 
-      return String(a.name ?? a.device_id ?? '').localeCompare(String(b.name ?? b.device_id ?? ''), undefined, {
-        numeric: true,
-        sensitivity: 'base',
-      })
+      return String(a.name ?? a.device_id ?? '').localeCompare(
+        String(b.name ?? b.device_id ?? ''),
+        undefined,
+        {
+          numeric: true,
+          sensitivity: 'base',
+        },
+      )
     })
 
     return deploymentFiltered
@@ -604,18 +608,18 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/*<div className="flex items-center gap-2 text-sm text-slate-300">*/}
-              {/*  <span className="text-slate-400">Alerts</span>*/}
+              <div className="flex items-center gap-2 text-sm text-slate-300">
+                <span className="text-slate-400">Alerts</span>
 
-              {/*  <select*/}
-              {/*    value={hopperAlertsEnabled ? 'on' : 'off'}*/}
-              {/*    onChange={e => setHopperAlertsEnabled(e.target.value === 'on')}*/}
-              {/*    className="rounded border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200"*/}
-              {/*  >*/}
-              {/*    <option value="on">Hopper Alerts: ON</option>*/}
-              {/*    <option value="off">Hopper Alerts: OFF</option>*/}
-              {/*  </select>*/}
-              {/*</div>*/}
+                <select
+                  value={hopperAlertsEnabled ? 'on' : 'off'}
+                  onChange={e => setHopperAlertsEnabled(e.target.value === 'on')}
+                  className="rounded border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200"
+                >
+                  <option value="on">Hopper Alerts: ON</option>
+                  <option value="off">Hopper Alerts: OFF</option>
+                </select>
+              </div>
             </div>
           </div>
 

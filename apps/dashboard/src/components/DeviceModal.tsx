@@ -91,9 +91,7 @@ export function DeviceModal({
     asNumber(device.jackpot_win_total) -
     asNumber(device.prize_pool_paid_total)
   const deviceRtp =
-    asNumber(device.bet_total) > 0
-      ? (baseWinAmount / asNumber(device.bet_total)) * 100
-      : 0
+    asNumber(device.bet_total) > 0 ? (baseWinAmount / asNumber(device.bet_total)) * 100 : 0
   const deviceHouseWin = asNumber(
     device.house_take_total ?? asNumber(device.bet_total) - asNumber(device.win_total),
   )
@@ -366,7 +364,9 @@ export function DeviceModal({
     }
 
     setSuccessMessage(
-      withdrawEnabled ? 'Withdrawal enabled for this device' : 'Withdrawal disabled for this device',
+      withdrawEnabled
+        ? 'Withdrawal enabled for this device'
+        : 'Withdrawal disabled for this device',
     )
     setErrorMessage(null)
   }
@@ -382,48 +382,29 @@ export function DeviceModal({
           }`}
         >
           <div className="flex flex-col space-y-1 p-4">
-            <button onClick={onClose} className="text-slate-400 hover:text-white self-end">
-              ✕
-            </button>
             <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-base md:text-lg font-semibold">
-                  {device.name?.trim() || 'Unnamed Cabinet'}
-                </h3>
-                <div className="mt-1">
-                  <span
-                    className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
-                      device.device_status === 'playing'
-                        ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50'
-                        : device.device_status === 'offline'
-                          ? 'bg-slate-800 text-slate-400 border border-slate-700'
-                          : 'bg-amber-900/40 text-amber-300 border border-amber-700/50'
-                    }`}
-                  >
-                    {(device.device_status ?? 'idle').toUpperCase()}
-                  </span>
-                </div>
-                <div className="mt-1 text-xs font-mono text-slate-400">
-                  Device ID: {device.device_id ?? 'Unknown Device'}
-                </div>
-                <div className="mt-1 text-xs text-slate-400">
-                  Arcade Shell: {String(device.arcade_shell_version ?? '').trim() || 'unknown'}
-                  {' • '}
-                  IP: {String(device.current_ip ?? '').trim() || 'n/a'}
-                </div>
-                <div className="mt-1 text-xs text-slate-400">
-                  Deployment: {(device.deployment_mode ?? 'online').toUpperCase()}
-                </div>
-                <div className="mt-1 text-xs text-slate-400">
-                  Withdrawal: {device.withdraw_enabled ? 'ENABLED' : 'DISABLED'}
-                </div>
-                <div className="mt-1 text-xs text-slate-400">
-                  Agent: {device.agent_name || 'Unassigned'}
-                </div>
-                <div className="mt-1 text-xs text-slate-400">
-                  Location:{' '}
-                  {[device.area_name, device.station_name].filter(Boolean).join(' • ') ||
-                    'Unassigned'}
+              <div className="flex w-full flex-col">
+                <div className="flex justify-between">
+                  <div className="flex gap-2 items-center">
+                    <h3 className="text-base md:text-lg font-semibold">
+                      {device.name?.trim() || 'Unnamed Cabinet'}
+                    </h3>
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
+                        device.device_status === 'playing'
+                          ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50'
+                          : device.device_status === 'offline'
+                            ? 'bg-slate-800 text-slate-400 border border-slate-700'
+                            : 'bg-amber-900/40 text-amber-300 border border-amber-700/50'
+                      }`}
+                    >
+                      {(device.device_status ?? 'idle').toUpperCase()}
+                    </span>
+                  </div>
+
+                  <button onClick={onClose} className="text-slate-400 hover:text-white">
+                    ✕
+                  </button>
                 </div>
                 {device.jackpot_selected && (
                   <div className="mt-1 text-xs font-semibold text-amber-200">
@@ -459,10 +440,6 @@ export function DeviceModal({
                     </span>
                   )}
                 </div>
-              </div>
-
-              <div className="text-base md:text-lg font-mono font-bold text-green-400">
-                {formatCurrency(device.balance)}
               </div>
             </div>
 
@@ -500,6 +477,57 @@ export function DeviceModal({
 
             {activeTab === 'overview' && (
               <div className="mt-3 space-y-3">
+                <div className="grid grid-cols-2">
+                  <div>
+                    <div className="text-[10px] text-slate-400">
+                      Device ID: {device.device_id ?? 'Unknown Device'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] text-slate-400">
+                      Arcade Shell: {String(device.arcade_shell_version ?? '').trim() || 'unknown'}
+                      {' • '}
+                      IP: {String(device.current_ip ?? '').trim() || 'n/a'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[10px] text-slate-400">
+                      Mode: {(device.deployment_mode ?? 'online').toUpperCase()}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[10px] text-slate-400">
+                      Withdrawal: {device.withdraw_enabled ? 'ENABLED' : 'DISABLED'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[10px] text-slate-400">
+                      Agent: {device.agent_name || 'Unassigned'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[10px] text-slate-400">
+                      {' '}
+                      Location:{' '}
+                      {[device.area_name, device.station_name].filter(Boolean).join(' • ') ||
+                        'Unassigned'}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mt-1 text-xs font-mono text-slate-400"></div>
+                  <div className="mt-1 text-xs text-slate-400"></div>
+                  <div className="mt-1 text-xs text-slate-400"></div>
+                  <div className="mt-1 text-xs text-slate-400"></div>
+                  <div className="mt-1 text-xs text-slate-400"></div>
+                  <div className="mt-1 text-xs text-slate-400"></div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="rounded border border-green-700/40 bg-green-900/20 p-3 mt-5">
                     <div className="text-[10px] text-green-300/80">Balance</div>
@@ -608,7 +636,8 @@ export function DeviceModal({
                   <h4 className="text-sm font-semibold mb-2">Deployment Mode</h4>
                   <div className="rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 mb-4">
                     <div className="text-xs text-slate-400 mb-3">
-                      Maintenance devices stay visible in the dashboard but are excluded from global production totals.
+                      Maintenance devices stay visible in the dashboard but are excluded from global
+                      production totals.
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <select
@@ -627,10 +656,7 @@ export function DeviceModal({
                         type="button"
                         className="rounded border border-violet-600/80 bg-violet-900/30 px-3 py-2 text-xs font-semibold text-violet-200 hover:bg-violet-800/40 disabled:opacity-50"
                         disabled={
-                          deploymentBusy ||
-                          withdrawBusy ||
-                          overrideBusy ||
-                          powerActionBusy !== null
+                          deploymentBusy || withdrawBusy || overrideBusy || powerActionBusy !== null
                         }
                         onClick={() => void saveDeploymentMode()}
                       >
@@ -642,7 +668,8 @@ export function DeviceModal({
                   <h4 className="text-sm font-semibold mb-2">Withdrawal</h4>
                   <div className="rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 mb-4">
                     <div className="text-xs text-slate-400 mb-3">
-                      When disabled, this cabinet cannot withdraw even if hopper balance and withdraw limits are available.
+                      When disabled, this cabinet cannot withdraw even if hopper balance and
+                      withdraw limits are available.
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <select
@@ -657,10 +684,7 @@ export function DeviceModal({
                         type="button"
                         className="rounded border border-amber-600/80 bg-amber-900/30 px-3 py-2 text-xs font-semibold text-amber-200 hover:bg-amber-800/40 disabled:opacity-50"
                         disabled={
-                          withdrawBusy ||
-                          deploymentBusy ||
-                          overrideBusy ||
-                          powerActionBusy !== null
+                          withdrawBusy || deploymentBusy || overrideBusy || powerActionBusy !== null
                         }
                         onClick={() => void saveWithdrawEnabled()}
                       >
