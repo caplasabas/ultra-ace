@@ -31,7 +31,7 @@ function scheduleFlushSoon(delayMs = FLUSH_SOON_MS) {
   flushTimer = window.setTimeout(() => {
     flushTimer = null
     void flushMetricEvents()
-  }, 0)
+  }, Math.max(0, delayMs))
 }
 
 function requeueSnapshot(snapshot: MetricBucket[]) {
@@ -92,7 +92,7 @@ export async function flushMetricEvents() {
   try {
     const { error } = await supabase.rpc('apply_metric_events', {
       p_events: snapshot,
-      p_write_ledger: true,
+      p_write_ledger: SHOULD_WRITE_LEDGER,
     })
 
     if (error) throw error
