@@ -922,7 +922,10 @@ export default function Dashboard() {
                             </div>
 
                             <div className="truncate text-[10px] text-slate-500 font-mono">
-                              {[d.device_id, d.arcade_shell_version].join(' • ')}
+                              {d.device_id}
+                            </div>
+                            <div className="truncate text-[10px] text-slate-500 font-mono">
+                              {d.arcade_shell_version}
                             </div>
                             <div className="mt-1 flex flex-wrap gap-1">
                               {hopperLow && (
