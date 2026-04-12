@@ -799,7 +799,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="hidden overflow-x-auto rounded-lg border border-slate-700 md:block">
+          <div className="overflow-x-auto rounded-lg border border-slate-700 md:block">
             <table className="min-w-full text-sm">
               <thead className="bg-slate-800 text-slate-300">
                 <tr>
