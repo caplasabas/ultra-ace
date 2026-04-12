@@ -873,11 +873,18 @@ export function DeviceModal({
                     <div className="text-xs text-slate-400 mb-3">
                       Sends command to this device only.
                     </div>
+                    <div className="text-[11px] text-slate-500 mb-3">
+                      Reset is only allowed when the device is in maintenance mode.
+                    </div>
                     <div className="flex gap-2">
                       <button
                         type="button"
                         className="rounded border border-sky-600/80 bg-sky-900/30 px-3 py-1.5 text-xs font-semibold text-sky-200 hover:bg-sky-800/40 disabled:opacity-50"
-                        disabled={powerActionBusy !== null || overrideBusy}
+                        disabled={
+                          powerActionBusy !== null ||
+                          overrideBusy ||
+                          device?.deployment_mode !== 'maintenance'
+                        }
                         onClick={() => void enqueuePowerCommand('reset')}
                       >
                         {powerActionBusy === 'reset' ? 'Queueing Reset...' : 'Reset Device'}
