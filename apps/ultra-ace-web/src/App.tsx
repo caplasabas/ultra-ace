@@ -244,6 +244,8 @@ export default function App() {
     showFreeSpinIntro,
     setShowFreeSpinIntro,
     pendingFreeSpins,
+    restoredFreeSpinIntro,
+    setRestoredFreeSpinIntro,
     buyFreeSpins,
     scatterTriggerType,
     runtimeMode,
@@ -277,8 +279,8 @@ export default function App() {
 
   function getBetDecrement(bet: number): number {
     if (bet <= 10) return 1
-    if (bet <= 100) return 10
-    if (bet <= 50 && bet > 100) return 50
+    if (bet <= 50) return 10
+    if (bet <= 100) return 50
     if (bet <= 500) return 100
     return 500
   }
@@ -288,12 +290,8 @@ export default function App() {
       return
     }
     setBet(prev => {
-      const normalized = Number.isInteger(prev) ? prev : Math.floor(prev)
-
-      const dec = getBetDecrement(normalized)
-      const next = normalized - dec
-
-      return Math.max(1, next)
+      const next = prev + getBetIncrement(prev)
+      return Math.min(next, balance)
     })
   }
 
@@ -302,8 +300,10 @@ export default function App() {
       return
     }
     setBet(prev => {
-      const next = prev + getBetIncrement(prev)
-      return Math.min(next, balance)
+      const normalized = Number.isInteger(prev) ? prev : Math.floor(prev)
+      const dec = getBetDecrement(normalized)
+      const next = normalized - dec
+      return Math.max(1, next)
     })
   }
 
@@ -947,6 +947,7 @@ export default function App() {
 
   function triggerFreeSpinStart() {
     if (!gameStateRef.current.showFreeSpinIntro) return
+    setRestoredFreeSpinIntro(false)
     pendingIntroStartRef.current = true
     const started = startFreeSpinsRef.current()
     if (started) {
@@ -992,13 +993,14 @@ export default function App() {
 
   useEffect(() => {
     if (!showFreeSpinIntro) return
+    if (restoredFreeSpinIntro) return
 
     const timer = window.setTimeout(() => {
       triggerFreeSpinStart()
     }, 10_000)
 
     return () => clearTimeout(timer)
-  }, [showFreeSpinIntro])
+  }, [restoredFreeSpinIntro, showFreeSpinIntro])
 
   useEffect(() => {
     if (!showFreeSpinIntro) return

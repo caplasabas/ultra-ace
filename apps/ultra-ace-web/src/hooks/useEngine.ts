@@ -246,6 +246,7 @@ export function useEngine() {
   // Marks that the LAST free spin has been consumed
   const [showFreeSpinIntro, setShowFreeSpinIntro] = useState(false)
   const [showScatterWinBanner, setShowScatterWinBanner] = useState(false)
+  const [restoredFreeSpinIntro, setRestoredFreeSpinIntro] = useState(false)
 
   const [freezeUI, setFreezeUI] = useState(false)
 
@@ -557,13 +558,18 @@ export function useEngine() {
               const restoredFreeSpinsLeft = Math.max(0, Math.floor(parsed.freeSpinsLeft ?? 0))
               const restoredPendingFreeSpins = Math.max(0, Math.floor(parsed.pendingFreeSpins ?? 0))
               const restoredIsFreeGame = Boolean(parsed.isFreeGame) && restoredFreeSpinsLeft > 0
-              const restoredShowIntro = !restoredIsFreeGame && restoredPendingFreeSpins > 0
+              const restoredFreeSpinCount =
+                restoredPendingFreeSpins + (restoredIsFreeGame ? restoredFreeSpinsLeft : 0)
+              const restoredShowIntro = restoredFreeSpinCount > 0
 
-              setIsFreeGame(restoredIsFreeGame)
-              setFreeSpinsLeft(restoredIsFreeGame ? restoredFreeSpinsLeft : 0)
-              setPendingFreeSpins(restoredPendingFreeSpins)
+              // Do not silently resume restored free spins after a reboot/refresh.
+              // Preserve the award, but require an explicit player start.
+              setIsFreeGame(false)
+              setFreeSpinsLeft(0)
+              setPendingFreeSpins(restoredFreeSpinCount)
               setFreeSpinTotal(Math.max(0, Number(parsed.freeSpinTotal ?? 0)))
               setShowFreeSpinIntro(restoredShowIntro)
+              setRestoredFreeSpinIntro(restoredShowIntro)
               setScatterTriggerType(parsed.scatterTriggerType ?? null)
             } else {
               window.localStorage.removeItem(snapshotKeyRef.current)
@@ -1361,6 +1367,7 @@ export function useEngine() {
     setPendingFreeSpins(0)
     spinVisualTargetWinRef.current = null
     spinVisualCommittedWinRef.current = 0
+    setRestoredFreeSpinIntro(false)
     return true
   }
 
@@ -2006,6 +2013,8 @@ export function useEngine() {
     showFreeSpinIntro,
     setShowFreeSpinIntro,
     showScatterWinBanner,
+    restoredFreeSpinIntro,
+    setRestoredFreeSpinIntro,
 
     debugInfo,
     buyFreeSpins,
