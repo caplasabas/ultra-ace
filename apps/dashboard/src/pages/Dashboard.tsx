@@ -624,6 +624,32 @@ export default function Dashboard() {
           </div>
 
           <div className="overflow-hidden rounded-lg border border-slate-700 md:hidden">
+            <div className="flex flex-wrap items-center gap-3 mt-2 mx-2">
+              <select
+                value={sortField}
+                onChange={e => {
+                  const nextField = e.target.value as SortField
+                  setSortField(nextField)
+                  setSortDirection(nextField === 'name' ? 'asc' : 'desc')
+                }}
+                className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200"
+              >
+                {SORT_OPTIONS.map(option => (
+                  <option key={option.field} value={option.field}>
+                    Sort: {option.label}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={sortDirection}
+                onChange={e => setSortDirection(e.target.value as SortDirection)}
+                className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200"
+              >
+                <option value="asc">Ascending</option>
+                <option value="desc">Descending</option>
+              </select>
+            </div>
             <div className="space-y-2 p-2">
               {paginatedDevices.map(d => {
                 const deviceRtp = getDeviceRtp(d)
@@ -799,7 +825,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="overflow-x-auto rounded-lg border border-slate-700 md:block">
+          <div className="hidden overflow-x-auto rounded-lg border border-slate-700 md:block">
             <table className="min-w-full text-sm">
               <thead className="bg-slate-800 text-slate-300">
                 <tr>
