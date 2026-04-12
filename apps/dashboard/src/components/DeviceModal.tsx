@@ -2,6 +2,14 @@ import { toggleCabinetGame, useCabinetGames } from '../hooks/useCabinetGames.ts'
 import { useEffect, useState } from 'react'
 import { prepareGamePackage, removeGamePackage } from '../lib/arcadeAdmin.ts'
 import { supabase } from '../lib/supabase.ts'
+import moment from 'moment'
+
+type ActivityRow = {
+  activity_id: number
+  activity_name: string
+  amount: number | null
+  activity_at: string
+}
 
 export function DeviceModal({
   device,
@@ -27,7 +35,14 @@ export function DeviceModal({
   const [deploymentBusy, setDeploymentBusy] = useState(false)
   const [withdrawEnabled, setWithdrawEnabled] = useState(Boolean(device.withdraw_enabled))
   const [withdrawBusy, setWithdrawBusy] = useState(false)
-  const [activeTab, setActiveTab] = useState<'overview' | 'controls' | 'games'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'controls' | 'games'>(
+    'overview',
+  )
+  const [activityRows, setActivityRows] = useState<ActivityRow[]>([])
+  const [activityBusy, setActivityBusy] = useState(false)
+  const [activityPage, setActivityPage] = useState(1)
+  const [activityHasMore, setActivityHasMore] = useState(false)
+  const activityPageSize = 10
 
   // Assignment UI/Logic state
   const [agents, setAgents] = useState<any[]>([])
@@ -86,6 +101,8 @@ export function DeviceModal({
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     })}`
+  const statsBasisLabel =
+    device.deployment_mode === 'maintenance' ? 'All Activity' : 'Eligible Activity'
   const baseWinAmount =
     asNumber(device.win_total) -
     asNumber(device.jackpot_win_total) -
@@ -154,6 +171,7 @@ export function DeviceModal({
 
   useEffect(() => {
     setActiveTab('overview')
+    setActivityPage(1)
   }, [device.device_id])
 
   useEffect(() => {
@@ -180,6 +198,47 @@ export function DeviceModal({
     const t = setTimeout(() => setSuccessMessage(null), 4000)
     return () => clearTimeout(t)
   }, [successMessage])
+
+  useEffect(() => {
+    if (activeTab !== 'activity' || !device?.device_id) return
+
+    let cancelled = false
+
+    async function loadActivity() {
+      setActivityBusy(true)
+
+      const from = (activityPage - 1) * activityPageSize
+      const to = from + activityPageSize
+      const { data, error } = await supabase
+        .from('device_activity_feed')
+        .select('activity_id,activity_name,amount,activity_at')
+        .eq('device_id', device.device_id)
+        .order('activity_at', { ascending: false })
+        .order('activity_id', { ascending: false })
+        .range(from, to)
+
+      if (cancelled) return
+
+      setActivityBusy(false)
+
+      if (error) {
+        setErrorMessage(error.message)
+        setActivityRows([])
+        setActivityHasMore(false)
+        return
+      }
+
+      const rows = (data ?? []) as ActivityRow[]
+      setActivityRows(rows.slice(0, activityPageSize))
+      setActivityHasMore(rows.length > activityPageSize)
+    }
+
+    void loadActivity()
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeTab, activityPage, activityPageSize, device?.device_id])
 
   async function postOverrideEntry(params: {
     target: 'accounting_balance' | 'hopper_balance'
@@ -458,6 +517,7 @@ export function DeviceModal({
             <div className="mt-3 flex gap-2 border-b border-slate-800">
               {[
                 { key: 'overview', label: 'Overview' },
+                { key: 'activity', label: 'Activity' },
                 { key: 'controls', label: 'Controls' },
                 { key: 'games', label: 'Games' },
               ].map(tab => (
@@ -496,6 +556,10 @@ export function DeviceModal({
                     <div className="text-[10px] text-slate-400">
                       Mode: {(device.deployment_mode ?? 'online').toUpperCase()}
                     </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[10px] text-slate-400">Stats Basis: {statsBasisLabel}</div>
                   </div>
 
                   <div>
@@ -596,8 +660,79 @@ export function DeviceModal({
                     </div>
 
                     <div className="mt-4 pt-3 border-t border-slate-700 text-xs text-slate-400">
+                      <div className="mb-1">Displayed totals: {statsBasisLabel}</div>
                       {telemetryLabel}
                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'activity' && (
+              <div className="mt-3 flex h-[28rem] flex-col">
+                <div className="mb-3 flex items-center justify-between text-xs text-slate-400">
+                  <div>Latest activity first</div>
+                  <div>
+                    Device mode: {(device.deployment_mode ?? 'online').toUpperCase()} • Stats basis:{' '}
+                    {statsBasisLabel}
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-auto rounded border border-slate-700 bg-slate-950/40">
+                  <table className="min-w-full text-sm">
+                    <thead className="sticky top-0 bg-slate-900 text-slate-300">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-xs font-semibold">Activity</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold">Amount</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold">Timestamp</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800">
+                      {activityRows.map(row => (
+                        <tr key={row.activity_id}>
+                          <td className="px-3 py-2 text-slate-200">
+                            {String(row.activity_name ?? '')
+                              .replaceAll('_', ' ')
+                              .toUpperCase()}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono text-slate-300">
+                            {row.amount == null ? '—' : formatCurrency(row.amount)}
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs text-slate-400">
+                            {row.activity_at ? moment(row.activity_at).format('YYYY-MM-DD HH:mm:ss') : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                      {!activityBusy && activityRows.length === 0 && (
+                        <tr>
+                          <td colSpan={3} className="px-3 py-6 text-center text-sm text-slate-500">
+                            No activity found.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
+                  <div>Page {activityPage}</div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="rounded border border-slate-700 bg-slate-900 px-3 py-1.5 text-slate-200 disabled:opacity-40"
+                      disabled={activityBusy || activityPage <= 1}
+                      onClick={() => setActivityPage(page => Math.max(1, page - 1))}
+                    >
+                      Prev
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded border border-slate-700 bg-slate-900 px-3 py-1.5 text-slate-200 disabled:opacity-40"
+                      disabled={activityBusy || !activityHasMore}
+                      onClick={() => setActivityPage(page => page + 1)}
+                    >
+                      Next
+                    </button>
                   </div>
                 </div>
               </div>

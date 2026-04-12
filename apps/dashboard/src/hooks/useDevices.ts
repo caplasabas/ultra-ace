@@ -8,18 +8,61 @@ export type DeviceRow = {
   device_id: string
   name?: string | null
   balance?: number | null
+  all_balance?: number | null
+  eligible_balance?: number | null
   coins_in_total?: number | null
+  all_coins_in_total?: number | null
+  eligible_coins_in_total?: number | null
   hopper_balance?: number | null
+  hopper_in_total?: number | null
+  hopper_out_total?: number | null
+  all_hopper_balance?: number | null
+  all_hopper_in_total?: number | null
+  all_hopper_out_total?: number | null
+  eligible_hopper_balance?: number | null
+  eligible_hopper_in_total?: number | null
+  eligible_hopper_out_total?: number | null
   bet_total?: number | null
+  all_bet_total?: number | null
+  eligible_bet_total?: number | null
   win_total?: number | null
+  all_win_total?: number | null
+  eligible_win_total?: number | null
   house_take_total?: number | null
+  all_house_take_total?: number | null
+  eligible_house_take_total?: number | null
   last_bet_amount?: number | null
   withdraw_total?: number | null
+  all_withdraw_total?: number | null
+  eligible_withdraw_total?: number | null
   spins_total?: number | null
+  all_spins_total?: number | null
+  eligible_spins_total?: number | null
   prize_pool_contrib_total?: number | null
   prize_pool_paid_total?: number | null
+  all_prize_pool_contrib_total?: number | null
+  all_prize_pool_paid_total?: number | null
+  eligible_prize_pool_contrib_total?: number | null
+  eligible_prize_pool_paid_total?: number | null
+  jackpot_contrib_total?: number | null
+  all_jackpot_contrib_total?: number | null
+  eligible_jackpot_contrib_total?: number | null
   jackpot_win_total?: number | null
+  all_jackpot_win_total?: number | null
+  eligible_jackpot_win_total?: number | null
   arcade_total?: number | null
+  all_arcade_total?: number | null
+  eligible_arcade_total?: number | null
+  arcade_credit?: number | null
+  all_arcade_credit?: number | null
+  eligible_arcade_credit?: number | null
+  arcade_credit_updated_at?: string | null
+  arcade_time_ms?: number | null
+  all_arcade_time_ms?: number | null
+  eligible_arcade_time_ms?: number | null
+  arcade_time_updated_at?: string | null
+  arcade_session_started_at?: string | null
+  arcade_time_last_deducted_at?: string | null
   current_game_id?: string | null
   current_game_name?: string | null
   current_game_type?: 'arcade' | 'casino' | null
@@ -83,6 +126,12 @@ export function useDevices() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'jackpot_payout_queue' },
+        fetchAll,
+      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'device_daily_stats' }, fetchAll)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'device_metric_events' },
         fetchAll,
       )
       .on(
