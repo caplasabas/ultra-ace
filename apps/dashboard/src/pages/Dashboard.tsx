@@ -160,6 +160,11 @@ export default function Dashboard() {
     row: Pick<DeviceRow, 'bet_total' | 'win_total' | 'jackpot_win_total' | 'prize_pool_paid_total'>,
   ) => (asNumber(row.bet_total) > 0 ? (getBaseWinAmount(row) / asNumber(row.bet_total)) * 100 : 0)
 
+  const getDeviceAverageBet = (row: Pick<DeviceRow, 'bet_total' | 'spins_total'>) =>
+    asNumber(row.spins_total) > 0
+      ? asNumber(Math.floor(row.bet_total)) / asNumber(row.spins_total)
+      : 0
+
   const globalBet = asNumber(stats?.total_bet_amount)
   const globalWin = asNumber(stats?.total_win_amount)
   const globalBaseWin = devices.reduce((sum, device) => sum + getBaseWinAmount(device), 0)
@@ -619,6 +624,8 @@ export default function Dashboard() {
             <div className="space-y-2 p-2">
               {paginatedDevices.map(d => {
                 const deviceRtp = getDeviceRtp(d)
+                const deviceAverageBet = getDeviceAverageBet(d)
+
                 const deviceHouseWin = asNumber(
                   d.house_take_total ?? asNumber(d.bet_total) - asNumber(d.win_total),
                 )
@@ -759,6 +766,12 @@ export default function Dashboard() {
                         </div>
                       </div>
                       <div>
+                        <div className="text-[10px] text-slate-500">Avg Bet</div>
+                        <div className="font-mono text-sm text-violet-300">
+                          {formatJackpotCurrency(deviceAverageBet)}
+                        </div>
+                      </div>
+                      <div>
                         <div className="text-[10px] text-slate-500">Last Bet</div>
                         <div className="font-mono text-sm text-violet-300">
                           {formatCurrency(d.last_bet_amount)}
@@ -835,7 +848,7 @@ export default function Dashboard() {
                       className="hover:text-white"
                       onClick={() => onSort('last_bet_amount')}
                     >
-                      Last Bet{' '}
+                      Bet{' '}
                       {sortField === 'last_bet_amount' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
@@ -865,6 +878,7 @@ export default function Dashboard() {
               <tbody className="divide-y divide-slate-800">
                 {paginatedDevices.map(d => {
                   const deviceRtp = getDeviceRtp(d)
+                  const deviceAverageBet = getDeviceAverageBet(d)
                   const deviceHouseWin = asNumber(
                     d.house_take_total ?? asNumber(d.bet_total) - asNumber(d.win_total),
                   )
@@ -1014,22 +1028,29 @@ export default function Dashboard() {
                         {formatCurrency(d.withdraw_total)}
                       </td>
                       <td className="px-4 py-2 text-right">
-                        <div className="flex gap-2 justify-end font-mono text-sm text-slate-300">
+                        <div className="flex gap-2 justify-end font-mono text-xs text-slate-300">
                           Bets:
-                          <span className="font-extrabold">{formatCurrency(d.bet_total)}</span>
+                          <span className="font-thin">{formatCurrency(d.bet_total)}</span>
                         </div>
-                        <div className="flex gap-2 justify-end  font-mono text-sm text-slate-300">
+                        <div className="flex gap-2 justify-end  font-mono text-xs text-slate-300">
                           Wins:
-                          <span className="font-extrabold">{formatCurrency(d.win_total)}</span>
+                          <span className="font-thin">{formatCurrency(d.win_total)}</span>
                         </div>
-                        <div className="flex gap-2 justify-end  font-mono text-sm text-fuchsia-300">
+                        <div className="flex gap-2 justify-end  font-mono text-xs text-fuchsia-300">
                           RTP:
-                          <span className="font-extrabold">{formatPercent(deviceRtp)}</span>
+                          <span className="font-thin">{formatPercent(deviceRtp)}</span>
                         </div>
                       </td>
 
-                      <td className="px-4 py-2 text-right font-mono text-violet-300">
-                        {formatCurrency(d.last_bet_amount)}
+                      <td className="px-4 py-2 text-right">
+                        <div className="flex gap-2 justify-end font-mono text-xs text-slate-300">
+                          Last:
+                          <span className="font-thin">{formatCurrency(d.last_bet_amount)}</span>
+                        </div>
+                        <div className="flex gap-2 justify-end  font-mono text-xs text-slate-300">
+                          Avg:
+                          <span className="font-thin">{formatCurrency(deviceAverageBet)}</span>
+                        </div>
                       </td>
 
                       <td
