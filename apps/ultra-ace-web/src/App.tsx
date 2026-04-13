@@ -31,6 +31,7 @@ import { FreeSpinIntro } from './ui/FreeSpinIntro'
 import { ScatterWinBanner } from './ui/ScatterWinBanner'
 import { BuySpinModal } from './ui/BuySpinModal'
 import { installAccountingRetryHooks, logLedgerEvent } from './lib/accounting'
+import { isShellIframe } from './lib/shellBridge'
 
 import splashStart from './assets/images/splash_start.png'
 import WILD_RED from './assets/symbols/WILD_RED.png'
@@ -1150,6 +1151,9 @@ export default function App() {
 
       // --- COIN ---
       if (payload.type === 'COIN') {
+        if (isShellIframe()) {
+          return
+        }
         addBalanceRef.current('coin', payload.credits)
         return
       }

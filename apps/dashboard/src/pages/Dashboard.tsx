@@ -165,7 +165,10 @@ export default function Dashboard() {
   const globalBaseWin = devices.reduce((sum, device) => sum + getBaseWinAmount(device), 0)
   const globalBaseRtp = globalBet > 0 ? (globalBaseWin / globalBet) * 100 : 0
   const devicesWithLastBet = devices.filter(device => device.last_bet_amount !== null).length
-  const totalLastBetAmount = devices.reduce((sum, device) => sum + asNumber(device.last_bet_amount), 0)
+  const totalLastBetAmount = devices.reduce(
+    (sum, device) => sum + asNumber(device.last_bet_amount),
+    0,
+  )
   const globalAverageBetByDevice =
     devicesWithLastBet > 0 ? totalLastBetAmount / devicesWithLastBet : 0
   const globalAverageBet =
@@ -294,26 +297,12 @@ export default function Dashboard() {
               : (d.deployment_mode ?? 'online') !== 'maintenance',
           )
 
-    const getPriorityRank = (device: DeviceRow) => {
-      const deploymentMode = device.deployment_mode ?? 'online'
-      if (deploymentMode === 'maintenance') return 3
-      if (device.device_status === 'playing') return 0
-      if (device.device_status === 'offline') return 2
-      return 1
-    }
-
     deploymentFiltered.sort((a, b) => {
-      const priorityCompare = getPriorityRank(a) - getPriorityRank(b)
-      if (priorityCompare !== 0) return priorityCompare
-
       const left = getSortValue(a, sortField)
       const right = getSortValue(b, sortField)
 
       if (typeof left === 'string' || typeof right === 'string') {
-        const leftText = String(left)
-        const rightText = String(right)
-
-        const compare = leftText.localeCompare(rightText, undefined, {
+        const compare = String(left).localeCompare(String(right), undefined, {
           numeric: true,
           sensitivity: 'base',
         })
@@ -321,19 +310,10 @@ export default function Dashboard() {
         return sortDirection === 'asc' ? compare : -compare
       }
 
-      const compare = left - right
-      if (compare !== 0) {
-        return sortDirection === 'asc' ? compare : -compare
-      }
+      if (left === right) return 0
 
-      return String(a.name ?? a.device_id ?? '').localeCompare(
-        String(b.name ?? b.device_id ?? ''),
-        undefined,
-        {
-          numeric: true,
-          sensitivity: 'base',
-        },
-      )
+      const compare = left - right
+      return sortDirection === 'asc' ? compare : -compare
     })
 
     return deploymentFiltered
@@ -375,15 +355,11 @@ export default function Dashboard() {
         <section>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             <div className="rounded-xl border border-green-700/40 bg-green-900/20 p-4">
-              <div className="mb-2 text-lg font-semibold text-green-200">
-                Money Flow
-              </div>
+              <div className="mb-2 text-lg font-semibold text-green-200">Money Flow</div>
 
               <div className="flex justify-between flex-wrap space-y-2">
                 <div>
-                  <div className="text-xs text-green-200/80">
-                    Total Balance
-                  </div>
+                  <div className="text-xs text-green-200/80">Total Balance</div>
                   <div className="text-3xl font-extrabold font-mono text-green-200">
                     {formatCurrency(stats?.total_balance)}
                   </div>
@@ -405,9 +381,7 @@ export default function Dashboard() {
                   </div>
 
                   <div>
-                    <div className="text-xs text-rose-200/80">
-                      Withdrawals
-                    </div>
+                    <div className="text-xs text-rose-200/80">Withdrawals</div>
                     <div className="text-lg font-mono text-rose-300">
                       {formatCurrency(stats?.total_withdraw_amount)}
                     </div>
@@ -424,15 +398,11 @@ export default function Dashboard() {
             </div>
 
             <div className="rounded-xl border border-violet-700/40 bg-violet-900/20 p-4">
-              <div className="mb-2 text-lg font-semibold text-violet-200">
-                Game Flow
-              </div>
+              <div className="mb-2 text-lg font-semibold text-violet-200">Game Flow</div>
 
               <div className="flex justify-between flex-wrap">
                 <div>
-                  <div className="text-xs text-violet-200/80">
-                    Total Bet
-                  </div>
+                  <div className="text-xs text-violet-200/80">Total Bet</div>
                   <div className="text-3xl font-bold font-mono text-violet-300">
                     {formatCurrency(stats?.total_bet_amount)}
                   </div>
@@ -456,9 +426,7 @@ export default function Dashboard() {
             </div>
 
             <div className="rounded-xl border border-fuchsia-700/40 bg-fuchsia-900/20 p-4">
-              <div className="mb-2 text-lg font-semibold text-fuchsia-200">
-                Performance
-              </div>
+              <div className="mb-2 text-lg font-semibold text-fuchsia-200">Performance</div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -472,9 +440,7 @@ export default function Dashboard() {
                 </div>
 
                 <div>
-                  <div className="text-xs text-orange-200/80">
-                    House Take
-                  </div>
+                  <div className="text-xs text-orange-200/80">House Take</div>
                   <div className="text-lg font-mono text-orange-300">
                     {formatCurrency(globalHouseGross)}
                   </div>
@@ -484,9 +450,7 @@ export default function Dashboard() {
 
             {/* 🏦 SYSTEM / POOLS */}
             <div className="rounded-xl border border-emerald-700/40 bg-emerald-900/20 p-4">
-              <div className="mb-2 text-lg font-semibold text-emerald-200">
-                System
-              </div>
+              <div className="mb-2 text-lg font-semibold text-emerald-200">System</div>
 
               <div className="space-y-2">
                 <div className="flex justify-between items-center">

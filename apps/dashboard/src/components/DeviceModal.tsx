@@ -668,7 +668,9 @@ export function DeviceModal({
                             {row.amount == null ? '—' : formatCurrency(row.amount)}
                           </td>
                           <td className="px-3 py-2 text-right text-xs text-slate-400">
-                            {row.activity_at ? moment(row.activity_at).format('YYYY-MM-DD HH:mm:ss') : '—'}
+                            {row.activity_at
+                              ? moment(row.activity_at).format('YYYY-MM-DD hh:mm:ss A')
+                              : '—'}
                           </td>
                         </tr>
                       ))}
