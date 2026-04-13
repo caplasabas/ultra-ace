@@ -259,37 +259,6 @@ export function DeviceModal({
 
     setOverrideBusy(true)
 
-    if (params.target === 'accounting_balance' && params.entryKind === 'credit') {
-      const { error } = await supabase.rpc('apply_metric_events', {
-        p_events: [
-          {
-            device_id: device.device_id,
-            event_type: 'coins_in',
-            amount,
-            event_ts: new Date().toISOString(),
-            metadata: {
-              source: 'dashboard_device_modal',
-              target: params.target,
-              entry_kind: params.entryKind,
-              account_name: params.accountName.trim(),
-              notes: params.notes.trim() || null,
-            },
-          },
-        ],
-        p_write_ledger: true,
-      })
-      setOverrideBusy(false)
-
-      if (error) {
-        setErrorMessage(error.message)
-        return
-      }
-
-      setSuccessMessage(`Balance CREDIT ${formatCurrency(amount)} posted as COINS IN`)
-      setErrorMessage(null)
-      return true
-    }
-
     const { data, error } = await supabase.rpc('post_device_admin_ledger_entry', {
       p_device_id: device.device_id,
       p_target: params.target,
