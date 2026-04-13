@@ -164,8 +164,10 @@ export default function Dashboard() {
   const globalWin = asNumber(stats?.total_win_amount)
   const globalBaseWin = devices.reduce((sum, device) => sum + getBaseWinAmount(device), 0)
   const globalBaseRtp = globalBet > 0 ? (globalBaseWin / globalBet) * 100 : 0
-  const devicesWithSpins = devices.filter(device => asNumber(device.spins_total) > 0).length
-  const globalAverageBetByDevice = devicesWithSpins > 0 ? globalBet / devicesWithSpins : 0
+  const devicesWithLastBet = devices.filter(device => device.last_bet_amount !== null).length
+  const totalLastBetAmount = devices.reduce((sum, device) => sum + asNumber(device.last_bet_amount), 0)
+  const globalAverageBetByDevice =
+    devicesWithLastBet > 0 ? totalLastBetAmount / devicesWithLastBet : 0
   const globalAverageBet =
     asNumber(stats?.total_spins) > 0 ? globalBet / asNumber(stats?.total_spins) : 0
   const globalHouseGross = asNumber(stats?.total_house_take ?? globalBet - globalWin)
@@ -372,48 +374,48 @@ export default function Dashboard() {
 
         <section>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            <div className="rounded-xl border border-green-700/40 bg-green-100 dark:bg-green-900/20 p-4">
-              <div className="text-lg font-semibold text-green-700 dark:text-green-200 mb-2">
+            <div className="rounded-xl border border-green-700/40 bg-green-900/20 p-4">
+              <div className="mb-2 text-lg font-semibold text-green-200">
                 Money Flow
               </div>
 
               <div className="flex justify-between flex-wrap space-y-2">
                 <div>
-                  <div className="text-xs text-green-700/80 dark:text-green-200/80">
+                  <div className="text-xs text-green-200/80">
                     Total Balance
                   </div>
-                  <div className="text-3xl font-extrabold font-mono text-green-700 dark:text-green-200">
+                  <div className="text-3xl font-extrabold font-mono text-green-200">
                     {formatCurrency(stats?.total_balance)}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                   <div>
-                    <div className="text-xs text-sky-700/80 dark:text-sky-200/80">Coins-In</div>
-                    <div className="text-lg font-mono text-sky-700 dark:text-sky-300">
+                    <div className="text-xs text-sky-200/80">Coins-In</div>
+                    <div className="text-lg font-mono text-sky-300">
                       {formatCurrency(stats?.total_coins_in)}
                     </div>
                   </div>
 
                   <div>
-                    <div className="text-xs text-amber-700/80 dark:text-amber-200/80">Hopper</div>
-                    <div className="text-lg font-mono text-amber-700 dark:text-amber-300">
+                    <div className="text-xs text-amber-200/80">Hopper</div>
+                    <div className="text-lg font-mono text-amber-300">
                       {formatCurrency(stats?.total_hopper)}
                     </div>
                   </div>
 
                   <div>
-                    <div className="text-xs text-rose-700/80 dark:text-rose-200/80">
+                    <div className="text-xs text-rose-200/80">
                       Withdrawals
                     </div>
-                    <div className="text-lg font-mono text-rose-700 dark:text-rose-300">
+                    <div className="text-lg font-mono text-rose-300">
                       {formatCurrency(stats?.total_withdraw_amount)}
                     </div>
                   </div>
 
                   <div>
-                    <div className="text-xs text-indigo-700/80 dark:text-indigo-200/80">Arcade</div>
-                    <div className="text-lg font-mono text-indigo-700 dark:text-indigo-300">
+                    <div className="text-xs text-indigo-200/80">Arcade</div>
+                    <div className="text-lg font-mono text-indigo-300">
                       {formatCurrency(stats?.total_arcade_amount)}
                     </div>
                   </div>
@@ -421,30 +423,30 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-violet-700/40 bg-violet-100 dark:bg-violet-900/20 p-4">
-              <div className="text-lg font-semibold text-violet-700 dark:text-violet-200 mb-2">
+            <div className="rounded-xl border border-violet-700/40 bg-violet-900/20 p-4">
+              <div className="mb-2 text-lg font-semibold text-violet-200">
                 Game Flow
               </div>
 
               <div className="flex justify-between flex-wrap">
                 <div>
-                  <div className="text-xs text-violet-700/80 dark:text-violet-200/80">
+                  <div className="text-xs text-violet-200/80">
                     Total Bet
                   </div>
-                  <div className="text-3xl font-bold font-mono text-violet-700 dark:text-violet-300">
+                  <div className="text-3xl font-bold font-mono text-violet-300">
                     {formatCurrency(stats?.total_bet_amount)}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 ">
                   <div className="flex flex-col justify-end">
-                    <div className="text-xs text-red-700/80 dark:text-red-200/80">Total Win</div>
-                    <div className="text-lg font-mono text-red-700 dark:text-red-300">
+                    <div className="text-xs text-red-200/80">Total Win</div>
+                    <div className="text-lg font-mono text-red-300">
                       {formatCurrency(stats?.total_win_amount)}
                     </div>
                   </div>
 
-                  <div className="text-xs text-violet-700/80 dark:text-violet-200/80 font-mono">
+                  <div className="text-xs font-mono text-violet-200/80">
                     <div>Avg Bet {formatJackpotCurrency(globalAverageBetByDevice)}</div>
                     <div>Total Spins {asNumber(stats?.total_spins).toLocaleString()}</div>
                     <div>Avg Bet / Spin {formatJackpotCurrency(globalAverageBet)}</div>
@@ -453,27 +455,27 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-fuchsia-700/40 bg-fuchsia-100 dark:bg-fuchsia-900/20 p-4">
-              <div className="text-lg font-semibold text-fuchsia-700 dark:text-fuchsia-200 mb-2">
+            <div className="rounded-xl border border-fuchsia-700/40 bg-fuchsia-900/20 p-4">
+              <div className="mb-2 text-lg font-semibold text-fuchsia-200">
                 Performance
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <div className="text-xs text-fuchsia-700/80 dark:text-fuchsia-200/80">RTP</div>
-                  <div className="text-3xl font-bold font-mono text-fuchsia-700 dark:text-fuchsia-300">
+                  <div className="text-xs text-fuchsia-200/80">RTP</div>
+                  <div className="text-3xl font-bold font-mono text-fuchsia-300">
                     {formatPercent(globalBaseRtp)}
                   </div>
-                  <div className="text-xs text-fuchsia-700/80 dark:text-fuchsia-200/80">
+                  <div className="text-xs text-fuchsia-200/80">
                     Target {formatPercent(ENGINE_SIM_TOTAL_RTP_PCT)}
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-xs text-orange-700/80 dark:text-orange-200/80">
+                  <div className="text-xs text-orange-200/80">
                     House Take
                   </div>
-                  <div className="text-lg font-mono text-orange-700 dark:text-orange-300">
+                  <div className="text-lg font-mono text-orange-300">
                     {formatCurrency(globalHouseGross)}
                   </div>
                 </div>
@@ -481,20 +483,20 @@ export default function Dashboard() {
             </div>
 
             {/* 🏦 SYSTEM / POOLS */}
-            <div className="rounded-xl border border-emerald-700/40 bg-emerald-100 dark:bg-emerald-900/20 p-4">
-              <div className="text-lg font-semibold text-emerald-700 dark:text-emerald-200 mb-2">
+            <div className="rounded-xl border border-emerald-700/40 bg-emerald-900/20 p-4">
+              <div className="mb-2 text-lg font-semibold text-emerald-200">
                 System
               </div>
 
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-emerald-700/80 dark:text-emerald-200/80">Mode</span>
-                  <span className="text-lg font-bold font-mono text-emerald-700 dark:text-emerald-300">
+                  <span className="text-xs text-emerald-200/80">Mode</span>
+                  <span className="text-lg font-bold font-mono text-emerald-300">
                     {runtime?.active_mode ?? 'BASE'}
                   </span>
                 </div>
 
-                <div className="text-xs text-emerald-700/80 dark:text-emerald-200/80 font-mono">
+                <div className="text-xs font-mono text-emerald-200/80">
                   Happy Pool {formatCurrency(runtime?.prize_pool_balance)}/{' '}
                   {formatCurrency(runtime?.prize_pool_goal)}
                 </div>
@@ -502,13 +504,13 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={() => setShowJackpotQueuesModal(true)}
-                  className="block w-full text-left text-xs text-indigo-700/80 dark:text-indigo-200/80 font-mono underline decoration-dotted underline-offset-2 transition hover:text-indigo-800 dark:hover:text-indigo-100"
+                  className="block w-full text-left text-xs font-mono text-indigo-200/80 underline decoration-dotted underline-offset-2 transition hover:text-indigo-100"
                 >
                   Jackpot Pool {formatCurrency(runtime?.jackpot_pool_balance)}/{' '}
                   {formatCurrency(runtime?.jackpot_pool_goal)}
                 </button>
 
-                <div className="text-xs text-emerald-700/60 dark:text-emerald-200/60 font-mono">
+                <div className="text-xs font-mono text-emerald-200/60">
                   H/J/P {formatPercent(activeHousePct)} / {formatPercent(activeJackpotPct)} /{' '}
                   {formatPercent(activeHappyPct)}
                 </div>
@@ -530,7 +532,7 @@ export default function Dashboard() {
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
                     placeholder="Search device ID or name"
-                    className="rounded-lg border border-slate-700 bg-white dark:bg-slate-900 px-3 min-w-64 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-500 focus:border-slate-500 focus:outline-none"
+                    className="min-w-64 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-slate-500 focus:outline-none"
                   />
                   <select
                     value={deploymentFilter}
@@ -684,7 +686,7 @@ export default function Dashboard() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-slate-100 text-slate-900 dark:text-slate-100">
+                        <div className="truncate text-sm font-semibold text-slate-100">
                           {d.name?.trim() || 'Unnamed Cabinet'}
                         </div>
                         <div className="truncate text-[10px] text-slate-400">
@@ -1083,7 +1085,7 @@ export default function Dashboard() {
             </table>
           </div>
           {visibleDevices.length === 0 && (
-            <div className="rounded-lg border border-slate-800 bg-slate-900/40 light:bg-slate-100 p-6 text-center text-sm text-slate-400">
+            <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-6 text-center text-sm text-slate-400">
               {searchTerm ? `No devices found for "${searchTerm}".` : 'No devices found.'}
             </div>
           )}
