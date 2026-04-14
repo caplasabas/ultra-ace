@@ -160,10 +160,14 @@ export default function Dashboard() {
     row: Pick<DeviceRow, 'bet_total' | 'win_total' | 'jackpot_win_total' | 'prize_pool_paid_total'>,
   ) => (asNumber(row.bet_total) > 0 ? (getBaseWinAmount(row) / asNumber(row.bet_total)) * 100 : 0)
 
-  const getDeviceAverageBet = (row: Pick<DeviceRow, 'bet_total' | 'spins_total'>) =>
-    asNumber(row.spins_total) > 0
-      ? asNumber(Math.floor(row.bet_total)) / asNumber(row.spins_total)
-      : 0
+  const getDeviceAverageBet = (
+    row: Pick<DeviceRow, 'bet_total' | 'spins_total' | 'avg_bet_amount'>,
+  ) =>
+    asNumber(row.avg_bet_amount) > 0
+      ? asNumber(row.avg_bet_amount)
+      : asNumber(row.spins_total) > 0
+        ? asNumber(Math.floor(row.bet_total)) / asNumber(row.spins_total)
+        : 0
 
   const globalBet = asNumber(stats?.total_bet_amount)
   const globalWin = asNumber(stats?.total_win_amount)
@@ -177,7 +181,11 @@ export default function Dashboard() {
   const globalAverageBetByDevice =
     devicesWithLastBet > 0 ? totalLastBetAmount / devicesWithLastBet : 0
   const globalAverageBet =
-    asNumber(stats?.total_spins) > 0 ? globalBet / asNumber(stats?.total_spins) : 0
+    asNumber(stats?.global_avg_bet) > 0
+      ? asNumber(stats.global_avg_bet)
+      : asNumber(stats?.total_spins) > 0
+        ? asNumber(Math.floor(globalBet)) / asNumber(stats?.total_spins)
+        : 0
   const globalHouseGross = asNumber(stats?.total_house_take ?? globalBet - globalWin)
   const hopperAlertThreshold = asNumber(runtime?.hopper_alert_threshold ?? 500)
   const activeProfileId =

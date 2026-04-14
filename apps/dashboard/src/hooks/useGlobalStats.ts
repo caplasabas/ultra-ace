@@ -20,6 +20,7 @@ export type GlobalStatsRow = {
   global_house_edge_percent?: number
   global_house_net_percent?: number
   device_count: number
+  global_avg_bet?: number
 }
 
 export function useGlobalStats() {
@@ -35,11 +36,21 @@ export function useGlobalStats() {
 
     const channel = supabase
       .channel('dashboard-global-stats')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'devices' }, () => fetchStats())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'arcade_metrics' }, () => fetchStats())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'casino_runtime' }, () => fetchStats())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'happy_hour_pots' }, () => fetchStats())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'jackpot_pots' }, () => fetchStats())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'devices' }, () =>
+        fetchStats(),
+      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'arcade_metrics' }, () =>
+        fetchStats(),
+      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'casino_runtime' }, () =>
+        fetchStats(),
+      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'happy_hour_pots' }, () =>
+        fetchStats(),
+      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'jackpot_pots' }, () =>
+        fetchStats(),
+      )
       .subscribe()
 
     const poll = window.setInterval(() => {

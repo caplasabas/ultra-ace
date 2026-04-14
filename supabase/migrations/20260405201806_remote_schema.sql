@@ -148,6 +148,7 @@ create or replace view "public"."global_stats_live" as  WITH totals AS (
             COALESCE(sum(d.win_total), (0)::numeric) AS total_win_amount,
             COALESCE(sum(d.withdraw_total), (0)::numeric) AS total_withdraw_amount,
             (COALESCE(sum(d.spins_total), (0)::numeric))::bigint AS total_spins,
+            GREATEST(1, COALESCE(round(sum(d.bet_total) / nullif(sum(d.spins_total), 0)), 0)) AS global_avg_bet,
             COALESCE(sum(d.house_take_total), (0)::numeric) AS total_house_take,
             COALESCE(sum(d.jackpot_contrib_total), (0)::numeric) AS total_jackpot_contrib,
             COALESCE(sum(d.jackpot_win_total), (0)::numeric) AS total_jackpot_win,

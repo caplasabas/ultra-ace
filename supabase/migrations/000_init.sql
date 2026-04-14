@@ -383,6 +383,7 @@ begin
     jackpot_win_total = jackpot_win_total + v_jackpot_paid,
     last_bet_amount = coalesce(v_last_bet_amount, last_bet_amount),
     last_bet_at = coalesce(v_last_bet_at, last_bet_at),
+    avg_bet_amount = greatest(1, round((bet_total + v_bet) / nullif(spins_total + v_spins, 0))),
     withdraw_total = withdraw_total + v_withdraw,
     spins_total = spins_total + v_spins,
     prize_pool_contrib_total = prize_pool_contrib_total + v_pool_contrib,
@@ -3427,7 +3428,8 @@ CREATE OR REPLACE VIEW "public"."device_stats_live" AS
     "current_spin_id",
     "session_metadata",
     "arcade_shell_version",
-    "current_ip"
+    "current_ip",
+    "avg_bet_amount"
    FROM "public"."devices" "d";
 
 
@@ -3535,8 +3537,9 @@ CREATE OR REPLACE VIEW "public"."global_stats_live" AS
             COALESCE("sum"("d"."bet_total"), (0)::numeric) AS "total_bet_amount",
             COALESCE("sum"("d"."win_total"), (0)::numeric) AS "total_win_amount",
             COALESCE("sum"("d"."withdraw_total"), (0)::numeric) AS "total_withdraw_amount",
-            (COALESCE("sum"("d"."spins_total"), (0)::numeric))::bigint AS "total_spins",
-            COALESCE("sum"("d"."house_take_total"), (0)::numeric) AS "total_house_take",
+             (COALESCE("sum"("d"."spins_total"), (0)::numeric))::bigint AS "total_spins",
+             GREATEST(1, COALESCE("round"("sum"("d"."bet_total") / NULLIF("sum"("d"."spins_total"), 0)), 0)) AS "global_avg_bet",
+             COALESCE("sum"("d"."house_take_total"), (0)::numeric) AS "total_house_take",
             COALESCE("sum"("d"."jackpot_contrib_total"), (0)::numeric) AS "total_jackpot_contrib",
             COALESCE("sum"("d"."jackpot_win_total"), (0)::numeric) AS "total_jackpot_win",
             "count"(*) AS "device_count"

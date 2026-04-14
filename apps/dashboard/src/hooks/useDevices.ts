@@ -32,6 +32,7 @@ export type DeviceRow = {
   all_house_take_total?: number | null
   eligible_house_take_total?: number | null
   last_bet_amount?: number | null
+  avg_bet_amount?: number | null
   withdraw_total?: number | null
   all_withdraw_total?: number | null
   eligible_withdraw_total?: number | null
@@ -128,7 +129,11 @@ export function useDevices() {
         { event: '*', schema: 'public', table: 'jackpot_payout_queue' },
         fetchAll,
       )
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'device_daily_stats' }, fetchAll)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'device_daily_stats' },
+        fetchAll,
+      )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'device_metric_events' },
