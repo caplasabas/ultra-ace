@@ -1080,6 +1080,39 @@ export default function App() {
     )
   }, [canExitViaMenu])
 
+  useEffect(() => {
+    if (window.parent === window) return
+
+    const sendActivityHeartbeat = () => {
+      window.parent.postMessage({ type: 'ULTRAACE_ACTIVITY' }, '*')
+    }
+
+    const interval = window.setInterval(sendActivityHeartbeat, 30000)
+
+    sendActivityHeartbeat()
+
+    return () => {
+      window.clearInterval(interval)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (window.parent === window) return
+    if (!spinning && !autoSpin && !isFreeGame) return
+
+    const sendActivityHeartbeat = () => {
+      window.parent.postMessage({ type: 'ULTRAACE_ACTIVITY' }, '*')
+    }
+
+    const interval = window.setInterval(sendActivityHeartbeat, 10000)
+
+    sendActivityHeartbeat()
+
+    return () => {
+      window.clearInterval(interval)
+    }
+  }, [spinning, autoSpin, isFreeGame])
+
   const requestParentExitConfirm = () => {
     if (window.parent === window) return
     window.parent.postMessage({ type: 'ULTRAACE_REQUEST_EXIT_CONFIRM' }, '*')
