@@ -31,7 +31,6 @@ import { FreeSpinIntro } from './ui/FreeSpinIntro'
 import { ScatterWinBanner } from './ui/ScatterWinBanner'
 import { BuySpinModal } from './ui/BuySpinModal'
 import { installAccountingRetryHooks, logLedgerEvent } from './lib/accounting'
-import { isShellIframe } from './lib/shellBridge'
 
 import splashStart from './assets/images/splash_start.png'
 import WILD_RED from './assets/symbols/WILD_RED.png'
@@ -961,8 +960,8 @@ export default function App() {
 
   useEffect(() => {
     if (!spinCompleted) return
-    settleSpinVisuals()
-  }, [spinCompleted, settleSpinVisuals])
+    settleSpinVisuals(phase === 'settle')
+  }, [spinCompleted, settleSpinVisuals, phase])
 
   useEffect(() => {
     // Normal flow: only show intro after this spin fully completes timeline.
@@ -1150,11 +1149,10 @@ export default function App() {
       }
 
       // --- COIN ---
+      // Device (arcade-shell) handles coin recording via recordCoinDeposit().
+      // Balance updates are propagated to UI via Supabase Realtime subscription.
+      // UI should NOT record coins independently to avoid duplicate entries.
       if (payload.type === 'COIN') {
-        if (isShellIframe()) {
-          return
-        }
-        addBalanceRef.current('coin', payload.credits)
         return
       }
 
@@ -1203,7 +1201,9 @@ export default function App() {
       if (payload.type === 'WITHDRAW_ABORTED') {
         setIsWithdrawingRef.current(false)
         setShowWithdrawModalRef.current(false)
-        setWithdrawAmount(Number(payload.requested ?? withdrawRequestedAmountRef.current ?? 20) || 20)
+        setWithdrawAmount(
+          Number(payload.requested ?? withdrawRequestedAmountRef.current ?? 20) || 20,
+        )
         withdrawRequestedAmountRef.current = 0
 
         return

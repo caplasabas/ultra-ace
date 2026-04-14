@@ -163,6 +163,11 @@ export function DeviceModal({
   const [hopperAccountName, setHopperAccountName] = useState('Manual Hopper Override')
   const [hopperNotes, setHopperNotes] = useState('')
 
+  const [coinsInAmount, setCoinsInAmount] = useState('0')
+  const [coinsInKind, setCoinsInKind] = useState<'debit' | 'credit'>('credit')
+  const [coinsInAccountName, setCoinsInAccountName] = useState('Manual Coins In Override')
+  const [coinsInNotes, setCoinsInNotes] = useState('')
+
   useEffect(() => {
     if (!errorMessage) return
     const t = setTimeout(() => setErrorMessage(null), 4000)
@@ -241,7 +246,7 @@ export function DeviceModal({
   }, [activeTab, activityPage, activityPageSize, device?.device_id])
 
   async function postOverrideEntry(params: {
-    target: 'accounting_balance' | 'hopper_balance'
+    target: 'accounting_balance' | 'hopper_balance' | 'coins_in'
     entryKind: 'debit' | 'credit'
     amountText: string
     accountName: string
@@ -280,8 +285,15 @@ export function DeviceModal({
     const before = Number((data as any)?.before ?? 0)
     const after = Number((data as any)?.after ?? 0)
     const applied = Number((data as any)?.amount ?? amount)
+    const targetLabel =
+      params.target === 'accounting_balance'
+        ? 'Balance'
+        : params.target === 'hopper_balance'
+          ? 'Hopper'
+          : 'Coins In'
+
     setSuccessMessage(
-      `${params.target === 'accounting_balance' ? 'Balance' : 'Hopper'} ${params.entryKind.toUpperCase()} ${formatCurrency(applied)} • ${formatCurrency(before)} -> ${formatCurrency(after)}`,
+      `${targetLabel} ${params.entryKind.toUpperCase()} ${formatCurrency(applied)} • ${formatCurrency(before)} -> ${formatCurrency(after)}`,
     )
     setErrorMessage(null)
     return true
@@ -844,18 +856,11 @@ export function DeviceModal({
                     <div className="text-xs text-slate-400 mb-3">
                       Sends command to this device only.
                     </div>
-                    <div className="text-[11px] text-slate-500 mb-3">
-                      Reset is only allowed when the device is in maintenance mode.
-                    </div>
                     <div className="flex gap-2">
                       <button
                         type="button"
                         className="rounded border border-sky-600/80 bg-sky-900/30 px-3 py-1.5 text-xs font-semibold text-sky-200 hover:bg-sky-800/40 disabled:opacity-50"
-                        disabled={
-                          powerActionBusy !== null ||
-                          overrideBusy ||
-                          device?.deployment_mode !== 'maintenance'
-                        }
+                        disabled={powerActionBusy !== null || overrideBusy}
                         onClick={() => void enqueuePowerCommand('reset')}
                       >
                         {powerActionBusy === 'reset' ? 'Queueing Reset...' : 'Reset Device'}
@@ -980,6 +985,60 @@ export function DeviceModal({
                         }}
                         disabled={overrideBusy}
                         className="w-full px-3 py-1 rounded text-xs bg-amber-700/30 border border-amber-600 text-amber-300 disabled:opacity-50"
+                      >
+                        Post Entry
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 grid-cols-1 gap-3 mb-4">
+                    <div className="rounded border border-slate-700 bg-slate-950/70 bg-white dark:bg-slate-900 p-3">
+                      <div className="text-xs text-slate-400 mb-2">
+                        Coins In Balance Ledger Entry
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 mb-2">
+                        <select
+                          className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm"
+                          value={coinsInKind}
+                          onChange={e => setCoinsInKind(e.target.value as 'debit' | 'credit')}
+                        >
+                          <option value="credit">Credit</option>
+                          <option value="debit">Debit</option>
+                        </select>
+                        <input
+                          className="col-span-2 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm"
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={coinsInAmount}
+                          onChange={e => setCoinsInAmount(e.target.value)}
+                          placeholder="Amount"
+                        />
+                      </div>
+                      <input
+                        className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs mb-2"
+                        value={coinsInAccountName}
+                        onChange={e => setCoinsInAccountName(e.target.value)}
+                        placeholder="Account name"
+                      />
+                      <input
+                        className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs mb-2"
+                        value={coinsInNotes}
+                        onChange={e => setCoinsInNotes(e.target.value)}
+                        placeholder="Notes"
+                      />
+                      <button
+                        onClick={() => {
+                          void postOverrideEntry({
+                            target: 'coins_in',
+                            entryKind: coinsInKind,
+                            amountText: coinsInAmount,
+                            accountName: coinsInAccountName,
+                            notes: coinsInNotes,
+                          })
+                        }}
+                        disabled={overrideBusy}
+                        className="w-full px-3 py-1 rounded text-xs bg-blue-700/30 border border-blue-600 text-blue-300 disabled:opacity-50"
                       >
                         Post Entry
                       </button>

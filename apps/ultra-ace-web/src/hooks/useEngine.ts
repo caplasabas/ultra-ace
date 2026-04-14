@@ -102,7 +102,7 @@ const FREE_SPIN_SNAPSHOT_MAX_AGE_MS = 1000 * 60 * 60 * 6
 const DEVICE_STATE_HEARTBEAT_MS = 5000
 const ENABLE_DEVICE_STATE_SYNC = true
 const BALANCE_FALLBACK_SYNC_MS = 15000
-const JACKPOT_QUEUE_FALLBACK_SYNC_MS = 2000
+const JACKPOT_QUEUE_POLL_FALLBACK_MS = 30000
 
 type FreeSpinSnapshot = {
   updatedAt: number
@@ -272,6 +272,7 @@ export function useEngine() {
   const baseSpinDeductedRef = useRef(false)
   const baseSpinExpectedFinalBalanceRef = useRef<number | null>(null)
   const suppressBalanceDropUntilRef = useRef(0)
+  const spinSafetyTimeoutRef = useRef<number | null>(null)
   const isFreeGameRef = useRef(false)
   const freeSpinsLeftRef = useRef(0)
   const freeSpinTotalRef = useRef(0)
@@ -336,66 +337,69 @@ export function useEngine() {
     setDisplayedBalance(latest)
   }, [setDisplayedBalance])
 
-  const applyAuthoritativeBalance = useCallback((snapshot: DeviceBalanceSnapshot) => {
-    const nextBalance = Number(snapshot.balance ?? 0)
-    if (!Number.isFinite(nextBalance)) return
+  const applyAuthoritativeBalance = useCallback(
+    (snapshot: DeviceBalanceSnapshot) => {
+      const nextBalance = Number(snapshot.balance ?? 0)
+      if (!Number.isFinite(nextBalance)) return
 
-    const updatedAtMs = snapshot.updatedAt ? Date.parse(snapshot.updatedAt) : NaN
-    const nextRevision = Number(snapshot.revision ?? 0)
-    const normalizedRevision = Number.isFinite(nextRevision) ? nextRevision : 0
+      const updatedAtMs = snapshot.updatedAt ? Date.parse(snapshot.updatedAt) : NaN
+      const nextRevision = Number(snapshot.revision ?? 0)
+      const normalizedRevision = Number.isFinite(nextRevision) ? nextRevision : 0
 
-    // Accounting counters are monotonic; treat them as the primary ordering signal.
-    // `devices.updated_at` also changes for session heartbeats and other non-balance writes.
-    if (normalizedRevision < lastAuthoritativeRevisionRef.current) {
-      return
-    }
-    if (
-      normalizedRevision === lastAuthoritativeRevisionRef.current &&
-      Number.isFinite(updatedAtMs) &&
-      updatedAtMs < lastAuthoritativeUpdatedAtRef.current
-    ) {
-      return
-    }
-
-    if (Number.isFinite(updatedAtMs)) {
-      lastAuthoritativeUpdatedAtRef.current = updatedAtMs
-    }
-    lastAuthoritativeRevisionRef.current = normalizedRevision
-    lastAuthoritativeBalanceRef.current = nextBalance
-    setAuthoritativeBalance(current => (current === nextBalance ? current : nextBalance))
-    if (baseSpinVisualBalanceLockRef.current) {
-      baseSpinQueuedAuthoritativeBalanceRef.current = nextBalance
-      const expectedFinalBalance = baseSpinExpectedFinalBalanceRef.current
-      if (expectedFinalBalance !== null) {
-        const externalDelta = Math.max(0, roundMoney(nextBalance - expectedFinalBalance))
-        if (externalDelta !== baseSpinExternalDeltaRef.current) {
-          baseSpinExternalDeltaRef.current = externalDelta
-          syncBaseSpinDisplayedBalance()
-        }
+      // Accounting counters are monotonic; treat them as the primary ordering signal.
+      // `devices.updated_at` also changes for session heartbeats and other non-balance writes.
+      if (normalizedRevision < lastAuthoritativeRevisionRef.current) {
+        return
       }
-      return
-    }
-    if (displayBalanceFrozenRef.current) {
-      queuedDisplayBalanceRef.current = nextBalance
-      // Keep external balance additions visible immediately even while free-spin/buy flows
-      // are freezing normal spin-related balance transitions.
-      if (nextBalance > balanceRef.current) {
-        setDisplayedBalance(nextBalance)
-      }
-      return
-    }
-    setBalance(current => {
       if (
-        Date.now() < suppressBalanceDropUntilRef.current &&
-        nextBalance < current &&
-        !displayBalanceFrozenRef.current
+        normalizedRevision === lastAuthoritativeRevisionRef.current &&
+        Number.isFinite(updatedAtMs) &&
+        updatedAtMs < lastAuthoritativeUpdatedAtRef.current
       ) {
-        return current
+        return
       }
-      balanceRef.current = nextBalance
-      return current === nextBalance ? current : nextBalance
-    })
-  }, [setDisplayedBalance, syncBaseSpinDisplayedBalance])
+
+      if (Number.isFinite(updatedAtMs)) {
+        lastAuthoritativeUpdatedAtRef.current = updatedAtMs
+      }
+      lastAuthoritativeRevisionRef.current = normalizedRevision
+      lastAuthoritativeBalanceRef.current = nextBalance
+      setAuthoritativeBalance(current => (current === nextBalance ? current : nextBalance))
+      if (baseSpinVisualBalanceLockRef.current) {
+        baseSpinQueuedAuthoritativeBalanceRef.current = nextBalance
+        const expectedFinalBalance = baseSpinExpectedFinalBalanceRef.current
+        if (expectedFinalBalance !== null) {
+          const externalDelta = Math.max(0, roundMoney(nextBalance - expectedFinalBalance))
+          if (externalDelta !== baseSpinExternalDeltaRef.current) {
+            baseSpinExternalDeltaRef.current = externalDelta
+            syncBaseSpinDisplayedBalance()
+          }
+        }
+        return
+      }
+      if (displayBalanceFrozenRef.current) {
+        queuedDisplayBalanceRef.current = nextBalance
+        // Keep external balance additions visible immediately even while free-spin/buy flows
+        // are freezing normal spin-related balance transitions.
+        if (nextBalance > balanceRef.current) {
+          setDisplayedBalance(nextBalance)
+        }
+        return
+      }
+      setBalance(current => {
+        if (
+          Date.now() < suppressBalanceDropUntilRef.current &&
+          nextBalance < current &&
+          !displayBalanceFrozenRef.current
+        ) {
+          return current
+        }
+        balanceRef.current = nextBalance
+        return current === nextBalance ? current : nextBalance
+      })
+    },
+    [setDisplayedBalance, syncBaseSpinDisplayedBalance],
+  )
 
   const applyShellBalance = useCallback(
     (nextBalance: number, updatedAt?: string | null) => {
@@ -596,7 +600,7 @@ export function useEngine() {
       }, BALANCE_FALLBACK_SYNC_MS)
       jackpotQueuePollTimer = window.setInterval(() => {
         void loadActiveJackpotQueue()
-      }, JACKPOT_QUEUE_FALLBACK_SYNC_MS)
+      }, JACKPOT_QUEUE_POLL_FALLBACK_MS)
 
       setSessionReady(true)
 
@@ -641,26 +645,18 @@ export function useEngine() {
     if (!ENABLE_DEVICE_STATE_SYNC) return
     if (!sessionReady || !deviceId) return
 
-    const statePayload = {
-      runtimeMode,
-      isFreeGame,
-      freeSpinsLeft,
-      pendingFreeSpins,
-      showFreeSpinIntro,
-      spinId,
-      spinning,
-      scatterTriggerType,
-    } as const
-
-    void updateDeviceGameState({
-      deviceId,
-      sessionId: sessionIdRef.current,
-      state: statePayload,
-    }).catch(err => {
-      console.error('[device-session] state update failed', err)
-    })
-
     const heartbeatTimer = window.setInterval(() => {
+      const statePayload = {
+        runtimeMode,
+        isFreeGame,
+        freeSpinsLeft,
+        pendingFreeSpins,
+        showFreeSpinIntro,
+        spinId,
+        spinning,
+        scatterTriggerType,
+      } as const
+
       void updateDeviceGameState({
         deviceId,
         sessionId: sessionIdRef.current,
@@ -1399,6 +1395,16 @@ export function useEngine() {
 
     spinLockRef.current = true
     setSpinning(true)
+
+    spinSafetyTimeoutRef.current = window.setTimeout(() => {
+      if (spinLockRef.current) {
+        console.warn('[engine] spin safety timeout - releasing stuck lock')
+        spinLockRef.current = false
+        setSpinning(false)
+      }
+      spinSafetyTimeoutRef.current = null
+    }, 30000)
+
     const runtimeSnapshot = await refreshRuntimeMode()
 
     const spinAmount = isFreeGame && scatterTriggerType === 'buy' ? buySpinBet : bet
@@ -1552,14 +1558,15 @@ export function useEngine() {
       !isJackpotFreeSpin && !isFreeGame
         ? getFundableNormalWinCap(runtimeSnapshot, spinAmount)
         : null
-    const selectedNormalSpin = !isJackpotFreeSpin && !isFreeGame
-      ? selectNormalOutcomeWithinCap({
-          initialOutcome: seededOutcome,
-          winCap: normalWinCap,
-          rng: rngRef.current,
-          spinInput,
-        })
-      : null
+    const selectedNormalSpin =
+      !isJackpotFreeSpin && !isFreeGame
+        ? selectNormalOutcomeWithinCap({
+            initialOutcome: seededOutcome,
+            winCap: normalWinCap,
+            rng: rngRef.current,
+            spinInput,
+          })
+        : null
     const outcome = selectedNormalSpin?.outcome ?? seededOutcome
     const rawTotalWin = Number.isFinite(Number(outcome.win)) ? Number(outcome.win) : 0
     const engineTotalWin = clampToCurrentSpinMax(rawTotalWin)
@@ -1667,6 +1674,12 @@ export function useEngine() {
       try {
         jackpotPayoutForSpin = await accountingTask
       } catch {
+        if (spinSafetyTimeoutRef.current !== null) {
+          clearTimeout(spinSafetyTimeoutRef.current)
+          spinSafetyTimeoutRef.current = null
+        }
+        spinLockRef.current = false
+        setSpinning(false)
         return
       }
     } else if (accountingTask) {
@@ -1957,14 +1970,17 @@ export function useEngine() {
     }, 600)
   }
 
-  function settleSpinVisuals() {
+  function settleSpinVisuals(isSettling = false) {
+    if (spinSafetyTimeoutRef.current !== null) {
+      clearTimeout(spinSafetyTimeoutRef.current)
+      spinSafetyTimeoutRef.current = null
+    }
     spinLockRef.current = false
     spinVisualTargetWinRef.current = null
     spinVisualCommittedWinRef.current = 0
 
-    // End only after full timeline settles so last spin still completes even when counter hit 0 on spin start.
     if (isFreeGameRef.current) {
-      if (freeSpinsLeftRef.current === 0) {
+      if (freeSpinsLeftRef.current === 0 && !isSettling) {
         endFreeSpin()
       }
     }
