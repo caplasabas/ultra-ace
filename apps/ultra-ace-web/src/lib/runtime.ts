@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 
 export type RuntimeMode = 'BASE' | 'HAPPY'
 export type JackpotDeliveryMode = 'TARGET_FIRST' | 'AUTHENTIC_PAYTABLE'
+export type JackpotPayoutCurve = 'flat' | 'front' | 'center' | 'back'
 
 export type CasinoRuntimeLive = {
   id: boolean
@@ -19,6 +20,7 @@ export type CasinoRuntimeLive = {
   max_win_multiplier?: number
   jackpot_win_variance?: number
   jackpot_delivery_mode?: JackpotDeliveryMode
+  jackpot_payout_curve?: JackpotPayoutCurve
   active_target_rtp_pct: number
   updated_at: string
 }

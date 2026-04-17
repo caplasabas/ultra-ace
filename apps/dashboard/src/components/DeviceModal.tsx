@@ -144,6 +144,9 @@ export function DeviceModal({
     gameType === 'casino' ? `CASINO / ${gameName} / ${modeLabel}` : `ARCADE / ${gameName}`
   const jackpotStatusLabel = (() => {
     if (!device.jackpot_selected) return null
+    if (asNumber(device.pending_free_spins) > 0 || device.show_free_spin_intro) {
+      return `JACKPOT LIVE • FREE SPINS ${asNumber(device.pending_free_spins || device.free_spins_left)} pending`
+    }
     if (device.is_free_game && asNumber(device.free_spins_left) > 0) {
       return `JACKPOT LIVE • FREE SPINS ${asNumber(device.free_spins_left)} left`
     }

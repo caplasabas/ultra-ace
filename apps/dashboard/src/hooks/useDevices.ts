@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-const DEVICES_POLL_MS = 1000
+const DEVICES_POLL_MS = 2500
 
 export type DeviceRow = {
   device_id: string
@@ -116,36 +116,6 @@ export function useDevices() {
   useEffect(() => {
     void fetchAll()
 
-    const channel = supabase
-      .channel('dashboard-devices')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'devices' }, fetchAll)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'device_game_sessions' },
-        fetchAll,
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'jackpot_payout_queue' },
-        fetchAll,
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'device_daily_stats' },
-        fetchAll,
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'device_metric_events' },
-        fetchAll,
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'device_admin_commands' },
-        fetchAll,
-      )
-      .subscribe()
-
     const poll = window.setInterval(() => {
       void fetchAll()
     }, DEVICES_POLL_MS)
@@ -156,7 +126,6 @@ export function useDevices() {
         fetchTimeoutRef.current = null
       }
       window.clearInterval(poll)
-      void supabase.removeChannel(channel)
     }
   }, [])
 

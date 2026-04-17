@@ -72,6 +72,54 @@ async function fetchSpinJackpotPayout(deviceId: string, spinKey: string): Promis
   return 0
 }
 
+async function fetchResolvedSpinAccounting(
+  deviceId: string,
+  spinKey: string,
+): Promise<{ acceptedWin: number; jackpotPayout: number }> {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const { data, error } = await supabase
+      .from('device_metric_events')
+      .select('id,event_type,amount,metadata,event_ts')
+      .eq('device_id', deviceId)
+      .in('event_type', ['spin', 'win'])
+      .order('event_ts', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(80)
+
+    if (!error) {
+      const rows = (data ?? []).filter(
+        item => String((item as any)?.metadata?.spinKey ?? '') === String(spinKey || ''),
+      )
+      const winRow = rows.find(item => String((item as any)?.event_type ?? '') === 'win')
+      const spinRow = rows.find(item => String((item as any)?.event_type ?? '') === 'spin')
+
+      const acceptedWin = Number(
+        (winRow as any)?.metadata?.acceptedWin ??
+          (winRow as any)?.metadata?.accepted_win ??
+          (winRow as any)?.amount ??
+          0,
+      )
+      const jackpotPayout = Number(
+        (spinRow as any)?.metadata?.jackpotPayout ??
+          (spinRow as any)?.metadata?.jackpot_payout ??
+          (spinRow as any)?.metadata?.jackpotAmount ??
+          0,
+      )
+
+      return {
+        acceptedWin: Number.isFinite(acceptedWin) ? Math.max(0, acceptedWin) : 0,
+        jackpotPayout: Number.isFinite(jackpotPayout) ? Math.max(0, jackpotPayout) : 0,
+      }
+    }
+
+    if (attempt < 19) {
+      await sleep(120)
+    }
+  }
+
+  return { acceptedWin: 0, jackpotPayout: 0 }
+}
+
 // Kept for compatibility with existing imports; intentionally no-op.
 export function installAccountingRetryHooks() {}
 
@@ -96,13 +144,14 @@ export async function commitSpinAccounting({
   freeSpinsAwarded: number
   cascades: number
   triggerType?: 'natural' | 'buy' | null
-}): Promise<{ jackpotPayout: number }> {
+}): Promise<{ jackpotPayout: number; acceptedWin: number }> {
   const now = new Date().toISOString()
   const spinKey = `${spinId}:${now}:${Math.random().toString(36).slice(2, 10)}`
   const baseMetadata = {
     spinId,
     spinKey,
     isFreeGame,
+    betAmount,
     totalWin,
     freeSpinsAwarded,
     cascades,
@@ -113,16 +162,6 @@ export async function commitSpinAccounting({
   }
 
   const events: MetricEventPayload[] = []
-
-  if (betAmount > 0) {
-    events.push({
-      device_id: deviceId,
-      event_type: 'bet',
-      amount: betAmount,
-      event_ts: now,
-      metadata: baseMetadata,
-    })
-  }
 
   if (totalWin > 0) {
     events.push({
@@ -137,7 +176,7 @@ export async function commitSpinAccounting({
   events.push({
     device_id: deviceId,
     event_type: 'spin',
-    amount: 1,
+    amount: Math.max(0, Number(betAmount) || 0),
     event_ts: now,
     metadata: baseMetadata,
   })
@@ -146,12 +185,26 @@ export async function commitSpinAccounting({
     deviceId,
     spinKey,
   })
+  const resolvedAccounting = await fetchResolvedSpinAccounting(deviceId, spinKey)
   if (isShellIframe()) {
-    return { jackpotPayout: Number(shellResult?.jackpotPayout ?? 0) }
+    const shellPayout = Number(shellResult?.jackpotPayout ?? 0)
+    if (Number.isFinite(shellPayout) && shellPayout > 0) {
+      return {
+        jackpotPayout: shellPayout,
+        acceptedWin: resolvedAccounting.acceptedWin,
+      }
+    }
+
+    return {
+      jackpotPayout: resolvedAccounting.jackpotPayout,
+      acceptedWin: resolvedAccounting.acceptedWin,
+    }
   }
 
-  const jackpotPayout = await fetchSpinJackpotPayout(deviceId, spinKey)
-  return { jackpotPayout }
+  return {
+    jackpotPayout: resolvedAccounting.jackpotPayout,
+    acceptedWin: resolvedAccounting.acceptedWin,
+  }
 }
 
 export async function logLedgerEvent({

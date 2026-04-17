@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-const GLOBAL_STATS_POLL_MS = 1000
+const GLOBAL_STATS_POLL_MS = 2500
 
 export type GlobalStatsRow = {
   total_balance: number
@@ -32,26 +32,7 @@ export function useGlobalStats() {
   }
 
   useEffect(() => {
-    fetchStats()
-
-    const channel = supabase
-      .channel('dashboard-global-stats')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'devices' }, () =>
-        fetchStats(),
-      )
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'arcade_metrics' }, () =>
-        fetchStats(),
-      )
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'casino_runtime' }, () =>
-        fetchStats(),
-      )
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'happy_hour_pots' }, () =>
-        fetchStats(),
-      )
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'jackpot_pots' }, () =>
-        fetchStats(),
-      )
-      .subscribe()
+    void fetchStats()
 
     const poll = window.setInterval(() => {
       void fetchStats()
@@ -59,7 +40,6 @@ export function useGlobalStats() {
 
     return () => {
       window.clearInterval(poll)
-      void supabase.removeChannel(channel)
     }
   }, [])
 

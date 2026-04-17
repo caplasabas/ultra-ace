@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-const RUNTIME_POLL_MS = 1000
+const RUNTIME_POLL_MS = 2500
+const RTP_PROFILES_POLL_MS = 3000
 
 export type RuntimeMode = 'BASE' | 'HAPPY'
 export type JackpotDeliveryMode = 'TARGET_FIRST' | 'AUTHENTIC_PAYTABLE'
@@ -86,28 +87,19 @@ export function useCasinoRuntime() {
   }
 
   useEffect(() => {
-    fetchRuntime()
-    fetchProfiles()
+    void fetchRuntime()
+    void fetchProfiles()
 
-    const runtimeChannel = supabase
-      .channel('dashboard-casino-runtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'casino_runtime' }, fetchRuntime)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'happy_hour_pots' }, fetchRuntime)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'jackpot_pots' }, fetchRuntime)
-      .subscribe()
-
-    const profilesChannel = supabase
-      .channel('dashboard-rtp-profiles')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rtp_profiles' }, fetchProfiles)
-      .subscribe()
-
-    // Fallback polling to avoid stale runtime UI if realtime drops updates.
-    const poll = window.setInterval(fetchRuntime, RUNTIME_POLL_MS)
+    const runtimePoll = window.setInterval(() => {
+      void fetchRuntime()
+    }, RUNTIME_POLL_MS)
+    const profilesPoll = window.setInterval(() => {
+      void fetchProfiles()
+    }, RTP_PROFILES_POLL_MS)
 
     return () => {
-      void supabase.removeChannel(runtimeChannel)
-      void supabase.removeChannel(profilesChannel)
-      window.clearInterval(poll)
+      window.clearInterval(runtimePoll)
+      window.clearInterval(profilesPoll)
     }
   }, [])
 

@@ -8,6 +8,9 @@ import { useGames } from '../hooks/useGames'
 import moment from 'moment'
 import { supabase } from '../lib/supabase'
 
+const DASHBOARD_POTS_POLL_MS = 2500
+const DASHBOARD_JACKPOT_QUEUE_POLL_MS = 2500
+
 type SortField =
   | 'name'
   | 'balance'
@@ -94,19 +97,12 @@ export default function Dashboard() {
 
     void fetchPots()
 
-    const channel = supabase
-      .channel('dashboard-pool-pots')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'happy_hour_pots' }, fetchPots)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'jackpot_pots' }, fetchPots)
-      .subscribe()
-
     const poll = window.setInterval(() => {
       void fetchPots()
-    }, 1000)
+    }, DASHBOARD_POTS_POLL_MS)
 
     return () => {
       window.clearInterval(poll)
-      void supabase.removeChannel(channel)
     }
   }, [])
 
@@ -124,22 +120,12 @@ export default function Dashboard() {
 
     void fetchJackpotQueues()
 
-    const channel = supabase
-      .channel('dashboard-jackpot-queues')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'jackpot_payout_queue' },
-        fetchJackpotQueues,
-      )
-      .subscribe()
-
     const poll = window.setInterval(() => {
       void fetchJackpotQueues()
-    }, 1000)
+    }, DASHBOARD_JACKPOT_QUEUE_POLL_MS)
 
     return () => {
       window.clearInterval(poll)
-      void supabase.removeChannel(channel)
     }
   }, [])
 
@@ -267,6 +253,10 @@ export default function Dashboard() {
 
   const getDeviceJackpotStatus = (device: DeviceRow): string | null => {
     if (!device.jackpot_selected) return null
+
+    if (asNumber(device.pending_free_spins) > 0 || device.show_free_spin_intro) {
+      return `JACKPOT LIVE • FREE SPINS ${asNumber(device.pending_free_spins || device.free_spins_left)} pending`
+    }
 
     if (device.is_free_game && asNumber(device.free_spins_left) > 0) {
       return `JACKPOT LIVE • FREE SPINS ${asNumber(device.free_spins_left)} left`
@@ -646,7 +636,6 @@ export default function Dashboard() {
                 const gameType = getDeviceGameType(d)
                 const telemetryLabel = getDeviceTelemetryLabel(d)
                 const jackpotStatus = getDeviceJackpotStatus(d)
-
                 return (
                   <button
                     key={d.device_id}
@@ -894,13 +883,12 @@ export default function Dashboard() {
                   const hopperLow = hopperAlertsEnabled && asNumber(d.hopper_balance) <= threshold
                   // --- Alert Computations ---
                   const HIGH_RTP_THRESHOLD = 110
-                  const highRtp = deviceRtp > HIGH_RTP_THRESHOLD
-                  const offline = d.device_status === 'offline'
-                  const telemetryLabel = getDeviceTelemetryLabel(d)
-                  const jackpotStatus = getDeviceJackpotStatus(d)
-                  const gameType = getDeviceGameType(d)
-
-                  return (
+                const highRtp = deviceRtp > HIGH_RTP_THRESHOLD
+                const offline = d.device_status === 'offline'
+                const telemetryLabel = getDeviceTelemetryLabel(d)
+                const jackpotStatus = getDeviceJackpotStatus(d)
+                const gameType = getDeviceGameType(d)
+                return (
                     <tr
                       key={d.device_id}
                       className={`cursor-pointer ${

@@ -146,3 +146,36 @@ export async function persistDeviceLastBetAmount(deviceId: string, amount: numbe
 
   if (error) throw error
 }
+
+export type PersistedDeviceRuntimeState = {
+  runtimeMode: 'BASE' | 'HAPPY'
+  isFreeGame: boolean
+  freeSpinsLeft: number
+  pendingFreeSpins: number
+  showFreeSpinIntro: boolean
+  spinId: number
+}
+
+export async function fetchPersistedDeviceRuntimeState(
+  deviceId: string,
+): Promise<PersistedDeviceRuntimeState | null> {
+  const { data, error } = await supabase
+    .from('devices')
+    .select(
+      'runtime_mode,is_free_game,free_spins_left,pending_free_spins,show_free_spin_intro,current_spin_id',
+    )
+    .eq('device_id', deviceId)
+    .maybeSingle()
+
+  if (error) throw error
+  if (!data) return null
+
+  return {
+    runtimeMode: data.runtime_mode === 'HAPPY' ? 'HAPPY' : 'BASE',
+    isFreeGame: Boolean(data.is_free_game),
+    freeSpinsLeft: Math.max(0, Math.floor(Number(data.free_spins_left ?? 0))),
+    pendingFreeSpins: Math.max(0, Math.floor(Number(data.pending_free_spins ?? 0))),
+    showFreeSpinIntro: Boolean(data.show_free_spin_intro),
+    spinId: Math.max(0, Math.floor(Number(data.current_spin_id ?? 0))),
+  }
+}

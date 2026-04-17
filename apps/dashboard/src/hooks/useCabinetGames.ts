@@ -54,41 +54,12 @@ export function useCabinetGames(deviceId: string | null) {
 
     void fetchCabinet()
 
-    const channel = supabase
-      .channel(`dashboard-cabinet-${deviceId}`)
-
-      // cabinet-specific changes
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'cabinet_games',
-          filter: `device_id=eq.${deviceId}`,
-        },
-        fetchCabinet,
-      )
-
-      // global game changes
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'games',
-        },
-        fetchCabinet,
-      )
-
-      .subscribe()
-
     const poll = window.setInterval(() => {
       void fetchCabinet()
     }, CABINET_GAMES_POLL_MS)
 
     return () => {
       window.clearInterval(poll)
-      void supabase.removeChannel(channel)
     }
   }, [deviceId])
 

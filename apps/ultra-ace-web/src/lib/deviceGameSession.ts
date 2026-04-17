@@ -11,6 +11,17 @@ type DeviceStatePayload = {
   scatterTriggerType?: 'natural' | 'buy' | null
 }
 
+export type PersistedSessionState = {
+  runtimeMode?: 'BASE' | 'HAPPY' | null
+  isFreeGame?: boolean
+  freeSpinsLeft?: number
+  pendingFreeSpins?: number
+  showFreeSpinIntro?: boolean
+  spinId?: number
+  spinning?: boolean
+  scatterTriggerType?: 'natural' | 'buy' | null
+}
+
 export async function startDeviceGameSession({
   deviceId,
   gameId,
@@ -70,4 +81,21 @@ export async function endDeviceGameSession({
   })
 
   if (error) throw error
+}
+
+export async function fetchLatestDeviceSessionState(
+  deviceId: string,
+): Promise<PersistedSessionState | null> {
+  const { data, error } = await supabase
+    .from('device_game_sessions')
+    .select('last_state,updated_at')
+    .eq('device_id', deviceId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+
+  if (error) throw error
+
+  const row = data?.[0]
+  if (!row?.last_state || typeof row.last_state !== 'object') return null
+  return row.last_state as PersistedSessionState
 }

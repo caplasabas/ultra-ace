@@ -408,6 +408,7 @@ export default function App() {
   const [showBuySpinModal, setShowBuySpinModal] = useState(false)
   const [hasPressedStart, setHasPressedStart] = useState(false)
   const [introCountdown, setIntroCountdown] = useState(10)
+  const [displayedCascadeWinTotal, setDisplayedCascadeWinTotal] = useState(0)
 
   const withdrawRequestedAmountRef = useRef(0)
   const lastLoggedWinKeyRef = useRef<string>('')
@@ -421,6 +422,14 @@ export default function App() {
   const activeOneShotAudioGroupsRef = useRef(new Map<string, Set<HTMLAudioElement>>())
   const activeOneShotTimersRef = useRef(new Map<string, number[]>())
   const audioSequenceTokenRef = useRef(0)
+
+  // Reset win tracking when new spin starts
+  useEffect(() => {
+    if (spinId > 0) {
+      lastLoggedWinKeyRef.current = ''
+      setDisplayedCascadeWinTotal(0)
+    }
+  }, [spinId])
 
   const spinRef = useRef(spin)
   const setAutoSpinRef = useRef(setAutoSpin)
@@ -611,11 +620,22 @@ export default function App() {
   } = useCascadeTimeline(
     cascades,
     spinId,
+    spinning,
     isFreeGame,
     turboMultiplier,
     scatterTriggerType,
     commitSpin,
   )
+
+  // Debug: Log cascade state changes
+  useEffect(() => {
+    console.log('[CASCADE STATE]', {
+      phase,
+      cascadeIndex,
+      activeCascadeWin: activeCascade?.win,
+      spinId,
+    })
+  }, [phase, cascadeIndex, activeCascade?.win, spinId])
 
   const placeholderWindow = adaptWindow([
     makePlaceholder('A'),
@@ -765,6 +785,11 @@ export default function App() {
   }, [adaptedWindow, phase])
 
   const renderedWindow = adaptedWindow ?? heldWindowForIntro
+  const hasTimelineWindow =
+    Boolean(activeCascade?.window?.length) ||
+    Boolean(previousCascade?.window?.length) ||
+    Boolean(renderedWindow?.length) ||
+    spinning
   const allowBootSplashClick = DEV && deviceId?.startsWith('dev-')
   const bootSplashStage: 'start' | null = sessionReady && !hasPressedStart ? 'start' : null
 
@@ -802,7 +827,8 @@ export default function App() {
 
   useEffect(() => {
     if (!internetOnline) return
-    if (!isIdle) return
+    if (!isReady) return
+    if (spinning) return
     if (!autoSpin && !isFreeGame) return
     if (showFreeSpinIntro || isFreeSpinPreview || showScatterWinBanner || showBuySpinModal) return
     if (pauseColumn !== null && !isFreeGame && pendingFreeSpins > 0) return
@@ -820,7 +846,8 @@ export default function App() {
     return () => clearTimeout(t)
   }, [
     internetOnline,
-    isIdle,
+    isReady,
+    spinning,
     autoSpin,
     isFreeGame,
     pendingFreeSpins,
@@ -842,6 +869,12 @@ export default function App() {
   }, [phase, spinId, isFreeGame, commitSpinVisualDeduction])
 
   useEffect(() => {
+    console.log('[WIN] effect running:', {
+      phase,
+      activeCascadeWin: activeCascade?.win,
+      spinId,
+      cascadeIndex,
+    })
     if (phase !== 'highlight') return
     if (!activeCascade?.win) return
 
@@ -849,6 +882,10 @@ export default function App() {
     if (lastLoggedWinKeyRef.current === winKey) return
     lastLoggedWinKeyRef.current = winKey
 
+    console.log('[WIN] commitWin called:', { winKey, win: activeCascade.win, cascadeIndex })
+    setDisplayedCascadeWinTotal(current =>
+      Math.max(0, Math.round((current + Number(activeCascade.win ?? 0)) * 10000) / 10000),
+    )
     commitWin(activeCascade.win)
   }, [phase, activeCascade, spinId, cascadeIndex])
 
@@ -888,7 +925,9 @@ export default function App() {
   const freeSpinDisplayCount = isFreeGame ? freeSpinsLeft : pendingFreeSpins
   const showFreeSpinModeUi = isFreeGame || isFreeSpinPreview || showScatterWinBanner || freezeUI
   const showFreeSpinCount = (isFreeGame || isFreeSpinPreview) && freeSpinDisplayCount > 0
-  const useFreeSpinWinCounter = isFreeGame || pauseColumn !== null || freeSpinsLeft > 0
+  const useFreeSpinWinCounter =
+    isFreeGame || isFreeSpinPreview || showScatterWinBanner || freezeUI
+  const displayedWinAmount = useFreeSpinWinCounter ? freeSpinTotal : displayedCascadeWinTotal
   const overlayAmount = activeCascade?.win ?? 0
   const overlayTitle = getWinOverlayTitle(overlayAmount, bet)
 
@@ -978,12 +1017,22 @@ export default function App() {
       return
     }
 
+    // Fallback: if a trigger spin awarded free spins but the timeline already settled back
+    // to idle without tripping `spinCompleted`, still enter the intro instead of hanging on
+    // the scatter board.
+    if (!isFreeGame && isIdle && !spinning && pendingFreeSpins > 0 && !showFreeSpinIntro) {
+      setShowFreeSpinIntro(true)
+      setIsFreeSpinPreview(false)
+      return
+    }
+
     if (!isFreeGame && pendingFreeSpins <= 0 && !showFreeSpinIntro) {
       setIsFreeSpinPreview(false)
     }
   }, [
     spinCompleted,
     spinId,
+    isIdle,
     spinning,
     isFreeGame,
     pendingFreeSpins,
@@ -1016,7 +1065,8 @@ export default function App() {
   useEffect(() => {
     if (!pendingIntroStartRef.current) return
     if (showFreeSpinIntro) return
-    if (!isFreeGame || !isIdle || spinning || freeSpinsLeft <= 0) return
+    if (!isIdle) return
+    if (!isFreeGame || spinning || freeSpinsLeft <= 0) return
 
     const t = window.setTimeout(() => {
       pendingIntroStartRef.current = false
@@ -1025,7 +1075,21 @@ export default function App() {
     }, FREE_SPIN_PRESTART_DELAY_MS)
 
     return () => clearTimeout(t)
-  }, [showFreeSpinIntro, isFreeGame, isIdle, spinning, freeSpinsLeft])
+  }, [showFreeSpinIntro, isIdle, isFreeGame, spinning, freeSpinsLeft])
+
+  useEffect(() => {
+    if (pendingIntroStartRef.current) return
+    if (showFreeSpinIntro) return
+    if (!isIdle) return
+    if (!isFreeGame || spinning || freeSpinsLeft <= 0) return
+
+    const t = window.setTimeout(() => {
+      setIsFreeSpinPreview(false)
+      spinRef.current()
+    }, FREE_SPIN_PRESTART_DELAY_MS)
+
+    return () => clearTimeout(t)
+  }, [showFreeSpinIntro, isIdle, isFreeGame, spinning, freeSpinsLeft])
 
   useEffect(() => {
     gameStateRef.current = {
@@ -1570,8 +1634,8 @@ export default function App() {
                         symbols={col}
                         reelIndex={i}
                         winningPositions={EMPTY_WIN_SET}
-                        phase={spinId > 0 ? 'reelSweepOut' : 'idle'}
-                        layer={spinId > 0 ? 'old' : 'new'}
+                        phase={spinId > 0 && hasTimelineWindow ? 'reelSweepOut' : 'idle'}
+                        layer={spinId > 0 && hasTimelineWindow ? 'old' : 'new'}
                         initialRefillColumn={initialRefillColumn}
                         activePausedColumn={activePausedColumn}
                         turboMultiplier={turboMultiplier}
@@ -1652,7 +1716,7 @@ export default function App() {
                 <div className={`win-display ${showFreeSpinIntro && 'hidden'}`}>
                   WIN:{' '}
                   <span className="win-amount">
-                    {formatPeso(useFreeSpinWinCounter ? freeSpinTotal : totalWin)}
+                    {formatPeso(displayedWinAmount)}
                   </span>
                 </div>
                 <div className="bottom-controls">

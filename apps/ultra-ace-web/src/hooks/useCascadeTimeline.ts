@@ -69,6 +69,15 @@ export function detectScatterPauseColumn(window?: EngineSymbol[][]): number | nu
   return null
 }
 
+function hasPlayableCascadeStep(step?: CascadeStep): boolean {
+  if (!step) return false
+  if (Number(step.index ?? 0) <= 0) return false
+  if (Number(step.win ?? 0) > 0.0001) return true
+  if (step.lineWins?.length) return true
+  if (step.removedPositions?.length) return true
+  return Boolean(step.isScatterTerminal)
+}
+
 /* ----------------------------------------
    INITIAL STATE
 ---------------------------------------- */
@@ -146,10 +155,10 @@ function reducer(state: State, action: Action): State {
 export function useCascadeTimeline(
   cascades: CascadeStep[],
   spinId: number,
+  spinning: boolean,
   isFreeGame: boolean,
   turboMultiplier: number,
   scatterTriggerType?: 'natural' | 'buy' | null,
-
   onCommit?: () => void,
 ) {
   const [state, dispatch] = useReducer(reducer, initialState)
@@ -166,6 +175,7 @@ export function useCascadeTimeline(
 
   const lastCompletedSpinRef = useRef<number | null>(null)
   const activeSpinRef = useRef<number | null>(null)
+  const startedSpinRef = useRef<number | null>(null)
 
   const spinCompleted =
     state.phase === 'idle' &&
@@ -213,11 +223,16 @@ export function useCascadeTimeline(
   ----------------------------- */
   useEffect(() => {
     if (spinId === 0) return
+    if (startedSpinRef.current === spinId) return
+    if (!spinning && !cascades.length) {
+      return
+    }
+    startedSpinRef.current = spinId
     activeSpinRef.current = spinId
     pauseLockedRef.current = false
     pauseOriginRef.current = null
     dispatch({ type: 'START', cascades })
-  }, [spinId])
+  }, [spinId, cascades, spinning])
 
   /* -----------------------------
      Detect pause column ONCE
@@ -243,25 +258,27 @@ export function useCascadeTimeline(
     const timers: number[] = []
 
     const pauseOrigin = pauseOriginRef.current
-    const hasNextLineWin =
-      Boolean(nextCascade?.lineWins?.length) || Number(nextCascade?.win ?? 0) > 0.0001
+    const hasNextCascade = hasPlayableCascadeStep(nextCascade)
     // ---------------------------------
     // 🟢 NO PAUSE COLUMN → NORMAL FLOW
     // ---------------------------------
     if (pauseOrigin === null) {
-      const t = window.setTimeout(() => {
-        const hasScatterWin =
-          activeCascade?.window?.flat().filter(s => s.kind === 'SCATTER').length >= 3
-        // const hasLineWin = Boolean(activeCascade?.lineWins.length)
+      const t = window.setTimeout(
+        () => {
+          const hasScatterWin =
+            activeCascade?.window?.flat().filter(s => s.kind === 'SCATTER').length >= 3
+          // const hasLineWin = Boolean(activeCascade?.lineWins.length)
 
-        if (hasNextLineWin) {
-          dispatch({ type: 'ADVANCE', cascades })
-        } else if (hasScatterWin) {
-          dispatch({ type: 'ADVANCE_SCATTER', cascades })
-        } else {
-          dispatch({ type: 'NEXT', phase: 'settle' })
-        }
-      }, scaledWithFloor(900, 220)) // keep turbo from outrunning visual deal-initial
+          if (hasNextCascade) {
+            dispatch({ type: 'ADVANCE', cascades })
+          } else if (hasScatterWin) {
+            dispatch({ type: 'ADVANCE_SCATTER', cascades })
+          } else {
+            dispatch({ type: 'NEXT', phase: 'settle' })
+          }
+        },
+        scaledWithFloor(900, 220),
+      ) // keep turbo from outrunning visual deal-initial
 
       return () => clearTimeout(t)
     }
@@ -302,7 +319,7 @@ export function useCascadeTimeline(
       window.setTimeout(() => {
         dispatch({ type: 'SET_ACTIVE_PAUSED_COLUMN', column: null })
 
-        if (hasNextLineWin) {
+        if (hasNextCascade) {
           dispatch({ type: 'ADVANCE', cascades })
         } else if (hasScatterWin) {
           dispatch({ type: 'ADVANCE_SCATTER', cascades })
@@ -357,11 +374,11 @@ export function useCascadeTimeline(
         }),
       ) ?? false
 
-    const hasNextLineWin =
-      Boolean(nextCascade?.lineWins?.length) || Number(nextCascade?.win ?? 0) > 0.0001
+    const hasNextCascade = hasPlayableCascadeStep(nextCascade)
     const hasRemovals = Boolean(activeCascade?.removedPositions?.length)
 
-    const nextScatterCount = nextCascade?.window?.flat().filter(s => s.kind === 'SCATTER').length ?? 0
+    const nextScatterCount =
+      nextCascade?.window?.flat().filter(s => s.kind === 'SCATTER').length ?? 0
     const hasNextLineScatter = nextScatterCount >= 3
 
     const hasScatterWin =
@@ -369,64 +386,83 @@ export function useCascadeTimeline(
 
     switch (state.phase) {
       case 'reelSweepOut':
-        t = window.setTimeout(() => {
-          onCommit?.()
-          dispatch({ type: 'NEXT', phase: 'initialRefill' })
-        }, scaledWithFloor(120, 380))
+        t = window.setTimeout(
+          () => {
+            onCommit?.()
+            dispatch({ type: 'NEXT', phase: 'initialRefill' })
+          },
+          scaledWithFloor(120, 380),
+        )
         break
 
       case 'highlight':
-        t = window.setTimeout(() => {
-          dispatch({ type: 'NEXT', phase: 'pop' })
-        }, scaledWithFloor(820, 420))
+        t = window.setTimeout(
+          () => {
+            dispatch({ type: 'NEXT', phase: 'pop' })
+          },
+          scaledWithFloor(820, 420),
+        )
         break
 
       case 'pop':
-        t = window.setTimeout(() => {
-          if (hasRemovals) {
-            dispatch({ type: 'NEXT', phase: 'cascadeRefill' })
-          } else if (hasNextLineWin) {
-            dispatch({ type: 'ADVANCE', cascades })
-          } else if (hasNextLineScatter) {
-            dispatch({ type: 'ADVANCE_SCATTER', cascades })
-          } else {
-            dispatch({ type: 'NEXT', phase: 'settle' })
-          }
-        }, scaledWithFloor(520, 240))
+        t = window.setTimeout(
+          () => {
+            if (hasRemovals) {
+              dispatch({ type: 'NEXT', phase: 'cascadeRefill' })
+            } else if (hasNextCascade) {
+              dispatch({ type: 'ADVANCE', cascades })
+            } else if (hasNextLineScatter) {
+              dispatch({ type: 'ADVANCE_SCATTER', cascades })
+            } else {
+              dispatch({ type: 'NEXT', phase: 'settle' })
+            }
+          },
+          scaledWithFloor(520, 240),
+        )
         break
 
       case 'cascadeRefill':
-        t = window.setTimeout(() => {
-          if (hasGoldToWild) {
-            dispatch({ type: 'NEXT', phase: 'postGoldTransform' })
-          } else if (hasNextLineWin) {
-            dispatch({ type: 'ADVANCE', cascades })
-          } else {
-            dispatch({ type: 'NEXT', phase: 'settle' })
-          }
-        }, scaledWithFloor(760, 180))
+        t = window.setTimeout(
+          () => {
+            if (hasGoldToWild) {
+              dispatch({ type: 'NEXT', phase: 'postGoldTransform' })
+            } else if (hasNextCascade) {
+              dispatch({ type: 'ADVANCE', cascades })
+            } else if (hasNextLineScatter) {
+              dispatch({ type: 'ADVANCE_SCATTER', cascades })
+            } else {
+              dispatch({ type: 'NEXT', phase: 'settle' })
+            }
+          },
+          scaledWithFloor(760, 180),
+        )
         break
 
       case 'postGoldTransform':
-        t = window.setTimeout(() => {
-          if (hasNextLineWin) {
-            dispatch({ type: 'ADVANCE', cascades })
-          } else {
-            dispatch({ type: 'NEXT', phase: 'settle' })
-          }
-        }, hasRedWildPropagation ? scaledWithFloor(2150, 1500) : scaledWithFloor(620, 180))
+        t = window.setTimeout(
+          () => {
+            if (hasNextCascade) {
+              dispatch({ type: 'ADVANCE', cascades })
+            } else if (hasNextLineScatter) {
+              dispatch({ type: 'ADVANCE_SCATTER', cascades })
+            } else {
+              dispatch({ type: 'NEXT', phase: 'settle' })
+            }
+          },
+          hasRedWildPropagation ? scaledWithFloor(2150, 1500) : scaledWithFloor(620, 180),
+        )
         break
 
       case 'settle':
         t = window.setTimeout(
           () => {
-            if (!hasNextLineWin && hasScatterWin && !state.isScatterHighlight) {
+            if (!hasNextCascade && hasScatterWin && !state.isScatterHighlight) {
               dispatch({ type: 'ADVANCE_SCATTER', cascades })
             } else {
               dispatch({ type: 'RESET' })
             }
           },
-          scaledWithFloor(!hasNextLineWin && hasScatterWin ? 300 * turboMultiplier : 80, 80),
+          scaledWithFloor(!hasNextCascade && hasScatterWin ? 300 * turboMultiplier : 80, 80),
         )
         break
     }
@@ -434,7 +470,7 @@ export function useCascadeTimeline(
     return () => {
       if (t !== undefined) clearTimeout(t)
     }
-  }, [state.phase, state.index, cascades])
+  }, [state.phase, state.index, state.isScatterHighlight, cascades, turboMultiplier])
 
   return {
     phase: state.phase,

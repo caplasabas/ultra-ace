@@ -5,6 +5,16 @@ import path from 'path'
 export default defineConfig({
   plugins: [react()],
 
+  server: {
+    host: '0.0.0.0',
+    port: 5176,
+    allowedHosts: [
+      'localhost',
+      '.browserstack.com',
+      '.ngrok-free.app',
+      'nontenurially-backbreaking-olga.ngrok-free.app',
+    ],
+  },
   resolve: {
     alias: {
       '@ultra-ace/engine': path.resolve(__dirname, '../../packages/engine/src'),

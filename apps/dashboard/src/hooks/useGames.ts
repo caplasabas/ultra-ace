@@ -19,18 +19,12 @@ export function useGames(type?: 'arcade' | 'casino') {
   useEffect(() => {
     void fetchGames()
 
-    const channel = supabase
-      .channel('dashboard-games')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, () => fetchGames())
-      .subscribe()
-
     const poll = window.setInterval(() => {
       void fetchGames()
     }, GAMES_POLL_MS)
 
     return () => {
       window.clearInterval(poll)
-      void supabase.removeChannel(channel)
     }
   }, [type])
 
