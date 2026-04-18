@@ -24,11 +24,11 @@ export function BuySpinModal({ bet, balance, onAddBet, onMinusBet, onConfirm, on
           <div className="modal-row">
             <span>Bet Amount</span>
             <div className="bet-adjust">
-              <button onClick={onMinusBet} className="modal-toggle">
+              <button onClick={onAddBet} className="modal-toggle">
                 −
               </button>
               <strong>{formatPeso(bet)}</strong>
-              <button onClick={onAddBet} className="modal-toggle">
+              <button onClick={onMinusBet} className="modal-toggle">
                 +
               </button>
             </div>

@@ -1010,13 +1010,13 @@ export function useEngine() {
     }
 
     return {
-      outcome: normalizeJackpotOutcomeToTarget(initialOutcome, 0),
+      outcome: zeroOutcome(initialOutcome),
       rerolled: true,
       attemptCount,
     }
   }
 
-  function selectZeroWinFreeSpinOutcome({
+  function selectZeroWinOutcome({
     initialOutcome,
     rng,
     spinInput,
@@ -1028,17 +1028,17 @@ export function useEngine() {
     const normalizeWin = (outcome: SpinOutcome) => getOutcomeTotalWin(outcome)
 
     if (normalizeWin(initialOutcome) <= 0.0001) {
-      return normalizeJackpotOutcomeToTarget(initialOutcome, 0)
+      return zeroOutcome(initialOutcome)
     }
 
     for (let attempt = 0; attempt < NORMAL_WIN_CAP_REROLL_ATTEMPTS; attempt++) {
       const candidate = spin(rng, spinInput)
       if (normalizeWin(candidate) <= 0.0001) {
-        return normalizeJackpotOutcomeToTarget(candidate, 0)
+        return zeroOutcome(candidate)
       }
     }
 
-    return normalizeJackpotOutcomeToTarget(initialOutcome, 0)
+    return zeroOutcome(initialOutcome)
   }
 
   function selectNormalDisplayOutcomeForTarget({
@@ -1057,47 +1057,77 @@ export function useEngine() {
 
     if (target <= 0.0001) {
       if (normalizeWin(initialOutcome) <= 0.0001) {
-        return normalizeJackpotOutcomeToTarget(initialOutcome, 0)
+        return zeroOutcome(initialOutcome)
       }
 
       const zeroRng = createRNG(`${seed}:zero`)
-      for (let attempt = 0; attempt < NORMAL_WIN_CAP_REROLL_ATTEMPTS; attempt++) {
-        const candidate = spin(zeroRng, spinInput)
-        if (normalizeWin(candidate) <= 0.0001) {
-          return normalizeJackpotOutcomeToTarget(candidate, 0)
-        }
-      }
-
-      return normalizeJackpotOutcomeToTarget(initialOutcome, 0)
+      return selectZeroWinOutcome({
+        initialOutcome,
+        rng: zeroRng,
+        spinInput,
+      })
     }
 
     const tolerance = Math.max(0.1, Math.min(2, target * 0.05))
     const scoringRng = createRNG(`${seed}:display`)
-    let bestOutcome = initialOutcome
-    let bestDiff = Math.abs(normalizeWin(initialOutcome) - target)
-    let bestExcitement = getOutcomeExcitement(initialOutcome)
+    let bestUnderTarget: SpinOutcome | null = null
+    let bestUnderDiff = Number.POSITIVE_INFINITY
+    let bestUnderExcitement = Number.NEGATIVE_INFINITY
+    let bestAnyOutcome = initialOutcome
+    let bestAnyDiff = Math.abs(normalizeWin(initialOutcome) - target)
+    let bestAnyExcitement = getOutcomeExcitement(initialOutcome)
 
-    for (let attempt = 0; attempt < NORMAL_WIN_CAP_REROLL_ATTEMPTS; attempt++) {
-      const candidate = spin(scoringRng, spinInput)
+    const considerCandidate = (candidate: SpinOutcome) => {
       const candidateWin = normalizeWin(candidate)
       const diff = Math.abs(candidateWin - target)
       const excitement = getOutcomeExcitement(candidate)
+      const isUnderTarget = candidateWin <= target + 0.0001
 
       if (
-        diff < bestDiff - 0.0001 ||
-        (Math.abs(diff - bestDiff) <= 0.0001 && excitement > bestExcitement + 0.0001)
+        diff < bestAnyDiff - 0.0001 ||
+        (Math.abs(diff - bestAnyDiff) <= 0.0001 && excitement > bestAnyExcitement + 0.0001)
       ) {
-        bestOutcome = candidate
-        bestDiff = diff
-        bestExcitement = excitement
+        bestAnyOutcome = candidate
+        bestAnyDiff = diff
+        bestAnyExcitement = excitement
       }
 
-      if (diff <= tolerance) {
-        return normalizeJackpotOutcomeToTarget(candidate, target)
+      if (!isUnderTarget) return
+
+      if (
+        diff < bestUnderDiff - 0.0001 ||
+        (Math.abs(diff - bestUnderDiff) <= 0.0001 && excitement > bestUnderExcitement + 0.0001)
+      ) {
+        bestUnderTarget = candidate
+        bestUnderDiff = diff
+        bestUnderExcitement = excitement
       }
     }
 
-    return normalizeJackpotOutcomeToTarget(bestOutcome, target)
+    considerCandidate(initialOutcome)
+
+    for (let attempt = 0; attempt < NORMAL_WIN_CAP_REROLL_ATTEMPTS; attempt++) {
+      const candidate = spin(scoringRng, spinInput)
+      considerCandidate(candidate)
+
+      if (bestUnderTarget && bestUnderDiff <= tolerance) {
+        return bestUnderTarget
+      }
+    }
+
+    if (bestUnderTarget) {
+      return bestUnderTarget
+    }
+
+    if (bestAnyDiff <= tolerance && normalizeWin(bestAnyOutcome) <= target + 0.0001) {
+      return bestAnyOutcome
+    }
+
+    return selectZeroWinOutcome({
+      initialOutcome: bestAnyOutcome,
+      rng: createRNG(`${seed}:fallback-zero`),
+      spinInput,
+    })
   }
 
   function selectAuthenticJackpotDisplayOutcomeForTarget({
@@ -1115,24 +1145,24 @@ export function useEngine() {
   }): SpinOutcome {
     const target = roundMoney(Math.max(0, Number(targetWin ?? 0)))
     if (target <= 0.0001) {
-      return normalizeJackpotOutcomeToTarget(initialOutcome, 0)
+      return zeroOutcome(initialOutcome)
     }
 
-    const authentic = composeAuthenticPlanSet({
-      seed: `${seed}:auth-display`,
-      targetWin: target,
-      spinCount: 1,
+    const composed = composeTargetedFreeSpin(createRNG(`${seed}:auth-display`), {
       betPerSpin,
+      lines: 5,
+      targetWin: target,
+      tolerance: getJackpotSpinTolerance(target),
       freeSpinSource,
-      payoutCurve: 'flat',
+      attemptsPerScale: JACKPOT_COMPOSER_ATTEMPTS_PER_SCALE,
+      maxTotalAttempts: JACKPOT_COMPOSER_MAX_ATTEMPTS,
     })
 
-    const authenticStep = authentic.steps[0]?.outcome
-    if (authenticStep) {
-      return normalizeJackpotOutcomeToTarget(authenticStep, target)
+    if (composed.outcome) {
+      return composed.outcome
     }
 
-    return normalizeJackpotOutcomeToTarget(initialOutcome, target)
+    return initialOutcome
   }
 
   function getJackpotSpinTolerance(targetWin: number): number {
@@ -1203,20 +1233,21 @@ export function useEngine() {
       let spinsWithMultiCascade = 0
 
       for (let stepIndex = 0; stepIndex < stepsToCompose; stepIndex++) {
-        const composedOutcome = spin(attemptRng, {
+        const targetAmount = curveTargets[stepIndex] ?? 0
+        const composed = composeTargetedFreeSpin(attemptRng, {
           betPerSpin: Math.min(
             JACKPOT_AUTHENTIC_PLAN_MAX_SCALE,
             Math.max(JACKPOT_AUTHENTIC_PLAN_MIN_SCALE, Number(betPerSpin ?? 0.01)),
           ),
           lines: 5,
-          isFreeGame: true,
+          targetWin: targetAmount,
+          tolerance: getJackpotSpinTolerance(targetAmount),
           freeSpinSource,
+          attemptsPerScale: JACKPOT_COMPOSER_ATTEMPTS_PER_SCALE,
+          maxTotalAttempts: JACKPOT_COMPOSER_MAX_ATTEMPTS,
         })
-        const expectedAmount = curveTargets[stepIndex] ?? 0
-        const outcome: SpinOutcome = {
-          ...normalizeJackpotOutcomeToTarget(composedOutcome, expectedAmount),
-          win: expectedAmount,
-        }
+        const outcome = composed.outcome
+        const expectedAmount = roundMoney(getOutcomeTotalWin(outcome))
         const paidCascades = (outcome.cascades ?? []).filter(step => Number(step.win ?? 0) > 0.0001)
         if (paidCascades.length >= 2) {
           spinsWithMultiCascade += 1
@@ -1355,97 +1386,44 @@ export function useEngine() {
     }
   }
 
-  function normalizeJackpotOutcomeToTarget(outcome: SpinOutcome, targetWin: number): SpinOutcome {
-    const target = roundMoney(Math.max(0, Number(targetWin ?? 0)))
-    if (target <= 0) {
-      return {
-        ...outcome,
+  function zeroOutcome(outcome: SpinOutcome): SpinOutcome {
+    return {
+      ...outcome,
+      win: 0,
+      cascades: (outcome.cascades ?? []).map(step => ({
+        ...step,
         win: 0,
-        cascades: (outcome.cascades ?? []).map(step => ({
+        lineWins: (step.lineWins ?? []).map(line => ({ ...line, payout: 0 })),
+      })),
+    }
+  }
+
+  function hasScatterWindow(step: CascadeStep | null | undefined): boolean {
+    return Boolean(step?.window?.flat().some(symbol => symbol.kind === 'SCATTER'))
+  }
+
+  function sanitizePresentedOutcome(outcome: SpinOutcome): SpinOutcome {
+    const cascades = (outcome.cascades ?? []).map(step => {
+      const hasLineWins = Boolean(step.lineWins?.length)
+      const hasScatter = hasScatterWindow(step)
+
+      if (Number(step.win ?? 0) <= 0.0001 || hasLineWins || hasScatter) {
+        return {
           ...step,
-          win: 0,
-          lineWins: (step.lineWins ?? []).map(line => ({ ...line, payout: 0 })),
-        })),
+          lineWins: (step.lineWins ?? []).map(line => ({ ...line })),
+        }
       }
-    }
 
-    const cascades = (outcome.cascades ?? []).map(step => ({
-      ...step,
-      lineWins: (step.lineWins ?? []).map(line => ({ ...line })),
-    }))
-
-    if (cascades.length === 0) {
       return {
-        ...outcome,
-        win: target,
-      }
-    }
-
-    const positiveIndexes: number[] = []
-    for (let i = 0; i < cascades.length; i++) {
-      if (Number(cascades[i].win ?? 0) > 0.0001) {
-        positiveIndexes.push(i)
-      } else {
-        cascades[i].win = 0
-      }
-    }
-
-    if (positiveIndexes.length === 0 && cascades.length === 1) {
-      const base = cascades[0]
-      cascades.push({
-        ...base,
-        index: Number(base.index ?? 0) + 1,
+        ...step,
         win: 0,
-        multiplier: Math.max(1, Number(base.multiplier ?? 1)),
         lineWins: [],
-        removedPositions: [],
-      })
-    }
-
-    const editableIndexes = positiveIndexes.length > 0 ? positiveIndexes : [cascades.length - 1]
-    const cascadeWeights = editableIndexes.map((idx, rank) => {
-      const originalWinWeight = Math.pow(Math.max(Number(cascades[idx].win ?? 0), 1), 0.35)
-      const multiplierWeight = Math.max(1, Number(cascades[idx].multiplier ?? 1))
-      const progressionWeight = Math.pow(rank + 1, 2.2)
-      return originalWinWeight * multiplierWeight * progressionWeight
+      }
     })
-    const weightTotal = cascadeWeights.reduce((sum, weight) => sum + weight, 0)
-
-    let allocated = 0
-    for (let i = 0; i < editableIndexes.length; i++) {
-      const idx = editableIndexes[i]
-      const isLast = i === editableIndexes.length - 1
-      const nextWin = isLast
-        ? roundMoney(Math.max(0, target - allocated))
-        : roundMoney((target * cascadeWeights[i]) / Math.max(weightTotal, 1))
-
-      cascades[idx].win = nextWin
-      allocated = roundMoney(allocated + nextWin)
-
-      const lines = cascades[idx].lineWins ?? []
-      if (lines.length === 0) continue
-
-      const lineSum = lines.reduce((sum, line) => sum + Math.max(0, Number(line.payout ?? 0)), 0)
-      if (lineSum <= 0.0001) {
-        lines[0].payout = nextWin
-        for (let j = 1; j < lines.length; j++) lines[j].payout = 0
-        continue
-      }
-
-      let lineAllocated = 0
-      for (let j = 0; j < lines.length; j++) {
-        const isLastLine = j === lines.length - 1
-        const payout = isLastLine
-          ? roundMoney(Math.max(0, nextWin - lineAllocated))
-          : roundMoney((nextWin * Math.max(0, Number(lines[j].payout ?? 0))) / lineSum)
-        lines[j].payout = payout
-        lineAllocated = roundMoney(lineAllocated + payout)
-      }
-    }
 
     return {
       ...outcome,
-      win: target,
+      win: roundMoney(getCascadeWinTotal(cascades)),
       cascades,
     }
   }
@@ -1996,7 +1974,7 @@ export function useEngine() {
 
     let presentedOutcome = outcome
     if (isJackpotFreeSpin && jackpotPayoutForSpin <= 0) {
-      presentedOutcome = selectZeroWinFreeSpinOutcome({
+      presentedOutcome = selectZeroWinOutcome({
         initialOutcome: authPlanStep?.outcome ?? outcome,
         rng: rngRef.current,
         spinInput,
@@ -2077,6 +2055,7 @@ export function useEngine() {
         seed: displayComposeSeed,
       })
     }
+    presentedOutcome = sanitizePresentedOutcome(presentedOutcome)
     const presentedTotalWin = isJackpotFreeSpin
       ? getOutcomeTotalWin(presentedOutcome)
       : clampToCurrentSpinMax(getOutcomeTotalWin(presentedOutcome))
@@ -2223,12 +2202,14 @@ export function useEngine() {
         triggerType: 'buy',
       })
       const acceptedBuyWin = clampToCurrentSpinMax(Math.max(0, Number(accounting?.acceptedWin ?? 0)))
-      const normalizedOutcome = selectNormalDisplayOutcomeForTarget({
-        initialOutcome: outcome,
-        targetWin: acceptedBuyWin,
-        spinInput,
-        seed: `${seedRef.current ?? 'seed'}:buy-display:${nextSpinId}:${Math.round(acceptedBuyWin * 100)}`,
-      })
+      const normalizedOutcome = sanitizePresentedOutcome(
+        selectNormalDisplayOutcomeForTarget({
+          initialOutcome: outcome,
+          targetWin: acceptedBuyWin,
+          spinInput,
+          seed: `${seedRef.current ?? 'seed'}:buy-display:${nextSpinId}:${Math.round(acceptedBuyWin * 100)}`,
+        }),
+      )
       lastOutcomeRef.current = normalizedOutcome
       spinVisualTargetWinRef.current = roundMoney(Math.max(0, acceptedBuyWin))
       setPendingCascades(normalizedOutcome.cascades ?? [])
@@ -2256,10 +2237,23 @@ export function useEngine() {
      Commit spin visuals
   ----------------------------- */
   async function commitSpin() {
-    if (!pendingCascades || !deviceIdRef.current) return
+    if (!pendingCascades) {
+      console.warn('[engine] commitSpin without pending cascades; releasing spin lock')
+      setCommittedCascades([])
+      setPendingCascades(null)
+      setSpinning(false)
+      spinLockRef.current = false
+      return
+    }
+
+    if (!deviceIdRef.current) {
+      console.warn('[engine] commitSpin without device id; finalizing visuals without device context')
+    }
+
     setCommittedCascades(pendingCascades)
     setPendingCascades(null)
     setSpinning(false)
+    spinLockRef.current = false
 
     const outcome = lastOutcomeRef.current
     // const sessionId = sessionIdRef.current

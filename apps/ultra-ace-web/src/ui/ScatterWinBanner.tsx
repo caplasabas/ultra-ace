@@ -18,7 +18,7 @@ export function ScatterWinBanner({ amount }: Props) {
       function tick(now: number) {
         const p = Math.min((now - start) / duration, 1)
         const eased = 1 - Math.pow(1 - p, 3) // easeOutCubic
-        setDisplay(Math.floor(eased * amount))
+        setDisplay(Math.round(eased * amount * 100) / 100)
 
         if (p < 1) {
           rafRef.current = requestAnimationFrame(tick)

@@ -418,10 +418,10 @@ export function DeviceModal({
     <div className="fixed inset-0   bg-black/50 dark:bg-black/85 z-50 overflow-y-auto">
       <div className="min-h-full flex items-start md:items-center justify-center p-4">
         <div
-          className={`bg-white dark:bg-slate-900 w-full max-w-2xl h-[85vh] flex flex-col rounded-xl border ${
+          className={`bg-slate-900 w-full max-w-2xl h-[85vh] flex flex-col rounded-xl border ${
             device.jackpot_selected
               ? 'border-amber-400/70 shadow-[0_0_28px_rgba(251,191,36,0.2)]'
-              : 'border-slate-200 dark:border-slate-800'
+              : 'border-slate-800'
           }`}
         >
           <div className="flex flex-col space-y-1 p-4">
@@ -653,7 +653,7 @@ export function DeviceModal({
             )}
 
             {activeTab === 'activity' && (
-              <div className="mt-3 flex h-[28rem] flex-col">
+              <div className="mt-3 flex md:h-[38rem] h-[32rem] flex-col">
                 <div className="mb-3 flex items-center justify-between text-xs text-slate-400">
                   <div>Latest activity first</div>
                   <div>
@@ -731,7 +731,7 @@ export function DeviceModal({
               <>
                 <div className="px-4 overflow-y-auto">
                   <h4 className="text-sm font-semibold mb-2">Cabinet Name</h4>
-                  <div className="rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 mb-4">
+                  <div className="rounded border border-slate-800 bg-slate-900 p-3 mb-4">
                     <div className="text-xs text-slate-400 mb-3">
                       Set a human-friendly name for this device. This shows in the dashboard list.
                     </div>
@@ -741,7 +741,7 @@ export function DeviceModal({
                         value={deviceName}
                         onChange={e => setDeviceName(e.target.value)}
                         placeholder="Cabinet name"
-                        className="flex-1 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 text-slate-900 dark:text-slate-100"
+                        className="flex-1 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm   dark:text-slate-100"
                       />
                       <button
                         type="button"
@@ -755,7 +755,7 @@ export function DeviceModal({
                   </div>
 
                   <h4 className="text-sm font-semibold mb-2">Deployment Mode</h4>
-                  <div className="rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 mb-4">
+                  <div className="rounded border border-slate-800 bg-slate-900 p-3 mb-4">
                     <div className="text-xs text-slate-400 mb-3">
                       Maintenance devices stay visible in the dashboard but are excluded from global
                       production totals.
@@ -787,7 +787,7 @@ export function DeviceModal({
                   </div>
 
                   <h4 className="text-sm font-semibold mb-2">Withdrawal</h4>
-                  <div className="rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 mb-4">
+                  <div className="rounded border border-slate-800 bg-slate-900 p-3 mb-4">
                     <div className="text-xs text-slate-400 mb-3">
                       When disabled, this cabinet cannot withdraw even if hopper balance and
                       withdraw limits are available.
@@ -815,7 +815,7 @@ export function DeviceModal({
                   </div>
 
                   <h4 className="text-sm font-semibold mb-2">Cabinet Assignment</h4>
-                  <div className="rounded border border-slate-700 bg-white dark:bg-slate-900/40 p-3 mb-4">
+                  <div className="rounded border border-slate-700 bg-slate-900/40 p-3 mb-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                       <select
                         value={selectedAgentId ?? ''}
@@ -855,7 +855,7 @@ export function DeviceModal({
                   </div>
 
                   <h4 className="text-sm font-semibold mb-2">Device Power Controls</h4>
-                  <div className="rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 mb-4">
+                  <div className="rounded border border-slate-800 bg-slate-900 p-3 mb-4">
                     <div className="text-xs text-slate-400 mb-3">
                       Sends command to this device only.
                     </div>
@@ -891,7 +891,7 @@ export function DeviceModal({
 
                   <h4 className="text-sm font-semibold mb-2">Manual Overrides (Demo)</h4>
                   <div className="grid md:grid-cols-2 grid-cols-1 gap-3 mb-4">
-                    <div className="rounded border border-slate-700 bg-slate-950/70 bg-white dark:bg-slate-900 p-3">
+                    <div className="rounded border border-slate-700 bg-slate-950/70 bg-slate-900 p-3">
                       <div className="text-xs text-slate-400 mb-2">
                         Accounting Balance Ledger Entry
                       </div>
@@ -943,7 +943,7 @@ export function DeviceModal({
                       </button>
                     </div>
 
-                    <div className="rounded border border-slate-700 bg-slate-950/70 bg-white dark:bg-slate-900 p-3">
+                    <div className="rounded border border-slate-700 bg-slate-950/70 bg-slate-900 p-3">
                       <div className="text-xs text-slate-400 mb-2">Hopper Balance Ledger Entry</div>
                       <div className="grid grid-cols-3 gap-2 mb-2">
                         <select
@@ -995,7 +995,7 @@ export function DeviceModal({
                   </div>
 
                   <div className="grid md:grid-cols-2 grid-cols-1 gap-3 mb-4">
-                    <div className="rounded border border-slate-700 bg-slate-950/70 bg-white dark:bg-slate-900 p-3">
+                    <div className="rounded border border-slate-700 bg-slate-950/70 bg-slate-900 p-3">
                       <div className="text-xs text-slate-400 mb-2">
                         Coins In Balance Ledger Entry
                       </div>
