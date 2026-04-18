@@ -554,7 +554,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="text-xs text-yellow-300">
-                  🟡 Idle: {devices.filter(d => d.device_status === 'idle').length}
+                  🟡 AFK: {devices.filter(d => d.device_status === 'idle').length}
                 </div>
 
                 <div className="text-xs text-orange-300">
@@ -671,7 +671,9 @@ export default function Dashboard() {
                                   : 'bg-amber-900/40 text-amber-300 border border-amber-700/50'
                             }`}
                           >
-                            {(d.device_status ?? 'idle').toUpperCase()}
+                            {(d.device_status ?? 'idle').toUpperCase() === 'IDLE'
+                              ? 'AFK'
+                              : (d.device_status ?? 'idle').toUpperCase()}
                           </span>
                           <span className="rounded border border-slate-700 bg-slate-800/60 px-1.5 py-0.5 text-[10px] text-slate-300">
                             {gameType.toUpperCase()}
@@ -883,12 +885,12 @@ export default function Dashboard() {
                   const hopperLow = hopperAlertsEnabled && asNumber(d.hopper_balance) <= threshold
                   // --- Alert Computations ---
                   const HIGH_RTP_THRESHOLD = 110
-                const highRtp = deviceRtp > HIGH_RTP_THRESHOLD
-                const offline = d.device_status === 'offline'
-                const telemetryLabel = getDeviceTelemetryLabel(d)
-                const jackpotStatus = getDeviceJackpotStatus(d)
-                const gameType = getDeviceGameType(d)
-                return (
+                  const highRtp = deviceRtp > HIGH_RTP_THRESHOLD
+                  const offline = d.device_status === 'offline'
+                  const telemetryLabel = getDeviceTelemetryLabel(d)
+                  const jackpotStatus = getDeviceJackpotStatus(d)
+                  const gameType = getDeviceGameType(d)
+                  return (
                     <tr
                       key={d.device_id}
                       className={`cursor-pointer ${
@@ -978,7 +980,9 @@ export default function Dashboard() {
                                 : 'bg-amber-900/40 text-amber-300 border border-amber-700/50'
                           }`}
                         >
-                          {(d.device_status ?? 'idle').toUpperCase()}
+                          {(d.device_status ?? 'idle').toUpperCase() === 'IDLE'
+                            ? 'AFK'
+                            : (d.device_status ?? 'idle').toUpperCase()}
                         </span>
                       </td>
                       <td className="px-4 py-2 text-xs">
