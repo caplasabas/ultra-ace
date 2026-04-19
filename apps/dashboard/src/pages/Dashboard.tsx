@@ -148,12 +148,16 @@ export default function Dashboard() {
 
   const getDeviceAverageBet = (
     row: Pick<DeviceRow, 'bet_total' | 'spins_total' | 'avg_bet_amount'>,
-  ) =>
-    asNumber(row.avg_bet_amount) > 0
-      ? asNumber(row.avg_bet_amount)
-      : asNumber(row.spins_total) > 0
-        ? asNumber(Math.floor(row.bet_total)) / asNumber(row.spins_total)
-        : 0
+  ) => {
+    const avgBet = asNumber(row.avg_bet_amount)
+    const betTotal = asNumber(row.bet_total)
+    const spinsTotal = asNumber(row.spins_total)
+
+    if (avgBet > 0) return Math.round(avgBet)
+    if (betTotal <= 0 || spinsTotal <= 0) return 0
+
+    return Math.round(betTotal / spinsTotal)
+  }
 
   const globalBet = asNumber(stats?.total_bet_amount)
   const globalWin = asNumber(stats?.total_win_amount)
@@ -165,13 +169,7 @@ export default function Dashboard() {
     0,
   )
   const globalAverageBetByDevice =
-    devicesWithLastBet > 0 ? totalLastBetAmount / devicesWithLastBet : 0
-  const globalAverageBet =
-    asNumber(stats?.global_avg_bet) > 0
-      ? asNumber(stats.global_avg_bet)
-      : asNumber(stats?.total_spins) > 0
-        ? asNumber(Math.floor(globalBet)) / asNumber(stats?.total_spins)
-        : 0
+    devicesWithLastBet > 0 ? Math.round(totalLastBetAmount / devicesWithLastBet) : 0
   const globalHouseGross = asNumber(stats?.total_house_take ?? globalBet - globalWin)
   const hopperAlertThreshold = asNumber(runtime?.hopper_alert_threshold ?? 500)
   const activeProfileId =
@@ -422,7 +420,6 @@ export default function Dashboard() {
                   <div className="text-xs font-mono text-violet-200/80">
                     <div>Avg Bet {formatJackpotCurrency(globalAverageBetByDevice)}</div>
                     <div>Total Spins {asNumber(stats?.total_spins).toLocaleString()}</div>
-                    <div>Avg Bet / Spin {formatJackpotCurrency(globalAverageBet)}</div>
                   </div>
                 </div>
               </div>
