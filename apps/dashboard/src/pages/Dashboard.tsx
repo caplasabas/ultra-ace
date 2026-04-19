@@ -147,13 +147,15 @@ export default function Dashboard() {
   ) => (asNumber(row.bet_total) > 0 ? (getBaseWinAmount(row) / asNumber(row.bet_total)) * 100 : 0)
 
   const getDeviceAverageBet = (
-    row: Pick<DeviceRow, 'bet_total' | 'spins_total' | 'avg_bet_amount'>,
+    row: Pick<DeviceRow, 'bet_total' | 'spins_total' | 'avg_bet_amount' | 'last_bet_amount'>,
   ) => {
     const avgBet = asNumber(row.avg_bet_amount)
     const betTotal = asNumber(row.bet_total)
     const spinsTotal = asNumber(row.spins_total)
+    const lastBet = asNumber(row.last_bet_amount)
 
     if (avgBet > 0) return Math.round(avgBet)
+    if (lastBet > 0) return Math.round(lastBet)
     if (betTotal <= 0 || spinsTotal <= 0) return 0
 
     return Math.round(betTotal / spinsTotal)
@@ -163,11 +165,11 @@ export default function Dashboard() {
   const globalWin = asNumber(stats?.total_win_amount)
   const globalBaseWin = devices.reduce((sum, device) => sum + getBaseWinAmount(device), 0)
   const globalBaseRtp = globalBet > 0 ? (globalBaseWin / globalBet) * 100 : 0
-  const devicesWithLastBet = devices.filter(device => device.last_bet_amount !== null).length
-  const totalLastBetAmount = devices.reduce(
-    (sum, device) => sum + asNumber(device.last_bet_amount),
-    0,
-  )
+  const devicesWithLastBet = devices.filter(device => asNumber(device.last_bet_amount) > 0).length
+  const totalLastBetAmount = devices.reduce((sum, device) => {
+    const lastBet = asNumber(device.last_bet_amount)
+    return lastBet > 0 ? sum + lastBet : sum
+  }, 0)
   const globalAverageBetByDevice =
     devicesWithLastBet > 0 ? Math.round(totalLastBetAmount / devicesWithLastBet) : 0
   const globalHouseGross = asNumber(stats?.total_house_take ?? globalBet - globalWin)
