@@ -204,6 +204,16 @@ export default function Dashboard() {
     return index
   }, [games])
 
+  const jackpotQueueGroups = useMemo(() => {
+    const activeQueues = jackpotQueues.filter(queue => !queue?.completed_at)
+    const completedQueues = jackpotQueues.filter(queue => Boolean(queue?.completed_at))
+    const unassignedPendingPots = jackpotPots.filter(
+      pot => String(pot?.status ?? '').toLowerCase() === 'queued',
+    )
+
+    return { activeQueues, completedQueues, unassignedPendingPots }
+  }, [jackpotPots, jackpotQueues])
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1)
@@ -1190,12 +1200,14 @@ export default function Dashboard() {
               </button>
             </div>
             <div className="max-h-[70vh] overflow-auto space-y-2">
-              {jackpotQueues.length === 0 && (
+              {jackpotQueueGroups.activeQueues.length === 0 &&
+                jackpotQueueGroups.unassignedPendingPots.length === 0 &&
+                jackpotQueueGroups.completedQueues.length === 0 && (
                 <div className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm text-slate-400">
                   No jackpot payout queues found.
                 </div>
               )}
-              {jackpotQueues.map(queue => {
+              {jackpotQueueGroups.activeQueues.map(queue => {
                 const deviceId = String(queue.device_id ?? '').trim()
                 const completed = Boolean(queue.completed_at)
                 const payoutReady = Boolean(queue.payout_ready_at)
@@ -1263,6 +1275,120 @@ export default function Dashboard() {
                   </div>
                 )
               })}
+              {jackpotQueueGroups.unassignedPendingPots.length > 0 && (
+                <div className="pt-2">
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Unassigned Pending Pots
+                  </div>
+                  <div className="space-y-2">
+                    {jackpotQueueGroups.unassignedPendingPots.map(pot => (
+                      <div
+                        key={`pending-pot-${pot.id}`}
+                        className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm"
+                      >
+                        <div className="flex flex-wrap items-center gap-2 font-mono">
+                          <span>Pot #{pot.id}</span>
+                          <span className="rounded border border-sky-700 bg-sky-950/60 px-2 py-0.5 text-[10px] font-semibold text-sky-300">
+                            UNASSIGNED
+                          </span>
+                          <span className="text-slate-400">Waiting for device assignment</span>
+                        </div>
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-300 sm:grid-cols-4">
+                          <div>
+                            <div className="text-slate-500">Amount Total</div>
+                            <div className="font-mono">
+                              {formatJackpotCurrency(pot.amount_total)}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-slate-500">Amount Remaining</div>
+                            <div className="font-mono">
+                              {formatJackpotCurrency(pot.amount_remaining)}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-slate-500">Campaign</div>
+                            <div className="font-mono">{String(pot.campaign_id ?? '—')}</div>
+                          </div>
+                          <div>
+                            <div className="text-slate-500">Created</div>
+                            <div className="font-mono">
+                              {pot.created_at ? moment(pot.created_at).format('MM-DD HH:mm:ss') : '—'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {jackpotQueueGroups.completedQueues.length > 0 && (
+                <div className="pt-2">
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Completed
+                  </div>
+                  <div className="space-y-2">
+                    {jackpotQueueGroups.completedQueues.map(queue => {
+                      const deviceId = String(queue.device_id ?? '').trim()
+                      const deviceLabel = deviceNameById.get(deviceId) ?? deviceId
+
+                      return (
+                        <div
+                          key={queue.id}
+                          className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm"
+                        >
+                          <div className="flex flex-wrap items-center gap-2 font-mono">
+                            <span>#{queue.id}</span>
+                            <span className="rounded border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-slate-300">
+                              COMPLETED
+                            </span>
+                            <span className="text-slate-300">{deviceLabel}</span>
+                            <span className="text-slate-500">{deviceId}</span>
+                          </div>
+                          <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-300 sm:grid-cols-4">
+                            <div>
+                              <div className="text-slate-500">Campaign</div>
+                              <div className="font-mono">{String(queue.campaign_id ?? '—')}</div>
+                            </div>
+                            <div>
+                              <div className="text-slate-500">Target / Remaining</div>
+                              <div className="font-mono">
+                                {formatJackpotCurrency(queue.target_amount)} /{' '}
+                                {formatJackpotCurrency(queue.remaining_amount)}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-slate-500">Delay / Payouts Left</div>
+                              <div className="font-mono">
+                                {asNumber(queue.spins_until_start)} / {asNumber(queue.payouts_left)}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-slate-500">Created</div>
+                              <div className="font-mono">
+                                {queue.created_at
+                                  ? moment(queue.created_at).format('MM-DD HH:mm:ss')
+                                  : '—'}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="mt-2 text-xs text-slate-400">
+                            Ready{' '}
+                            {queue.payout_ready_at
+                              ? moment(queue.payout_ready_at).format('MM-DD HH:mm:ss')
+                              : '—'}
+                            {' • '}
+                            Completed{' '}
+                            {queue.completed_at
+                              ? moment(queue.completed_at).format('MM-DD HH:mm:ss')
+                              : '—'}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
