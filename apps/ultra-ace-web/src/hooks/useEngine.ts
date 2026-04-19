@@ -261,6 +261,10 @@ function normalizePersistedBetAmount(value: number, balanceCap: number): number 
   return Math.max(500, Math.floor(limit / 500) * 500)
 }
 
+function isValidPaidSpinBet(value: number): boolean {
+  return Number.isInteger(value) && value >= 1
+}
+
 export function useEngine() {
   const sessionIdRef = useRef<number | null>(null)
   const lastOutcomeRef = useRef<SpinOutcome | null>(null)
@@ -1648,7 +1652,7 @@ export function useEngine() {
     // Free-spin intro/manual path should explicitly enter free spins first.
     if (!isFreeGame && pendingFreeSpins > 0) return
 
-    if (!isFreeGame && authoritativeBalance < bet) return
+    if (!isFreeGame && (!isValidPaidSpinBet(bet) || authoritativeBalance < bet)) return
     if (isFreeGame && freeSpinsLeftRef.current <= 0) return
 
     let queueForBaseSpin = activeJackpotQueue
@@ -1684,6 +1688,16 @@ export function useEngine() {
     const runtimeSnapshot = await refreshRuntimeMode()
 
     const spinAmount = isFreeGame && scatterTriggerType === 'buy' ? buySpinBet : bet
+
+    if (!isFreeGame && !isValidPaidSpinBet(spinAmount)) {
+      if (spinSafetyTimeoutRef.current !== null) {
+        clearTimeout(spinSafetyTimeoutRef.current)
+        spinSafetyTimeoutRef.current = null
+      }
+      spinLockRef.current = false
+      setSpinning(false)
+      return
+    }
 
     if (!isFreeGame) {
       baseSpinVisualBalanceLockRef.current = true

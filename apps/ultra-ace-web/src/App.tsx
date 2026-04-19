@@ -120,6 +120,18 @@ function getWinOverlayTitle(amount: number, betAmount: number): string {
   return ''
 }
 
+function normalizePlayableBet(value: number, balanceCap?: number): number {
+  const normalizedValue = Math.max(1, Math.floor(Number(value || 0)))
+
+  if (typeof balanceCap !== 'number' || !Number.isFinite(balanceCap)) {
+    return normalizedValue
+  }
+
+  const normalizedCap = Math.max(0, Math.floor(balanceCap))
+  if (normalizedCap < 1) return 1
+  return Math.min(normalizedValue, normalizedCap)
+}
+
 //
 // function logWindowKinds(label: string, window: EngineSymbol[][]) {
 //   if (!window?.length) return
@@ -291,7 +303,7 @@ export default function App() {
     }
     setBet(prev => {
       const next = prev + getBetIncrement(prev)
-      return Math.min(next, balance)
+      return normalizePlayableBet(next, balance)
     })
   }
 
@@ -313,7 +325,7 @@ export default function App() {
     }
     setBuySpinBet(prev => {
       const inc = getBetIncrement(prev)
-      return Math.min(prev + inc, balance)
+      return normalizePlayableBet(prev + inc, balance)
     })
   }
 
@@ -833,7 +845,7 @@ export default function App() {
     if (showFreeSpinIntro || isFreeSpinPreview || showScatterWinBanner || showBuySpinModal) return
     if (pauseColumn !== null && !isFreeGame && pendingFreeSpins > 0) return
 
-    if (!isFreeGame && balance < bet) {
+    if (!isFreeGame && (balance < bet || bet < 1 || !Number.isInteger(bet))) {
       setAutoSpin(false)
       setTurboStage(0)
       return
@@ -1348,7 +1360,7 @@ export default function App() {
             !s.autoSpin &&
             !s.showFreeSpinIntro &&
             !s.showScatterWinBanner &&
-            (s.isFreeGame || s.balance >= s.bet) &&
+            (s.isFreeGame || (s.balance >= s.bet && s.bet >= 1 && Number.isInteger(s.bet))) &&
             !s.showWithdrawModal &&
             !s.showBuySpinModal
           ) {
@@ -1425,6 +1437,8 @@ export default function App() {
           if (
             !s.isFreeGame &&
             s.balance >= s.bet &&
+            s.bet >= 1 &&
+            Number.isInteger(s.bet) &&
             s.pauseColumn === null &&
             !s.showWithdrawModal
           ) {
@@ -1435,7 +1449,13 @@ export default function App() {
 
         case 'TURBO': {
           if (!internetOnline) return
-          if (s.balance >= s.bet && s.pauseColumn === null && !s.showBuySpinModal) {
+          if (
+            s.balance >= s.bet &&
+            s.bet >= 1 &&
+            Number.isInteger(s.bet) &&
+            s.pauseColumn === null &&
+            !s.showBuySpinModal
+          ) {
             setTurboStageRef.current(prev => (prev === 0 ? 1 : 0))
           }
           break
@@ -1447,6 +1467,8 @@ export default function App() {
             !s.spinning &&
             !s.autoSpin &&
             s.balance >= s.bet &&
+            s.bet >= 1 &&
+            Number.isInteger(s.bet) &&
             s.pauseColumn === null
           ) {
             if (s.showBuySpinModal) {
@@ -1767,7 +1789,13 @@ export default function App() {
                   <div className={`controls-right ${showFreeSpinIntro && 'hidden'}`}>
                     <button
                       className={`spin-btn turbo spin-turbo-image ${turboMultiplier > 1 ? 'active' : ''} ${turboStage === 1 ? 'turbo-1' : ''}`}
-                      disabled={balance === 0 || balance < bet || pauseColumn !== null}
+                      disabled={
+                        balance === 0 ||
+                        balance < bet ||
+                        bet < 1 ||
+                        !Number.isInteger(bet) ||
+                        pauseColumn !== null
+                      }
                       onClick={() => {
                         setTurboStage(prev => (prev === 0 ? 1 : 0))
                       }}
@@ -1775,7 +1803,12 @@ export default function App() {
                     <button
                       className={`spin-btn auto spin-auto-image ${autoSpin ? 'active' : ''}`}
                       disabled={
-                        isFreeGame || balance === 0 || balance < bet || pauseColumn !== null
+                        isFreeGame ||
+                        balance === 0 ||
+                        balance < bet ||
+                        bet < 1 ||
+                        !Number.isInteger(bet) ||
+                        pauseColumn !== null
                       }
                       onClick={() => setAutoSpin(!autoSpin)}
                     />

@@ -42,7 +42,9 @@ export function DeviceModal({
   const [activityBusy, setActivityBusy] = useState(false)
   const [activityPage, setActivityPage] = useState(1)
   const [activityHasMore, setActivityHasMore] = useState(false)
-  const activityPageSize = 10
+  const [activityTotalCount, setActivityTotalCount] = useState(0)
+  const activityPageSize = 16
+  const activityTotalPages = Math.max(1, Math.ceil(activityTotalCount / activityPageSize))
 
   // Assignment UI/Logic state
   const [agents, setAgents] = useState<any[]>([])
@@ -217,9 +219,9 @@ export function DeviceModal({
 
       const from = (activityPage - 1) * activityPageSize
       const to = from + activityPageSize
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from('device_activity_feed')
-        .select('activity_id,activity_name,amount,activity_at')
+        .select('activity_id,activity_name,amount,activity_at', { count: 'exact' })
         .eq('device_id', device.device_id)
         .order('activity_at', { ascending: false })
         .order('activity_id', { ascending: false })
@@ -233,10 +235,12 @@ export function DeviceModal({
         setErrorMessage(error.message)
         setActivityRows([])
         setActivityHasMore(false)
+        setActivityTotalCount(0)
         return
       }
 
       const rows = (data ?? []) as ActivityRow[]
+      setActivityTotalCount(count ?? 0)
       setActivityRows(rows.slice(0, activityPageSize))
       setActivityHasMore(rows.length > activityPageSize)
     }
@@ -701,7 +705,7 @@ export function DeviceModal({
             )}
 
             {activeTab === 'activity' && (
-              <div className="mt-3 flex md:h-[38rem] h-[32rem] flex-col">
+              <div className="mt-3 flex min-h-0 flex-1 flex-col">
                 <div className="mb-3 flex items-center justify-between text-xs text-slate-400">
                   <div>Latest activity first</div>
                   <div>
@@ -710,7 +714,7 @@ export function DeviceModal({
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-auto rounded border border-slate-700 bg-slate-950/40">
+                <div className="min-h-0 flex-1 overflow-auto rounded border border-slate-700 bg-slate-950/40">
                   <table className="min-w-full text-sm">
                     <thead className="sticky top-0 bg-slate-900 text-slate-300">
                       <tr>
@@ -749,7 +753,9 @@ export function DeviceModal({
                 </div>
 
                 <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
-                  <div>Page {activityPage}</div>
+                  <div>
+                    Page {Math.min(activityPage, activityTotalPages)} of {activityTotalPages}
+                  </div>
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -762,7 +768,7 @@ export function DeviceModal({
                     <button
                       type="button"
                       className="rounded border border-slate-700 bg-slate-900 px-3 py-1.5 text-slate-200 disabled:opacity-40"
-                      disabled={activityBusy || !activityHasMore}
+                      disabled={activityBusy || activityPage >= activityTotalPages || !activityHasMore}
                       onClick={() => setActivityPage(page => page + 1)}
                     >
                       Next
