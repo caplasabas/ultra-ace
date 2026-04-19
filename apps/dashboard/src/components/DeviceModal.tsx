@@ -714,7 +714,7 @@ export function DeviceModal({
                   </div>
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-auto rounded border border-slate-700 bg-slate-950/40">
+                <div className="min-h-0 max-h-[28rem] flex-1 overflow-auto rounded border border-slate-700 bg-slate-950/40 md:max-h-[34rem]">
                   <table className="min-w-full text-sm">
                     <thead className="sticky top-0 bg-slate-900 text-slate-300">
                       <tr>
