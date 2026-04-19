@@ -20,8 +20,11 @@ export function useDashboardAuth() {
   useEffect(() => {
     let mounted = true
 
-    async function loadProfile(nextSession: Session | null) {
+    async function loadProfile(nextSession: Session | null, showLoading = false) {
       if (!mounted) return
+      if (showLoading) {
+        setLoading(true)
+      }
       setSession(nextSession)
 
       if (!nextSession?.user?.id) {
@@ -48,11 +51,10 @@ export function useDashboardAuth() {
     }
 
     void supabase.auth.getSession().then(({ data }) => {
-      void loadProfile(data.session)
+      void loadProfile(data.session, true)
     })
 
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setLoading(true)
       void loadProfile(nextSession)
     })
 
