@@ -302,7 +302,55 @@ export function DeviceModal({
     return true
   }
 
-  async function enqueuePowerCommand(command: 'restart' | 'shutdown' | 'reset') {
+  async function runDeviceReset() {
+    if (!device?.device_id) return
+
+    const confirmed = window.confirm(
+      `Hard reset device ${device.device_id}?\n\nThis clears runtime totals, queue state, activity rows, ledgers, sessions, and jackpot state for this device.`,
+    )
+    if (!confirmed) return
+
+    setPowerActionBusy('reset')
+
+    const { data, error } = await supabase.rpc('reset_device_maintenance_runtime', {
+      p_device_id: device.device_id,
+    })
+
+    setPowerActionBusy(null)
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+
+    const result = (data ?? {}) as {
+      deleted_metric_events?: number
+      deleted_arcade_events?: number
+      deleted_daily_rows?: number
+      deleted_ledger_rows?: number
+      deleted_game_sessions?: number
+      deleted_spin_dedup_rows?: number
+      deleted_admin_ledger_rows?: number
+      deleted_queue_rows?: number
+      deleted_plan_step_rows?: number
+    }
+
+    const deletedTotal =
+      Number(result.deleted_metric_events ?? 0) +
+      Number(result.deleted_arcade_events ?? 0) +
+      Number(result.deleted_daily_rows ?? 0) +
+      Number(result.deleted_ledger_rows ?? 0) +
+      Number(result.deleted_game_sessions ?? 0) +
+      Number(result.deleted_spin_dedup_rows ?? 0) +
+      Number(result.deleted_admin_ledger_rows ?? 0) +
+      Number(result.deleted_queue_rows ?? 0) +
+      Number(result.deleted_plan_step_rows ?? 0)
+
+    setSuccessMessage(`Reset complete for ${device.device_id} • cleared ${deletedTotal} rows`)
+    setErrorMessage(null)
+  }
+
+  async function enqueuePowerCommand(command: 'restart' | 'shutdown') {
     if (!device?.device_id) return
 
     setPowerActionBusy(command)
@@ -322,7 +370,7 @@ export function DeviceModal({
     }
 
     const deduped = Boolean((data as any)?.deduped)
-    const label = command === 'restart' ? 'Restart' : command === 'shutdown' ? 'Shutdown' : 'Reset'
+    const label = command === 'restart' ? 'Restart' : 'Shutdown'
     setSuccessMessage(
       deduped
         ? `${label} already queued for ${device.device_id}`
@@ -730,143 +778,19 @@ export function DeviceModal({
             {activeTab === 'controls' && (
               <>
                 <div className="px-4 overflow-y-auto">
-                  <h4 className="text-sm font-semibold mb-2">Cabinet Name</h4>
-                  <div className="rounded border border-slate-800 bg-slate-900 p-3 mb-4">
-                    <div className="text-xs text-slate-400 mb-3">
-                      Set a human-friendly name for this device. This shows in the dashboard list.
-                    </div>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <input
-                        type="text"
-                        value={deviceName}
-                        onChange={e => setDeviceName(e.target.value)}
-                        placeholder="Cabinet name"
-                        className="flex-1 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm   dark:text-slate-100"
-                      />
-                      <button
-                        type="button"
-                        className="rounded border border-blue-600/80 bg-blue-900/30 px-3 py-2 text-xs font-semibold text-blue-200 hover:bg-blue-800/40 disabled:opacity-50"
-                        disabled={nameBusy || overrideBusy || powerActionBusy !== null}
-                        onClick={() => void saveDeviceName()}
-                      >
-                        {nameBusy ? 'Saving Name...' : 'Save Name'}
-                      </button>
-                    </div>
-                  </div>
-
-                  <h4 className="text-sm font-semibold mb-2">Deployment Mode</h4>
-                  <div className="rounded border border-slate-800 bg-slate-900 p-3 mb-4">
-                    <div className="text-xs text-slate-400 mb-3">
-                      Maintenance devices stay visible in the dashboard but are excluded from global
-                      production totals.
-                    </div>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <select
-                        value={deploymentMode}
-                        onChange={e =>
-                          setDeploymentMode(
-                            e.target.value === 'maintenance' ? 'maintenance' : 'online',
-                          )
-                        }
-                        className="flex-1 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
-                      >
-                        <option value="online">Online</option>
-                        <option value="maintenance">Maintenance</option>
-                      </select>
-                      <button
-                        type="button"
-                        className="rounded border border-violet-600/80 bg-violet-900/30 px-3 py-2 text-xs font-semibold text-violet-200 hover:bg-violet-800/40 disabled:opacity-50"
-                        disabled={
-                          deploymentBusy || withdrawBusy || overrideBusy || powerActionBusy !== null
-                        }
-                        onClick={() => void saveDeploymentMode()}
-                      >
-                        {deploymentBusy ? 'Saving Mode...' : 'Save Mode'}
-                      </button>
-                    </div>
-                  </div>
-
-                  <h4 className="text-sm font-semibold mb-2">Withdrawal</h4>
-                  <div className="rounded border border-slate-800 bg-slate-900 p-3 mb-4">
-                    <div className="text-xs text-slate-400 mb-3">
-                      When disabled, this cabinet cannot withdraw even if hopper balance and
-                      withdraw limits are available.
-                    </div>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <select
-                        value={withdrawEnabled ? 'enabled' : 'disabled'}
-                        onChange={e => setWithdrawEnabled(e.target.value === 'enabled')}
-                        className="flex-1 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
-                      >
-                        <option value="disabled">Disabled</option>
-                        <option value="enabled">Enabled</option>
-                      </select>
-                      <button
-                        type="button"
-                        className="rounded border border-amber-600/80 bg-amber-900/30 px-3 py-2 text-xs font-semibold text-amber-200 hover:bg-amber-800/40 disabled:opacity-50"
-                        disabled={
-                          withdrawBusy || deploymentBusy || overrideBusy || powerActionBusy !== null
-                        }
-                        onClick={() => void saveWithdrawEnabled()}
-                      >
-                        {withdrawBusy ? 'Saving Withdrawal...' : 'Save Withdrawal'}
-                      </button>
-                    </div>
-                  </div>
-
-                  <h4 className="text-sm font-semibold mb-2">Cabinet Assignment</h4>
-                  <div className="rounded border border-slate-700 bg-slate-900/40 p-3 mb-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <select
-                        value={selectedAgentId ?? ''}
-                        onChange={e => handleAgentChange(e.target.value)}
-                        className="border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-white rounded"
-                      >
-                        <option value="">Select Agent</option>
-                        {agents.map(a => (
-                          <option key={a.id} value={a.id}>
-                            {a.name}
-                          </option>
-                        ))}
-                      </select>
-
-                      <select
-                        value={selectedAreaId ?? ''}
-                        onChange={e => setSelectedAreaId(e.target.value || null)}
-                        disabled={!selectedAgentId}
-                        className="border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-white rounded"
-                      >
-                        <option value="">Select Area</option>
-                        {filteredAreas.map(a => (
-                          <option key={a.id} value={a.id}>
-                            {a.name}
-                          </option>
-                        ))}
-                      </select>
-
-                      <button
-                        onClick={saveAssignment}
-                        disabled={assignmentSaving}
-                        className="px-2 py-1 bg-blue-600 text-white text-xs rounded"
-                      >
-                        {assignmentSaving ? 'Saving...' : 'Save'}
-                      </button>
-                    </div>
-                  </div>
-
                   <h4 className="text-sm font-semibold mb-2">Device Power Controls</h4>
                   <div className="rounded border border-slate-800 bg-slate-900 p-3 mb-4">
                     <div className="text-xs text-slate-400 mb-3">
                       Sends command to this device only.
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 ">
                       <button
                         type="button"
                         className="rounded border border-sky-600/80 bg-sky-900/30 px-3 py-1.5 text-xs font-semibold text-sky-200 hover:bg-sky-800/40 disabled:opacity-50"
                         disabled={powerActionBusy !== null || overrideBusy}
-                        onClick={() => void enqueuePowerCommand('reset')}
+                        onClick={() => void runDeviceReset()}
                       >
-                        {powerActionBusy === 'reset' ? 'Queueing Reset...' : 'Reset Device'}
+                        {powerActionBusy === 'reset' ? 'Resetting Device...' : 'Reset Device'}
                       </button>
                       <button
                         type="button"
@@ -886,6 +810,145 @@ export function DeviceModal({
                           ? 'Queueing Shutdown...'
                           : 'Shutdown Device'}
                       </button>
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 grid-cols-1 gap-3 mb-4">
+                    <div className="flex flex-col">
+                      <h4 className="text-sm font-semibold mb-2">Cabinet Name</h4>
+                      <div className="rounded border border-slate-800 bg-slate-900 p-3 mb-4">
+                        <div className="text-xs text-slate-400 mb-3">
+                          Set a human-friendly name for this device. This shows in the dashboard
+                          list.
+                        </div>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <input
+                            type="text"
+                            value={deviceName}
+                            onChange={e => setDeviceName(e.target.value)}
+                            placeholder="Cabinet name"
+                            className="flex-1 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm   dark:text-slate-100"
+                          />
+                          <button
+                            type="button"
+                            className="rounded border border-blue-600/80 bg-blue-900/30 px-3 py-2 text-xs font-semibold text-blue-200 hover:bg-blue-800/40 disabled:opacity-50"
+                            disabled={nameBusy || overrideBusy || powerActionBusy !== null}
+                            onClick={() => void saveDeviceName()}
+                          >
+                            {nameBusy ? 'Saving Name...' : 'Save Name'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col">
+                      <h4 className="text-sm font-semibold mb-2">Cabinet Assignment</h4>
+                      <div className="rounded border border-slate-700 bg-slate-900/40 p-3 mb-4">
+                        <div className="grid md:grid-cols-2 grid-cols-1 gap-3 mb-4">
+                          <select
+                            value={selectedAgentId ?? ''}
+                            onChange={e => handleAgentChange(e.target.value)}
+                            className="border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-white rounded"
+                          >
+                            <option value="">Select Agent</option>
+                            {agents.map(a => (
+                              <option key={a.id} value={a.id}>
+                                {a.name}
+                              </option>
+                            ))}
+                          </select>
+
+                          <button
+                            onClick={saveAssignment}
+                            disabled={assignmentSaving}
+                            className="px-2 py-1 bg-blue-600 text-white text-xs rounded"
+                          >
+                            {assignmentSaving ? 'Saving...' : 'Save'}
+                          </button>
+                          <select
+                            value={selectedAreaId ?? ''}
+                            onChange={e => setSelectedAreaId(e.target.value || null)}
+                            disabled={!selectedAgentId}
+                            className="border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-white rounded"
+                          >
+                            <option value="">Select Area</option>
+                            {filteredAreas.map(a => (
+                              <option key={a.id} value={a.id}>
+                                {a.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 grid-cols-1 gap-3 mb-4">
+                    <div className="flex flex-col">
+                      <h4 className="text-sm font-semibold mb-2">Deployment Mode</h4>
+                      <div className="rounded border border-slate-800 bg-slate-900 p-3 mb-4">
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <select
+                            value={deploymentMode}
+                            onChange={e =>
+                              setDeploymentMode(
+                                e.target.value === 'maintenance' ? 'maintenance' : 'online',
+                              )
+                            }
+                            className="flex-1 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+                          >
+                            <option value="online">Online</option>
+                            <option value="maintenance">Maintenance</option>
+                          </select>
+                          <button
+                            type="button"
+                            className="rounded border border-violet-600/80 bg-violet-900/30 px-3 py-2 text-xs font-semibold text-violet-200 hover:bg-violet-800/40 disabled:opacity-50"
+                            disabled={
+                              deploymentBusy ||
+                              withdrawBusy ||
+                              overrideBusy ||
+                              powerActionBusy !== null
+                            }
+                            onClick={() => void saveDeploymentMode()}
+                          >
+                            {deploymentBusy ? 'Saving Mode...' : 'Save Mode'}
+                          </button>
+                        </div>
+                        <div className="text-xs text-slate-400 mt-3">
+                          Maintenance devices get excluded from global production totals
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col">
+                      <h4 className="text-sm font-semibold mb-2">Withdrawal</h4>
+                      <div className="rounded border border-slate-800 bg-slate-900 p-3 mb-4">
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <select
+                            value={withdrawEnabled ? 'enabled' : 'disabled'}
+                            onChange={e => setWithdrawEnabled(e.target.value === 'enabled')}
+                            className="flex-1 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+                          >
+                            <option value="disabled">Disabled</option>
+                            <option value="enabled">Enabled</option>
+                          </select>
+                          <button
+                            type="button"
+                            className="rounded border border-amber-600/80 bg-amber-900/30 px-3 py-2 text-xs font-semibold text-amber-200 hover:bg-amber-800/40 disabled:opacity-50"
+                            disabled={
+                              withdrawBusy ||
+                              deploymentBusy ||
+                              overrideBusy ||
+                              powerActionBusy !== null
+                            }
+                            onClick={() => void saveWithdrawEnabled()}
+                          >
+                            {withdrawBusy ? 'Saving Withdrawal...' : 'Save Withdrawal'}
+                          </button>
+                        </div>
+                        <div className="text-xs text-slate-400 mt-3">
+                          When disabled, this cabinet cannot withdraw make withdrawals
+                        </div>
+                      </div>
                     </div>
                   </div>
 
