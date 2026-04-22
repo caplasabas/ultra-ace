@@ -352,6 +352,7 @@ export function useEngine() {
   const freeSpinTotalRef = useRef(0)
   const pendingFreeSpinsRef = useRef(0)
   const showFreeSpinIntroRef = useRef(false)
+  const showScatterWinBannerRef = useRef(false)
   const spinVisualTargetWinRef = useRef<number | null>(null)
   const spinVisualCommittedWinRef = useRef(0)
 
@@ -411,6 +412,26 @@ export function useEngine() {
     setDisplayedBalance(latest)
   }, [setDisplayedBalance])
 
+  const previewExternalBalanceChange = useCallback(
+    (deltaAmount: number) => {
+      const delta = roundMoney(Number(deltaAmount ?? 0))
+      if (!Number.isFinite(delta) || delta === 0) return
+
+      const nextDisplay = roundMoney(Math.max(0, balanceRef.current + delta))
+      setDisplayedBalance(nextDisplay)
+    },
+    [setDisplayedBalance],
+  )
+
+  function isFreeSpinPayoutHoldActive() {
+    return (
+      isFreeGameRef.current ||
+      pendingFreeSpinsRef.current > 0 ||
+      showFreeSpinIntroRef.current ||
+      showScatterWinBannerRef.current
+    )
+  }
+
   const applyAuthoritativeBalance = useCallback(
     (snapshot: DeviceBalanceSnapshot) => {
       const nextBalance = Number(snapshot.balance ?? 0)
@@ -453,9 +474,7 @@ export function useEngine() {
       }
       if (displayBalanceFrozenRef.current) {
         queuedDisplayBalanceRef.current = nextBalance
-        // Keep external balance additions visible immediately even while free-spin/buy flows
-        // are freezing normal spin-related balance transitions.
-        if (nextBalance > balanceRef.current) {
+        if (!isFreeSpinPayoutHoldActive() && nextBalance > balanceRef.current) {
           setDisplayedBalance(nextBalance)
         }
         return
@@ -1570,6 +1589,10 @@ export function useEngine() {
   }, [showFreeSpinIntro])
 
   useEffect(() => {
+    showScatterWinBannerRef.current = showScatterWinBanner
+  }, [showScatterWinBanner])
+
+  useEffect(() => {
     const shouldHoldDisplay =
       isFreeGame || pendingFreeSpins > 0 || showFreeSpinIntro || showScatterWinBanner
 
@@ -1624,6 +1647,7 @@ export function useEngine() {
     jackpotFreeSpinModeRef.current = jackpotModeArmedRef.current
     isFreeGameRef.current = true
     freeSpinsLeftRef.current = pendingFreeSpins
+    pendingFreeSpinsRef.current = 0
     setIsFreeGame(true)
     setFreeSpinsLeft(pendingFreeSpins)
     setShowFreeSpinIntro(false)
@@ -2104,12 +2128,14 @@ export function useEngine() {
       jackpotModeArmedRef.current = true
       setScatterTriggerType('natural')
       freezeDisplayedBalance()
+      pendingFreeSpinsRef.current = JACKPOT_FREE_SPIN_COUNT
       setPendingFreeSpins(JACKPOT_FREE_SPIN_COUNT)
     } else if (presentedOutcome.freeSpinsAwarded > 0) {
       jackpotModeArmedRef.current = false
       if (!isFreeGame) {
         setScatterTriggerType('natural')
         freezeDisplayedBalance()
+        pendingFreeSpinsRef.current = presentedOutcome.freeSpinsAwarded
         setPendingFreeSpins(presentedOutcome.freeSpinsAwarded)
       } else {
         // setFreeSpinsLeft(v => v + outcome.freeSpinsAwarded)
@@ -2147,8 +2173,8 @@ export function useEngine() {
       console.log('[commitWin] next:', next, 'delta:', delta)
       if (delta <= 0) return current
       spinVisualCommittedWinRef.current = roundMoney(spinVisualCommittedWinRef.current + delta)
-      if (isFreeGameRef.current) {
-        setFreeSpinTotal(v => v + delta)
+      if (isFreeSpinPayoutHoldActive()) {
+        setFreeSpinTotal(v => roundMoney(v + delta))
       } else if (baseSpinVisualBalanceLockRef.current) {
         syncBaseSpinDisplayedBalance()
       }
@@ -2243,6 +2269,7 @@ export function useEngine() {
     setSpinId(v => v + 1)
 
     if (outcome.freeSpinsAwarded > 0) {
+      pendingFreeSpinsRef.current = outcome.freeSpinsAwarded
       setPendingFreeSpins(outcome.freeSpinsAwarded)
     }
   }
@@ -2313,6 +2340,7 @@ export function useEngine() {
       activeAuthPlanRef.current = null
       setIsFreeGame(false)
       setFreezeUI(true)
+      showScatterWinBannerRef.current = true
       setShowScatterWinBanner(true)
 
       setTimeout(() => {
@@ -2322,6 +2350,7 @@ export function useEngine() {
         setTotalWin(0)
 
         setShowScatterWinBanner(false)
+        showScatterWinBannerRef.current = false
         setScatterTriggerType(null)
         setFreezeUI(false)
         clearFreeSpinSnapshot()
@@ -2393,6 +2422,7 @@ export function useEngine() {
 
     debugInfo,
     buyFreeSpins,
+    previewExternalBalanceChange,
     scatterTriggerType,
     runtimeMode,
     startFreeSpins,

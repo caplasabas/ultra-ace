@@ -259,6 +259,7 @@ export default function App() {
     restoredFreeSpinIntro,
     setRestoredFreeSpinIntro,
     buyFreeSpins,
+    previewExternalBalanceChange,
     scatterTriggerType,
     runtimeMode,
     startFreeSpins,
@@ -382,6 +383,8 @@ export default function App() {
       return
     }
     if (!deviceId) return
+
+    previewExternalBalanceChange(amount)
 
     logLedgerEvent({
       deviceId,
@@ -938,7 +941,12 @@ export default function App() {
   const showFreeSpinModeUi = isFreeGame || isFreeSpinPreview || showScatterWinBanner || freezeUI
   const showFreeSpinCount = (isFreeGame || isFreeSpinPreview) && freeSpinDisplayCount > 0
   const useFreeSpinWinCounter =
-    isFreeGame || isFreeSpinPreview || showScatterWinBanner || freezeUI
+    isFreeGame ||
+    pendingFreeSpins > 0 ||
+    showFreeSpinIntro ||
+    isFreeSpinPreview ||
+    showScatterWinBanner ||
+    freezeUI
   const displayedWinAmount = useFreeSpinWinCounter ? freeSpinTotal : displayedCascadeWinTotal
   const overlayAmount = activeCascade?.win ?? 0
   const overlayTitle = getWinOverlayTitle(overlayAmount, bet)
@@ -1262,6 +1270,7 @@ export default function App() {
       // Balance updates are propagated to UI via Supabase Realtime subscription.
       // UI should NOT record coins independently to avoid duplicate entries.
       if (payload.type === 'COIN') {
+        previewExternalBalanceChange(Number(payload.credits ?? payload.amount ?? 0))
         return
       }
 
@@ -1285,6 +1294,7 @@ export default function App() {
 
       if (payload.type === 'HOPPER_COIN') {
         const amount = Number(payload.amount ?? 20)
+        previewExternalBalanceChange(amount)
         if (deviceId) {
           logLedgerEvent({
             deviceId,

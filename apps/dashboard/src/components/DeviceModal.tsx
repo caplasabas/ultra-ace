@@ -20,10 +20,12 @@ export function DeviceModal({
   onClose: () => void
   hopperAlertsEnabled?: boolean
 }) {
+  const JACKPOT_OVERRIDE_STEP_COUNT = 10
   const cabinetGames = useCabinetGames(device.device_id)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [overrideBusy, setOverrideBusy] = useState(false)
+  const [jackpotOverrideBusy, setJackpotOverrideBusy] = useState(false)
   const [powerActionBusy, setPowerActionBusy] = useState<'restart' | 'shutdown' | 'reset' | null>(
     null,
   )
@@ -172,6 +174,11 @@ export function DeviceModal({
   const [coinsInKind, setCoinsInKind] = useState<'debit' | 'credit'>('credit')
   const [coinsInAccountName, setCoinsInAccountName] = useState('Manual Coins In Override')
   const [coinsInNotes, setCoinsInNotes] = useState('')
+  const [jackpotOverrideAmount, setJackpotOverrideAmount] = useState('')
+  const [jackpotOverrideConfirmOpen, setJackpotOverrideConfirmOpen] = useState(false)
+  const [jackpotOverridePendingAmount, setJackpotOverridePendingAmount] = useState<number | null>(
+    null,
+  )
 
   useEffect(() => {
     if (!errorMessage) return
@@ -187,7 +194,11 @@ export function DeviceModal({
   useEffect(() => {
     setBalanceAmount('0')
     setHopperAmount('0')
+    setCoinsInAmount('0')
     setDeviceName(String(device.name ?? ''))
+    setJackpotOverrideAmount('')
+    setJackpotOverrideConfirmOpen(false)
+    setJackpotOverridePendingAmount(null)
   }, [device.device_id, device.balance, device.hopper_balance])
 
   useEffect(() => {
@@ -464,6 +475,65 @@ export function DeviceModal({
         : 'Withdrawal disabled for this device',
     )
     setErrorMessage(null)
+  }
+
+  function openJackpotOverrideConfirm() {
+    const amount = roundOverrideAmount(jackpotOverrideAmount)
+    if (amount <= 0) {
+      setErrorMessage('Jackpot override amount must be greater than 0')
+      return
+    }
+
+    setJackpotOverridePendingAmount(amount)
+    setJackpotOverrideConfirmOpen(true)
+    setErrorMessage(null)
+  }
+
+  function closeJackpotOverrideConfirm() {
+    if (jackpotOverrideBusy) return
+    setJackpotOverrideConfirmOpen(false)
+    setJackpotOverridePendingAmount(null)
+  }
+
+  async function confirmJackpotOverride() {
+    const amount = jackpotOverridePendingAmount
+    if (!device?.device_id || !amount || amount <= 0) {
+      setErrorMessage('Jackpot override amount must be greater than 0')
+      setJackpotOverrideConfirmOpen(false)
+      setJackpotOverridePendingAmount(null)
+      return
+    }
+
+    setJackpotOverrideBusy(true)
+
+    const { data, error } = await supabase.rpc('enqueue_device_jackpot_override', {
+      p_device_id: device.device_id,
+      p_amount: amount,
+      p_step_count: JACKPOT_OVERRIDE_STEP_COUNT,
+    })
+
+    setJackpotOverrideBusy(false)
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+
+    const queueId = Number((data as any)?.queue_id ?? 0)
+    const stepCount = Number((data as any)?.step_count ?? JACKPOT_OVERRIDE_STEP_COUNT)
+    setSuccessMessage(
+      `Jackpot override armed for ${device.device_id} • ${formatJackpotCurrency(amount)} • queue #${queueId} • ${stepCount} planned payouts`,
+    )
+    setErrorMessage(null)
+    setJackpotOverrideAmount('')
+    setJackpotOverrideConfirmOpen(false)
+    setJackpotOverridePendingAmount(null)
+  }
+
+  function roundOverrideAmount(value: string) {
+    const amount = Math.max(0, Number(value || 0))
+    if (!Number.isFinite(amount)) return 0
+    return Math.round(amount * 10000) / 10000
   }
 
   return (
@@ -793,7 +863,7 @@ export function DeviceModal({
                       <button
                         type="button"
                         className="rounded border border-sky-600/80 bg-sky-900/30 px-3 py-1.5 text-xs font-semibold text-sky-200 hover:bg-sky-800/40 disabled:opacity-50"
-                        disabled={powerActionBusy !== null || overrideBusy}
+                        disabled={powerActionBusy !== null || overrideBusy || jackpotOverrideBusy}
                         onClick={() => void runDeviceReset()}
                       >
                         {powerActionBusy === 'reset' ? 'Resetting Device...' : 'Reset Device'}
@@ -801,7 +871,7 @@ export function DeviceModal({
                       <button
                         type="button"
                         className="rounded border border-amber-600/80 bg-amber-900/30 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-800/40 disabled:opacity-50"
-                        disabled={powerActionBusy !== null || overrideBusy}
+                        disabled={powerActionBusy !== null || overrideBusy || jackpotOverrideBusy}
                         onClick={() => void enqueuePowerCommand('restart')}
                       >
                         {powerActionBusy === 'restart' ? 'Queueing Restart...' : 'Restart Device'}
@@ -809,13 +879,54 @@ export function DeviceModal({
                       <button
                         type="button"
                         className="rounded border border-red-600/80 bg-red-900/30 px-3 py-1.5 text-xs font-semibold text-red-200 hover:bg-red-800/40 disabled:opacity-50"
-                        disabled={powerActionBusy !== null || overrideBusy}
+                        disabled={powerActionBusy !== null || overrideBusy || jackpotOverrideBusy}
                         onClick={() => void enqueuePowerCommand('shutdown')}
                       >
                         {powerActionBusy === 'shutdown'
                           ? 'Queueing Shutdown...'
                           : 'Shutdown Device'}
                       </button>
+                    </div>
+                  </div>
+
+                  <h4 className="text-sm font-semibold mb-2">Jackpot Override</h4>
+                  <div className="rounded border border-amber-700/50 bg-amber-950/20 p-3 mb-4">
+                    <div className="text-xs text-amber-200 mb-2">
+                      Arms a device-specific jackpot immediately for this cabinet.
+                    </div>
+                    <div className="text-xs text-slate-400 mb-3">
+                      This creates a fresh queue and {JACKPOT_OVERRIDE_STEP_COUNT} payout-plan
+                      steps for <span className="font-mono text-slate-200">{device.device_id}</span>{' '}
+                      without taking over the normal global jackpot campaign.
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={jackpotOverrideAmount}
+                        onChange={e => setJackpotOverrideAmount(e.target.value)}
+                        placeholder="Jackpot amount"
+                        className="flex-1 rounded border border-amber-700/50 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+                      />
+                      <button
+                        type="button"
+                        className="rounded border border-amber-500/80 bg-amber-900/40 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-800/50 disabled:opacity-50"
+                        disabled={
+                          jackpotOverrideBusy ||
+                          overrideBusy ||
+                          powerActionBusy !== null ||
+                          deploymentBusy ||
+                          withdrawBusy
+                        }
+                        onClick={openJackpotOverrideConfirm}
+                      >
+                        {jackpotOverrideBusy ? 'Arming Jackpot...' : 'Confirm Jackpot Override'}
+                      </button>
+                    </div>
+                    <div className="mt-3 text-[11px] text-slate-500">
+                      The override is blocked if this cabinet already has an active jackpot queue or
+                      is currently inside a free-spin flow.
                     </div>
                   </div>
 
@@ -912,6 +1023,7 @@ export function DeviceModal({
                               deploymentBusy ||
                               withdrawBusy ||
                               overrideBusy ||
+                              jackpotOverrideBusy ||
                               powerActionBusy !== null
                             }
                             onClick={() => void saveDeploymentMode()}
@@ -944,6 +1056,7 @@ export function DeviceModal({
                               withdrawBusy ||
                               deploymentBusy ||
                               overrideBusy ||
+                              jackpotOverrideBusy ||
                               powerActionBusy !== null
                             }
                             onClick={() => void saveWithdrawEnabled()}
@@ -1192,6 +1305,45 @@ export function DeviceModal({
           </div>
         </div>
       </div>
+
+      {jackpotOverrideConfirmOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-xl border border-amber-500/60 bg-slate-950 p-5 shadow-[0_0_40px_rgba(251,191,36,0.18)]">
+            <h4 className="text-base font-semibold text-amber-100">Confirm Jackpot Override</h4>
+            <div className="mt-3 text-sm text-slate-300">
+              Queue a fully armed jackpot override for{' '}
+              <span className="font-mono text-white">{device.device_id}</span> worth{' '}
+              <span className="font-semibold text-amber-200">
+                {formatJackpotCurrency(jackpotOverridePendingAmount)}
+              </span>
+              ?
+            </div>
+            <div className="mt-3 rounded border border-slate-800 bg-slate-900/80 p-3 text-xs text-slate-400">
+              This will create a new jackpot payout queue row and {JACKPOT_OVERRIDE_STEP_COUNT}
+              plan steps for this device. It runs as a separate manual override jackpot lane and
+              does not replace the normal global jackpot campaign.
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+                disabled={jackpotOverrideBusy}
+                onClick={closeJackpotOverrideConfirm}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded border border-amber-500/80 bg-amber-900/40 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-800/50 disabled:opacity-50"
+                disabled={jackpotOverrideBusy}
+                onClick={() => void confirmJackpotOverride()}
+              >
+                {jackpotOverrideBusy ? 'Queueing Jackpot...' : 'Yes, Queue Jackpot'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
