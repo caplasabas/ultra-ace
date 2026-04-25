@@ -1085,7 +1085,6 @@ export default function App() {
   useEffect(() => {
     if (!pendingIntroStartRef.current) return
     if (showFreeSpinIntro) return
-    if (!isIdle) return
     if (!isFreeGame || spinning || freeSpinsLeft <= 0) return
 
     const t = window.setTimeout(() => {
@@ -1095,7 +1094,7 @@ export default function App() {
     }, FREE_SPIN_PRESTART_DELAY_MS)
 
     return () => clearTimeout(t)
-  }, [showFreeSpinIntro, isIdle, isFreeGame, spinning, freeSpinsLeft])
+  }, [showFreeSpinIntro, isFreeGame, spinning, freeSpinsLeft])
 
   useEffect(() => {
     if (pendingIntroStartRef.current) return

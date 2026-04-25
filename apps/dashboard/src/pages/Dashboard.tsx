@@ -25,7 +25,13 @@ type SortField =
   | 'updated_at'
 
 type SortDirection = 'asc' | 'desc'
-type DeploymentFilter = 'online' | 'maintenance' | 'all'
+type DeploymentFilter =
+  | 'all'
+  | 'online'
+  | 'maintenance'
+  | 'playing'
+  | 'playing_online'
+  | 'playing_maintenance'
 
 const SORT_OPTIONS: { field: SortField; label: string }[] = [
   { field: 'updated_at', label: 'Last Seen' },
@@ -37,6 +43,15 @@ const SORT_OPTIONS: { field: SortField; label: string }[] = [
   { field: 'house_win', label: 'House Win' },
   { field: 'spins_total', label: 'Spins' },
   { field: 'rtp', label: 'RTP' },
+]
+
+const DEPLOYMENT_FILTER_OPTIONS: { value: DeploymentFilter; label: string }[] = [
+  { value: 'all', label: 'Show All' },
+  { value: 'online', label: 'Show Online' },
+  { value: 'maintenance', label: 'Show Maintenance' },
+  { value: 'playing', label: 'Show Playing' },
+  { value: 'playing_online', label: 'Show Playing Online' },
+  { value: 'playing_maintenance', label: 'Show Playing Maintenance' },
 ]
 
 // const ENGINE_SIM_BASE_RTP_PCT = 67.29
@@ -291,6 +306,29 @@ export default function Dashboard() {
     return asNumber(device[field as keyof DeviceRow] as number | string | null | undefined)
   }
 
+  const matchesDeploymentFilter = (device: DeviceRow, filter: DeploymentFilter) => {
+    const deploymentMode = device.deployment_mode ?? 'online'
+    const isMaintenance = deploymentMode === 'maintenance'
+    const isPlaying = device.device_status === 'playing'
+
+    switch (filter) {
+      case 'all':
+        return true
+      case 'online':
+        return !isMaintenance
+      case 'maintenance':
+        return isMaintenance
+      case 'playing':
+        return isPlaying
+      case 'playing_online':
+        return isPlaying && !isMaintenance
+      case 'playing_maintenance':
+        return isPlaying && isMaintenance
+      default:
+        return true
+    }
+  }
+
   const visibleDevices = useMemo(() => {
     const search = searchTerm.trim().toLowerCase()
     const filtered = search
@@ -301,14 +339,9 @@ export default function Dashboard() {
         })
       : [...devices]
 
-    const deploymentFiltered =
-      deploymentFilter === 'all'
-        ? filtered
-        : filtered.filter(d =>
-            deploymentFilter === 'maintenance'
-              ? (d.deployment_mode ?? 'online') === 'maintenance'
-              : (d.deployment_mode ?? 'online') !== 'maintenance',
-          )
+    const deploymentFiltered = filtered.filter(device =>
+      matchesDeploymentFilter(device, deploymentFilter),
+    )
 
     deploymentFiltered.sort((a, b) => {
       const left = getSortValue(a, sortField)
@@ -342,9 +375,11 @@ export default function Dashboard() {
   }
 
   const sortLabel = SORT_OPTIONS.find(option => option.field === sortField)?.label ?? 'Last Seen'
-  const maintenanceHiddenCount = devices.filter(
-    d => (d.deployment_mode ?? 'online') === 'maintenance',
-  ).length
+  const hiddenCount = devices.filter(d => !matchesDeploymentFilter(d, deploymentFilter)).length
+  const filterSummary =
+    deploymentFilter === 'all'
+      ? ''
+      : ` • ${hiddenCount.toLocaleString()} hidden (${DEPLOYMENT_FILTER_OPTIONS.find(option => option.value === deploymentFilter)?.label.replace(/^Show /, '').toLowerCase() ?? 'filtered'})`
   const totalPages = Math.max(1, Math.ceil(visibleDevices.length / pageSize))
 
   const paginatedDevices = visibleDevices.slice(
@@ -514,28 +549,24 @@ export default function Dashboard() {
                     value={deploymentFilter}
                     onChange={e =>
                       setDeploymentFilter(
-                        e.target.value === 'maintenance'
-                          ? 'maintenance'
-                          : e.target.value === 'all'
-                            ? 'all'
-                            : 'online',
+                        DEPLOYMENT_FILTER_OPTIONS.some(option => option.value === e.target.value)
+                          ? (e.target.value as DeploymentFilter)
+                          : 'all',
                       )
                     }
                     className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200 hover:border-slate-500"
                   >
-                    <option value="online">Show Online</option>
-                    <option value="maintenance">Show Maintenance</option>
-                    <option value="all">Show All</option>
+                    {DEPLOYMENT_FILTER_OPTIONS.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="text-xs text-slate-400">
                   Showing {visibleDevices.length.toLocaleString()} of{' '}
                   {devices.length.toLocaleString()}
-                  {deploymentFilter === 'online' && maintenanceHiddenCount > 0
-                    ? ` • ${maintenanceHiddenCount.toLocaleString()} hidden (maintenance)`
-                    : deploymentFilter === 'maintenance'
-                      ? ' • maintenance only'
-                      : ''}
+                  {filterSummary}
                 </div>
               </div>
 
