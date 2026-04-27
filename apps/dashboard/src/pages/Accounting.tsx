@@ -12,15 +12,7 @@ function manilaNow() {
   return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }))
 }
 
-function startOfWeek(date: Date) {
-  const next = new Date(date)
-  const day = next.getDay()
-  const diff = day === 0 ? -6 : 1 - day
-  next.setDate(next.getDate() + diff)
-  return next
-}
-
-type Preset = 'today' | 'week' | 'month' | 'custom'
+type Preset = 'today' | 'yesterday' | 'week' | 'month' | 'custom'
 
 export default function Accounting() {
   const now = manilaNow()
@@ -40,17 +32,21 @@ export default function Accounting() {
     const from = new Date(base)
     const to = new Date(base)
 
-    if (nextPreset === 'week') {
-      const weekStart = startOfWeek(base)
-      setDateFrom(toYmd(weekStart))
+    if (nextPreset === 'today') {
+      setDateFrom(toYmd(base))
+      setDateTo(toYmd(base))
+    } else if (nextPreset === 'yesterday') {
+      from.setDate(base.getDate() - 1)
+      setDateFrom(toYmd(from))
+      setDateTo(toYmd(from))
+    } else if (nextPreset === 'week') {
+      from.setDate(base.getDate() - 6)
+      setDateFrom(toYmd(from))
       setDateTo(toYmd(base))
     } else if (nextPreset === 'month') {
       from.setDate(1)
       setDateFrom(toYmd(from))
       setDateTo(toYmd(to))
-    } else if (nextPreset === 'today') {
-      setDateFrom(toYmd(base))
-      setDateTo(toYmd(base))
     }
 
     setPreset(nextPreset)
@@ -79,6 +75,12 @@ export default function Accounting() {
             onClick={() => applyPreset('today')}
           >
             Today
+          </button>
+          <button
+            className={`rounded px-3 py-2 text-sm ${preset === 'yesterday' ? 'bg-emerald-500 text-slate-950' : 'bg-slate-700 text-slate-100'}`}
+            onClick={() => applyPreset('yesterday')}
+          >
+            Yesterday
           </button>
           <button
             className={`rounded px-3 py-2 text-sm ${preset === 'week' ? 'bg-emerald-500 text-slate-950' : 'bg-slate-700 text-slate-100'}`}
@@ -140,9 +142,9 @@ export default function Accounting() {
           </div>
         </div>
         <div className="rounded-lg border border-violet-700/40 bg-slate-800 p-4">
-          <div className="text-xs text-violet-300/80 mb-1">Coins In</div>
-          <div className="text-2xl font-bold font-mono text-violet-400">
-            {formatCurrency(summary.coinsIn)}
+          <div className="text-xs text-violet-300/80 mb-1">Coins In / Out</div>
+          <div className="text-base font-bold font-mono text-violet-400">
+            {formatCurrency(summary.coinsIn)} / {formatCurrency(summary.hopperOut)}
           </div>
         </div>
         <div className="rounded-lg border border-orange-700/40 bg-slate-800 p-4">
@@ -165,7 +167,7 @@ export default function Accounting() {
           <div className="text-xl font-mono">{formatCurrency(summary.withdraw)}</div>
         </div>
         <div className="rounded-lg border border-slate-700 bg-slate-800 p-4">
-          <div className="text-xs text-slate-400 mb-1">Hopper In / Out</div>
+          <div className="text-xs text-slate-400 mb-1">Hopper Refill / Coins Out</div>
           <div className="text-xl font-mono">
             {formatCurrency(summary.hopperIn)} / {formatCurrency(summary.hopperOut)}
           </div>
@@ -210,10 +212,11 @@ export default function Accounting() {
       <section className="rounded-lg border border-slate-700 bg-slate-800 p-4">
         <div className="text-xs text-slate-400 mb-2">Net Income Formula</div>
         <div className="text-sm font-mono text-slate-200">
-          Coins In - Balance - Withdraw - House Take - Jackpot Override
+          Coins In + Coins Out - Balance - House Take - Jackpot Override
         </div>
         <div className="mt-2 text-xs text-slate-500">
-          Range totals come from device metric events. Balance is the current device balance.
+          Range totals come from device daily rollups. Coins Out uses hopper-out / withdrawal payout
+          totals. Balance is the current device balance.
         </div>
       </section>
 
@@ -230,7 +233,7 @@ export default function Accounting() {
                 <th className="px-4 py-2 text-right">Coins In</th>
                 <th className="px-4 py-2 text-right">Bet</th>
                 <th className="px-4 py-2 text-right">Win</th>
-                <th className="px-4 py-2 text-right">Withdraw</th>
+                <th className="px-4 py-2 text-right">Coins Out</th>
                 <th className="px-4 py-2 text-right">House Take</th>
                 <th className="px-4 py-2 text-right">Jackpot Override</th>
                 <th className="px-4 py-2 text-right">RTP</th>
@@ -253,7 +256,7 @@ export default function Accounting() {
                     {formatCurrency(row.total_win)}
                   </td>
                   <td className="px-4 py-2 text-right font-mono text-sky-400">
-                    {formatCurrency(row.total_withdraw)}
+                    {formatCurrency(row.total_hopper_out)}
                   </td>
                   <td className="px-4 py-2 text-right font-mono text-fuchsia-400">
                     {formatCurrency(row.total_house_take)}
@@ -272,9 +275,7 @@ export default function Accounting() {
       </section>
 
       <section className="rounded-lg border border-slate-700 overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-700 text-sm font-semibold">
-          By Device
-        </div>
+        <div className="px-4 py-3 border-b border-slate-700 text-sm font-semibold">By Device</div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-slate-800 text-slate-300">
@@ -282,7 +283,7 @@ export default function Accounting() {
                 <th className="px-4 py-2 text-left">Device</th>
                 <th className="px-4 py-2 text-right">Balance</th>
                 <th className="px-4 py-2 text-right">Coins In</th>
-                <th className="px-4 py-2 text-right">Withdraw</th>
+                <th className="px-4 py-2 text-right">Coins Out</th>
                 <th className="px-4 py-2 text-right">House Take</th>
                 <th className="px-4 py-2 text-right">Jackpot Override</th>
                 <th className="px-4 py-2 text-right">Net Income</th>
@@ -304,7 +305,7 @@ export default function Accounting() {
                     {formatCurrency(row.coins_in_total)}
                   </td>
                   <td className="px-4 py-2 text-right font-mono text-sky-400">
-                    {formatCurrency(row.withdraw_total)}
+                    {formatCurrency(row.hopper_out_total)}
                   </td>
                   <td className="px-4 py-2 text-right font-mono text-fuchsia-400">
                     {formatCurrency(row.house_take_total)}
