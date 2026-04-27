@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { DeviceRow } from '../hooks/useDevices'
 import { useDevices } from '../hooks/useDevices'
 import { DeviceModal } from '../components/DeviceModal'
@@ -10,6 +10,9 @@ import { supabase } from '../lib/supabase'
 
 const DASHBOARD_POTS_POLL_MS = 2500
 const DASHBOARD_JACKPOT_QUEUE_POLL_MS = 2500
+const DASHBOARD_MANUAL_OVERRIDE_POLL_MS = 5000
+const DASHBOARD_ACTIVITY_RTP_POLL_MS = 2500
+const DASHBOARD_ACTIVITY_RTP_PAGE_SIZE = 1000
 
 type SortField =
   | 'name'
@@ -22,7 +25,7 @@ type SortField =
   | 'house_win'
   | 'spins_total'
   | 'rtp'
-  | 'updated_at'
+  | 'last_bet_at'
 
 type SortDirection = 'asc' | 'desc'
 type DeploymentFilter =
@@ -33,8 +36,13 @@ type DeploymentFilter =
   | 'playing_online'
   | 'playing_maintenance'
 
+type ActivityRtpTotals = {
+  bet: number
+  win: number
+}
+
 const SORT_OPTIONS: { field: SortField; label: string }[] = [
-  { field: 'updated_at', label: 'Last Seen' },
+  { field: 'last_bet_at', label: 'Last Bet At' },
   { field: 'name', label: 'Device' },
   { field: 'balance', label: 'Balance' },
   { field: 'coins_in_total', label: 'Coins-In' },
@@ -46,17 +54,39 @@ const SORT_OPTIONS: { field: SortField; label: string }[] = [
 ]
 
 const DEPLOYMENT_FILTER_OPTIONS: { value: DeploymentFilter; label: string }[] = [
-  { value: 'all', label: 'Show All' },
-  { value: 'online', label: 'Show Online' },
-  { value: 'maintenance', label: 'Show Maintenance' },
-  { value: 'playing', label: 'Show Playing' },
-  { value: 'playing_online', label: 'Show Playing Online' },
-  { value: 'playing_maintenance', label: 'Show Playing Maintenance' },
+  { value: 'all', label: 'All' },
+  { value: 'online', label: 'Online' },
+  { value: 'maintenance', label: 'Maintenance' },
+  { value: 'playing', label: 'Playing' },
+  { value: 'playing_online', label: 'Playing Online' },
+  { value: 'playing_maintenance', label: 'Playing Maintenance' },
 ]
 
 // const ENGINE_SIM_BASE_RTP_PCT = 67.29
 // const ENGINE_SIM_FREE_RTP_PCT = 6.16
 const ENGINE_SIM_TOTAL_RTP_PCT = 73.44
+
+function MobileToggleButton({
+  expanded,
+  onClick,
+  collapsedLabel = 'Show More',
+  expandedLabel = 'Hide',
+}: {
+  expanded: boolean
+  onClick: () => void
+  collapsedLabel?: string
+  expandedLabel?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-mono text-slate-200"
+    >
+      {expanded ? expandedLabel : collapsedLabel}
+    </button>
+  )
+}
 
 export default function Dashboard() {
   const devices = useDevices()
@@ -73,10 +103,29 @@ export default function Dashboard() {
   const [showHappyPotsModal, setShowHappyPotsModal] = useState(false)
   const [showJackpotPotsModal, setShowJackpotPotsModal] = useState(false)
   const [showJackpotQueuesModal, setShowJackpotQueuesModal] = useState(false)
+  const [showManualJackpotOverridesModal, setShowManualJackpotOverridesModal] = useState(false)
+  const [expandedStatCards, setExpandedStatCards] = useState({
+    moneyFlow: false,
+    gameFlow: false,
+    performance: false,
+    system: false,
+  })
+  const [showAllMobileStatCards, setShowAllMobileStatCards] = useState(false)
+  const [showAllMobileDeviceCounters, setShowAllMobileDeviceCounters] = useState(false)
+  const [expandedMobileDevices, setExpandedMobileDevices] = useState<Record<string, boolean>>({})
   const [happyPots, setHappyPots] = useState<any[]>([])
   const [jackpotPots, setJackpotPots] = useState<any[]>([])
   const [jackpotQueues, setJackpotQueues] = useState<any[]>([])
-  const [hopperAlertsEnabled, setHopperAlertsEnabled] = useState(() => {
+  const [manualJackpotOverrides, setManualJackpotOverrides] = useState<any[]>([])
+  const [activityRtpByDevice, setActivityRtpByDevice] = useState<Record<string, ActivityRtpTotals>>(
+    {},
+  )
+  const [activityGlobalRtpTotals, setActivityGlobalRtpTotals] = useState<ActivityRtpTotals>({
+    bet: 0,
+    win: 0,
+  })
+  const [activityRtpReady, setActivityRtpReady] = useState(false)
+  const [hopperAlertsEnabled] = useState(() => {
     try {
       return localStorage.getItem('hopperAlertsEnabled') === 'true'
     } catch {
@@ -84,15 +133,10 @@ export default function Dashboard() {
     }
   })
   const [currentPage, setCurrentPage] = useState(1)
+  const activityRtpByDeviceRef = useRef<Record<string, ActivityRtpTotals>>({})
+  const activityGlobalRtpTotalsRef = useRef<ActivityRtpTotals>({ bet: 0, win: 0 })
+  const lastActivityMetricIdRef = useRef(0)
   const pageSize = 10
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('hopperAlertsEnabled', String(hopperAlertsEnabled))
-    } catch {
-      /* empty */
-    }
-  }, [hopperAlertsEnabled])
 
   useEffect(() => {
     if (!errorMessage) return
@@ -144,6 +188,181 @@ export default function Dashboard() {
     }
   }, [])
 
+  useEffect(() => {
+    async function fetchManualJackpotOverrides() {
+      const { data } = await supabase
+        .from('jackpot_pots')
+        .select('*')
+        .contains('goal_snapshot', { source: 'dashboard_device_override' })
+        .neq('status', 'processing')
+        .order('created_at', { ascending: false })
+        .limit(200)
+
+      setManualJackpotOverrides(data ?? [])
+    }
+
+    void fetchManualJackpotOverrides()
+
+    const poll = window.setInterval(() => {
+      void fetchManualJackpotOverrides()
+    }, DASHBOARD_MANUAL_OVERRIDE_POLL_MS)
+
+    return () => {
+      window.clearInterval(poll)
+    }
+  }, [])
+
+  useEffect(() => {
+    function getActivityFundingSource(row: any) {
+      return String(row?.metadata?.winFundingSource ?? '')
+        .trim()
+        .toLowerCase()
+    }
+
+    function getActivityRtpAmount(row: any, eventType: 'spin' | 'win') {
+      const fundingSource = getActivityFundingSource(row)
+      if (fundingSource === 'happy_prize_pool') return 0
+      if (
+        String(row?.metadata?.triggerType ?? '')
+          .trim()
+          .toLowerCase() === 'buy'
+      )
+        return 0
+      if (row?.metadata?.isFreeGame) return 0
+      if (row?.metadata?.jackpotCampaignPayout) return 0
+      if (Number(row?.metadata?.jackpotPayout ?? row?.metadata?.jackpot_payout ?? 0) > 0) return 0
+
+      if (eventType === 'spin') {
+        const spinAmount = Number(row?.amount ?? 0)
+        return Number.isFinite(spinAmount) && spinAmount > 0 ? spinAmount : 0
+      }
+
+      const acceptedWin = Number(
+        row?.metadata?.acceptedWin ?? row?.metadata?.accepted_win ?? row?.amount ?? 0,
+      )
+      return Number.isFinite(acceptedWin) && acceptedWin > 0 ? acceptedWin : 0
+    }
+
+    function accumulateActivityRtpRows(
+      rows: any[],
+      byDevice: Record<string, ActivityRtpTotals>,
+      global: ActivityRtpTotals,
+    ) {
+      if (!rows.length) return
+
+      for (const row of rows) {
+        const id = Number(row?.id ?? 0)
+        if (id > lastActivityMetricIdRef.current) {
+          lastActivityMetricIdRef.current = id
+        }
+
+        if (!row?.counts_toward_global) continue
+
+        const eventType = String(row?.event_type ?? '')
+          .trim()
+          .toLowerCase()
+        if (eventType !== 'spin' && eventType !== 'win') continue
+
+        const deviceId = String(row?.device_id ?? '').trim()
+        if (!deviceId) continue
+
+        const amount = getActivityRtpAmount(row, eventType as 'spin' | 'win')
+        if (amount <= 0) continue
+
+        const current = byDevice[deviceId] ?? { bet: 0, win: 0 }
+        byDevice[deviceId] =
+          eventType === 'spin'
+            ? { bet: current.bet + amount, win: current.win }
+            : { bet: current.bet, win: current.win + amount }
+
+        if (eventType === 'spin') {
+          global.bet += amount
+        } else {
+          global.win += amount
+        }
+      }
+    }
+
+    function applyActivityRtpRows(rows: any[]) {
+      if (!rows.length) return
+
+      const nextByDevice = { ...activityRtpByDeviceRef.current }
+      const nextGlobal = { ...activityGlobalRtpTotalsRef.current }
+      accumulateActivityRtpRows(rows, nextByDevice, nextGlobal)
+
+      activityRtpByDeviceRef.current = nextByDevice
+      activityGlobalRtpTotalsRef.current = nextGlobal
+      setActivityRtpByDevice(nextByDevice)
+      setActivityGlobalRtpTotals(nextGlobal)
+    }
+
+    async function fetchActivityRtpInitial() {
+      setActivityRtpReady(false)
+      activityRtpByDeviceRef.current = {}
+      activityGlobalRtpTotalsRef.current = { bet: 0, win: 0 }
+      lastActivityMetricIdRef.current = 0
+      const nextByDevice: Record<string, ActivityRtpTotals> = {}
+      const nextGlobal: ActivityRtpTotals = { bet: 0, win: 0 }
+
+      let from = 0
+
+      for (;;) {
+        const to = from + DASHBOARD_ACTIVITY_RTP_PAGE_SIZE - 1
+        const { data } = await supabase
+          .from('device_metric_events')
+          .select('id,device_id,event_type,amount,metadata,counts_toward_global')
+          .in('event_type', ['spin', 'win'])
+          .order('id', { ascending: true })
+          .range(from, to)
+
+        const rows = data ?? []
+        accumulateActivityRtpRows(rows, nextByDevice, nextGlobal)
+
+        if (rows.length < DASHBOARD_ACTIVITY_RTP_PAGE_SIZE) break
+        from += DASHBOARD_ACTIVITY_RTP_PAGE_SIZE
+      }
+
+      activityRtpByDeviceRef.current = nextByDevice
+      activityGlobalRtpTotalsRef.current = nextGlobal
+      setActivityRtpByDevice(nextByDevice)
+      setActivityGlobalRtpTotals(nextGlobal)
+      setActivityRtpReady(true)
+    }
+
+    async function fetchActivityRtpIncremental() {
+      let fromId = lastActivityMetricIdRef.current
+
+      for (;;) {
+        const { data } = await supabase
+          .from('device_metric_events')
+          .select('id,device_id,event_type,amount,metadata,counts_toward_global')
+          .in('event_type', ['spin', 'win'])
+          .gt('id', fromId)
+          .order('id', { ascending: true })
+          .limit(DASHBOARD_ACTIVITY_RTP_PAGE_SIZE)
+
+        const rows = data ?? []
+        if (!rows.length) break
+
+        applyActivityRtpRows(rows)
+        setActivityRtpReady(true)
+        fromId = lastActivityMetricIdRef.current
+
+        if (rows.length < DASHBOARD_ACTIVITY_RTP_PAGE_SIZE) break
+      }
+    }
+
+    void fetchActivityRtpInitial()
+
+    const poll = window.setInterval(() => {
+      void fetchActivityRtpIncremental()
+    }, DASHBOARD_ACTIVITY_RTP_POLL_MS)
+
+    return () => {
+      window.clearInterval(poll)
+    }
+  }, [])
+
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
   const formatCurrency = (v: number | string | null | undefined) =>
     `₱${asNumber(v).toLocaleString()}`
@@ -153,13 +372,10 @@ export default function Dashboard() {
       maximumFractionDigits: 2,
     })}`
   const formatPercent = (v: number | string | null | undefined) => `${asNumber(v).toFixed(2)}%`
-  const getBaseWinAmount = (
-    row: Pick<DeviceRow, 'win_total' | 'jackpot_win_total' | 'prize_pool_paid_total'>,
-  ) =>
-    asNumber(row.win_total) - asNumber(row.jackpot_win_total) - asNumber(row.prize_pool_paid_total)
-  const getDeviceRtp = (
-    row: Pick<DeviceRow, 'bet_total' | 'win_total' | 'jackpot_win_total' | 'prize_pool_paid_total'>,
-  ) => (asNumber(row.bet_total) > 0 ? (getBaseWinAmount(row) / asNumber(row.bet_total)) * 100 : 0)
+  const getDeviceRtp = (deviceId: string | null | undefined) => {
+    const totals = activityRtpByDevice[String(deviceId ?? '').trim()]
+    return totals?.bet ? (totals.win / totals.bet) * 100 : 0
+  }
 
   const getDeviceAverageBet = (
     row: Pick<DeviceRow, 'bet_total' | 'spins_total' | 'avg_bet_amount' | 'last_bet_amount'>,
@@ -167,10 +383,8 @@ export default function Dashboard() {
     const avgBet = asNumber(row.avg_bet_amount)
     const betTotal = asNumber(row.bet_total)
     const spinsTotal = asNumber(row.spins_total)
-    const lastBet = asNumber(row.last_bet_amount)
 
     if (avgBet > 0) return Math.round(avgBet)
-    if (lastBet > 0) return Math.round(lastBet)
     if (betTotal <= 0 || spinsTotal <= 0) return 0
 
     return Math.round(betTotal / spinsTotal)
@@ -178,15 +392,13 @@ export default function Dashboard() {
 
   const globalBet = asNumber(stats?.total_bet_amount)
   const globalWin = asNumber(stats?.total_win_amount)
-  const globalBaseWin = devices.reduce((sum, device) => sum + getBaseWinAmount(device), 0)
-  const globalBaseRtp = globalBet > 0 ? (globalBaseWin / globalBet) * 100 : 0
-  const devicesWithLastBet = devices.filter(device => asNumber(device.last_bet_amount) > 0).length
-  const totalLastBetAmount = devices.reduce((sum, device) => {
-    const lastBet = asNumber(device.last_bet_amount)
-    return lastBet > 0 ? sum + lastBet : sum
-  }, 0)
-  const globalAverageBetByDevice =
-    devicesWithLastBet > 0 ? Math.round(totalLastBetAmount / devicesWithLastBet) : 0
+  const globalNormalWin = activityGlobalRtpTotals.win
+  const globalBaseRtp =
+    activityGlobalRtpTotals.bet > 0
+      ? (activityGlobalRtpTotals.win / activityGlobalRtpTotals.bet) * 100
+      : 0
+  const globalAverageBet =
+    asNumber(stats?.total_spins) > 0 ? globalBet / asNumber(stats?.total_spins) : 0
   const globalHouseGross = asNumber(stats?.total_house_take ?? globalBet - globalWin)
   const hopperAlertThreshold = asNumber(runtime?.hopper_alert_threshold ?? 500)
   const activeProfileId =
@@ -228,9 +440,49 @@ export default function Dashboard() {
 
     return { activeQueues, completedQueues, unassignedPendingPots }
   }, [jackpotPots, jackpotQueues])
+  const armedJackpotTotals = useMemo(
+    () =>
+      jackpotQueueGroups.activeQueues.reduce(
+        (totals, queue) => ({
+          target: totals.target + asNumber(queue?.target_amount),
+          remaining: totals.remaining + asNumber(queue?.remaining_amount),
+        }),
+        { target: 0, remaining: 0 },
+      ),
+    [jackpotQueueGroups.activeQueues],
+  )
+  const pendingJackpotTotals = useMemo(
+    () =>
+      jackpotQueueGroups.unassignedPendingPots.reduce(
+        (totals, pot) => ({
+          total: totals.total + asNumber(pot?.amount_total),
+          remaining: totals.remaining + asNumber(pot?.amount_remaining),
+        }),
+        { total: 0, remaining: 0 },
+      ),
+    [jackpotQueueGroups.unassignedPendingPots],
+  )
+  const deviceSummaryCounts = useMemo(
+    () => ({
+      online: devices.filter(
+        d => d.device_status !== 'offline' && (d.deployment_mode ?? 'online') !== 'maintenance',
+      ).length,
+      maintenance: devices.filter(d => (d.deployment_mode ?? 'online') === 'maintenance').length,
+      offline: devices.filter(d => d.device_status === 'offline').length,
+      active: devices.filter(d => d.device_status === 'playing').length,
+      afk: devices.filter(d => d.device_status === 'idle').length,
+      lowHopper: hopperAlertsEnabled
+        ? devices.filter(d => {
+            const threshold = asNumber((d as any)?.hopper_alert_threshold ?? 500)
+            return asNumber(d.hopper_balance) <= threshold
+          }).length
+        : 0,
+      highRtp: devices.filter(d => getDeviceRtp(d.device_id) > 110).length,
+    }),
+    [devices, hopperAlertsEnabled],
+  )
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1)
   }, [deploymentFilter, searchTerm, sortField, sortDirection])
 
@@ -297,12 +549,13 @@ export default function Dashboard() {
 
   const getSortValue = (device: DeviceRow, field: SortField): number | string => {
     if (field === 'name') return (device.name ?? '').toLowerCase()
-    if (field === 'updated_at') return device.updated_at ? moment(device.updated_at).valueOf() : 0
+    if (field === 'last_bet_at')
+      return device.last_bet_at ? moment(device.last_bet_at).valueOf() : 0
     if (field === 'house_win')
       return asNumber(
         device.house_take_total ?? asNumber(device.bet_total) - asNumber(device.win_total),
       )
-    if (field === 'rtp') return getDeviceRtp(device)
+    if (field === 'rtp') return getDeviceRtp(device.device_id)
     return asNumber(device[field as keyof DeviceRow] as number | string | null | undefined)
   }
 
@@ -374,12 +627,30 @@ export default function Dashboard() {
     setSortDirection(field === 'name' ? 'asc' : 'desc')
   }
 
-  const sortLabel = SORT_OPTIONS.find(option => option.field === sortField)?.label ?? 'Last Seen'
+  const toggleStatCard = (key: keyof typeof expandedStatCards) => {
+    setExpandedStatCards(current => ({
+      ...current,
+      [key]: !current[key],
+    }))
+  }
+
+  const toggleMobileDeviceCard = (deviceId: string) => {
+    setExpandedMobileDevices(current => ({
+      ...current,
+      [deviceId]: !current[deviceId],
+    }))
+  }
+
+  const sortLabel = SORT_OPTIONS.find(option => option.field === sortField)?.label ?? 'Last Bet At'
   const hiddenCount = devices.filter(d => !matchesDeploymentFilter(d, deploymentFilter)).length
   const filterSummary =
     deploymentFilter === 'all'
       ? ''
-      : ` • ${hiddenCount.toLocaleString()} hidden (${DEPLOYMENT_FILTER_OPTIONS.find(option => option.value === deploymentFilter)?.label.replace(/^Show /, '').toLowerCase() ?? 'filtered'})`
+      : ` • ${hiddenCount.toLocaleString()} hidden (${
+          DEPLOYMENT_FILTER_OPTIONS.find(option => option.value === deploymentFilter)
+            ?.label.replace(/^Show /, '')
+            .toLowerCase() ?? 'filtered'
+        })`
   const totalPages = Math.max(1, Math.ceil(visibleDevices.length / pageSize))
 
   const paginatedDevices = visibleDevices.slice(
@@ -390,9 +661,23 @@ export default function Dashboard() {
   return (
     <>
       <div className="p-5 sm:p-6 max-w-[90rem] mx-auto space-y-8 sm:space-y-10 bg-slate-900 text-slate-100">
-        <header>
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
-        </header>
+        <div className="flex justify-between">
+          <header>
+            <h1 className="text-2xl font-semibold">Dashboard</h1>
+            <div className="text-xs font-mono text-emerald-200/60">
+              H/J/P {formatPercent(activeHousePct)} / {formatPercent(activeJackpotPct)} /{' '}
+              {formatPercent(activeHappyPct)}
+            </div>
+          </header>
+
+          <div className="mb-3 flex justify-end md:hidden">
+            <MobileToggleButton
+              expanded={showAllMobileStatCards}
+              onClick={() => setShowAllMobileStatCards(current => !current)}
+              expandedLabel="Hide More"
+            />
+          </div>
+        </div>
 
         {errorMessage && (
           <div className="p-3 bg-red-900/40 border border-red-700 text-red-300 text-sm rounded">
@@ -401,11 +686,20 @@ export default function Dashboard() {
         )}
 
         <section>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border border-green-700/40 bg-green-900/20 p-4">
-              <div className="mb-2 text-lg font-semibold text-green-200">Money Flow</div>
+              <div className="mb-2 flex items-start justify-between gap-3">
+                <div className="text-lg font-semibold text-green-200">Money Flow</div>
+                <button
+                  type="button"
+                  onClick={() => toggleStatCard('moneyFlow')}
+                  className="text-lg font-mono text-green-200/70  transition hover:text-green-100"
+                >
+                  {expandedStatCards.moneyFlow ? '▴' : '▾'}
+                </button>
+              </div>
 
-              <div className="flex justify-between flex-wrap space-y-2">
+              <div className="space-y-3">
                 <div>
                   <div className="text-xs text-green-200/80">Total Balance</div>
                   <div className="text-3xl font-extrabold font-mono text-green-200">
@@ -413,42 +707,60 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                  <div>
-                    <div className="text-xs text-sky-200/80">Coins-In</div>
-                    <div className="text-lg font-mono text-sky-300">
-                      {formatCurrency(stats?.total_coins_in)}
+                {expandedStatCards.moneyFlow && (
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+                    <div>
+                      <div className="text-xs text-sky-200/80">Coins-In</div>
+                      <div className="text-lg font-mono text-sky-300">
+                        {formatCurrency(stats?.total_coins_in)}
+                      </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <div className="text-xs text-amber-200/80">Hopper</div>
-                    <div className="text-lg font-mono text-amber-300">
-                      {formatCurrency(stats?.total_hopper)}
+                    <div>
+                      <div className="text-xs text-orange-200/80">Coins-Out</div>
+                      <div className="text-lg font-mono text-orange-300">
+                        {formatCurrency(stats?.total_coins_out)}
+                      </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <div className="text-xs text-rose-200/80">Withdrawals</div>
-                    <div className="text-lg font-mono text-rose-300">
-                      {formatCurrency(stats?.total_withdraw_amount)}
+                    <div>
+                      <div className="text-xs text-amber-200/80">Hopper</div>
+                      <div className="text-lg font-mono text-amber-300">
+                        {formatCurrency(stats?.total_hopper)}
+                      </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <div className="text-xs text-indigo-200/80">Arcade</div>
-                    <div className="text-lg font-mono text-indigo-300">
-                      {formatCurrency(stats?.total_arcade_amount)}
+                    <div>
+                      <div className="text-xs text-rose-200/80">Withdrawals</div>
+                      <div className="text-lg font-mono text-rose-300">
+                        {formatCurrency(stats?.total_withdraw_amount)}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs text-indigo-200/80">Arcade</div>
+                      <div className="text-lg font-mono text-indigo-300">
+                        {formatCurrency(stats?.total_arcade_amount)}
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
             <div className="rounded-xl border border-violet-700/40 bg-violet-900/20 p-4">
-              <div className="mb-2 text-lg font-semibold text-violet-200">Game Flow</div>
+              <div className="mb-2 flex items-start justify-between gap-3">
+                <div className="text-lg font-semibold text-violet-200">Game Flow</div>
+                <button
+                  type="button"
+                  onClick={() => toggleStatCard('gameFlow')}
+                  className="text-lg font-mono text-violet-200/70  transition hover:text-violet-100"
+                >
+                  {expandedStatCards.gameFlow ? '▴' : '▾'}
+                </button>
+              </div>
 
-              <div className="flex justify-between flex-wrap">
+              <div className="space-y-3">
                 <div>
                   <div className="text-xs text-violet-200/80">Total Bet</div>
                   <div className="text-3xl font-bold font-mono text-violet-300">
@@ -456,75 +768,155 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 ">
-                  <div className="flex flex-col justify-end">
-                    <div className="text-xs text-red-200/80">Total Win</div>
-                    <div className="text-lg font-mono text-red-300">
-                      {formatCurrency(stats?.total_win_amount)}
+                <div className="text-xs font-mono text-violet-200/80">
+                  <div>Avg Bet {formatJackpotCurrency(globalAverageBet)}</div>
+                  <div>Total Spins {asNumber(stats?.total_spins).toLocaleString()}</div>
+                </div>
+
+                {expandedStatCards.gameFlow && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex flex-col justify-end">
+                      <div className="text-xs text-red-200/80">Total Win</div>
+                      <div className="text-lg font-mono text-red-300">
+                        {formatCurrency(stats?.total_win_amount)}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col justify-end">
+                      <div className="text-xs text-emerald-200/80">Normal Win</div>
+                      <div className="text-lg font-mono text-emerald-300">
+                        {activityRtpReady ? formatJackpotCurrency(globalNormalWin) : '—'}
+                      </div>
                     </div>
                   </div>
-
-                  <div className="text-xs font-mono text-violet-200/80">
-                    <div>Avg Bet {formatJackpotCurrency(globalAverageBetByDevice)}</div>
-                    <div>Total Spins {asNumber(stats?.total_spins).toLocaleString()}</div>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
 
-            <div className="rounded-xl border border-fuchsia-700/40 bg-fuchsia-900/20 p-4">
-              <div className="mb-2 text-lg font-semibold text-fuchsia-200">Performance</div>
+            <div
+              className={`rounded-xl border border-fuchsia-700/40 bg-fuchsia-900/20 p-4 ${
+                showAllMobileStatCards ? 'block' : 'hidden md:block'
+              }`}
+            >
+              <div className="mb-2 flex items-start justify-between gap-3">
+                <div className="text-lg font-semibold text-fuchsia-200">Performance</div>
+                <button
+                  type="button"
+                  onClick={() => toggleStatCard('performance')}
+                  className="text-lgs font-mono text-fuchsia-200/70 transition hover:text-fuchsia-100"
+                >
+                  {expandedStatCards.performance ? '▴' : '▾'}
+                </button>
+              </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-3">
                 <div>
                   <div className="text-xs text-fuchsia-200/80">RTP</div>
                   <div className="text-3xl font-bold font-mono text-fuchsia-300">
-                    {formatPercent(globalBaseRtp)}
+                    {activityRtpReady ? formatPercent(globalBaseRtp) : '—'}
                   </div>
                   <div className="text-xs text-fuchsia-200/80">
                     Target {formatPercent(ENGINE_SIM_TOTAL_RTP_PCT)}
                   </div>
                 </div>
 
-                <div>
-                  <div className="text-xs text-orange-200/80">House Take</div>
-                  <div className="text-lg font-mono text-orange-300">
-                    {formatCurrency(globalHouseGross)}
+                {expandedStatCards.performance && (
+                  <div>
+                    <div className="text-xs text-orange-200/80">House Take</div>
+                    <div className="text-lg font-mono text-orange-300">
+                      {formatCurrency(globalHouseGross)}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
             {/* 🏦 SYSTEM / POOLS */}
-            <div className="rounded-xl border border-emerald-700/40 bg-emerald-900/20 p-4">
-              <div className="mb-2 text-lg font-semibold text-emerald-200">System</div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-emerald-200/80">Mode</span>
+            <div
+              className={`rounded-xl border border-emerald-700/40 bg-emerald-900/20 p-4 ${
+                showAllMobileStatCards ? 'block' : 'hidden md:block'
+              }`}
+            >
+              <div className="mb-2 flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-lg font-semibold text-emerald-200">System</div>
+                </div>
+                <div className="flex gap-2">
                   <span className="text-lg font-bold font-mono text-emerald-300">
                     {runtime?.active_mode ?? 'BASE'}
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => toggleStatCard('system')}
+                    className="text-lg font-mono text-emerald-200/70  transition hover:text-emerald-100"
+                  >
+                    {expandedStatCards.system ? '▴' : '▾'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="space-y-1 rounded border border-emerald-800/40 bg-emerald-950/20 p-2">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/60">
+                    Pools
+                  </div>
+                  <div className="text-xs font-mono text-emerald-200/80">
+                    Happy Pool {formatCurrency(runtime?.prize_pool_balance)}/{' '}
+                    {formatCurrency(runtime?.prize_pool_goal)}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowJackpotQueuesModal(true)}
+                    className="block w-full text-left text-xs font-mono text-indigo-200/80 underline decoration-dotted underline-offset-2 transition hover:text-indigo-100"
+                  >
+                    Jackpot Pool {formatCurrency(runtime?.jackpot_pool_balance)}/{' '}
+                    {formatCurrency(runtime?.jackpot_pool_goal)}
+                  </button>
                 </div>
 
-                <div className="text-xs font-mono text-emerald-200/80">
-                  Happy Pool {formatCurrency(runtime?.prize_pool_balance)}/{' '}
-                  {formatCurrency(runtime?.prize_pool_goal)}
-                </div>
+                {expandedStatCards.system && (
+                  <>
+                    <div className="space-y-1 rounded border border-slate-700/60 bg-slate-950/20 p-2">
+                      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-300/60">
+                        Queue Totals
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowJackpotQueuesModal(true)}
+                        className="block w-full text-left text-xs font-mono text-amber-200/80 underline decoration-dotted underline-offset-2 transition hover:text-amber-100"
+                      >
+                        Armed Jackpot {formatJackpotCurrency(armedJackpotTotals.target)} /{' '}
+                        {formatJackpotCurrency(armedJackpotTotals.remaining)} (
+                        {jackpotQueueGroups.activeQueues.length})
+                      </button>
 
-                <button
-                  type="button"
-                  onClick={() => setShowJackpotQueuesModal(true)}
-                  className="block w-full text-left text-xs font-mono text-indigo-200/80 underline decoration-dotted underline-offset-2 transition hover:text-indigo-100"
-                >
-                  Jackpot Pool {formatCurrency(runtime?.jackpot_pool_balance)}/{' '}
-                  {formatCurrency(runtime?.jackpot_pool_goal)}
-                </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowJackpotQueuesModal(true)}
+                        className="block w-full text-left text-xs font-mono text-sky-200/80 underline decoration-dotted underline-offset-2 transition hover:text-sky-100"
+                      >
+                        Pending Jackpot {formatJackpotCurrency(pendingJackpotTotals.total)} /{' '}
+                        {formatJackpotCurrency(pendingJackpotTotals.remaining)} (
+                        {jackpotQueueGroups.unassignedPendingPots.length})
+                      </button>
+                    </div>
 
-                <div className="text-xs font-mono text-emerald-200/60">
-                  H/J/P {formatPercent(activeHousePct)} / {formatPercent(activeJackpotPct)} /{' '}
-                  {formatPercent(activeHappyPct)}
-                </div>
+                    <div className="space-y-1 rounded border border-slate-700/60 bg-orange-950/20 p-2">
+                      <div className="text-[10px] font-semibold uppercase tracking-wide text-orange-300/60">
+                        Override Totals
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowManualJackpotOverridesModal(true)}
+                        className="block text-left text-xs font-mono text-orange-300 underline decoration-dotted underline-offset-2 transition hover:text-orange-200"
+                      >
+                        Override Jackpot Total{' '}
+                        {formatJackpotCurrency(runtime?.manual_jackpot_override_total)}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -537,13 +929,13 @@ export default function Dashboard() {
                 <div className="gap-3">
                   <h2 className="text-lg font-semibold">Devices</h2>
                 </div>
-                <div className="flex  flex-wrap items-center gap-5 text-sm text-slate-300">
+                <div className="flex  md:flex-wrap  items-center md:gap-5 gap-2 text-sm text-slate-300">
                   <input
                     type="search"
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
-                    placeholder="Search device ID or name"
-                    className="min-w-64 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-slate-500 focus:outline-none"
+                    placeholder="Search ID or name"
+                    className="md:min-w-64 w-40 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-slate-500 focus:outline-none"
                   />
                   <select
                     value={deploymentFilter}
@@ -554,7 +946,7 @@ export default function Dashboard() {
                           : 'all',
                       )
                     }
-                    className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200 hover:border-slate-500"
+                    className="rounded-lg border w-32 md:w-42 border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200 hover:border-slate-500"
                   >
                     {DEPLOYMENT_FILTER_OPTIONS.map(option => (
                       <option key={option.value} value={option.value}>
@@ -570,64 +962,59 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap justify-center items-center gap-5 text-sm text-slate-300">
+              <div className="hidden flex-wrap justify-center items-center gap-5 text-sm text-slate-300 md:flex">
                 <div className="text-xs text-green-300">
-                  🟢 Online:{' '}
-                  {
-                    devices.filter(
-                      d =>
-                        d.device_status !== 'offline' &&
-                        (d.deployment_mode ?? 'online') !== 'maintenance',
-                    ).length
-                  }
+                  🟢 Online: {deviceSummaryCounts.online}
                 </div>
                 <div className="text-xs text-violet-300">
-                  🛠 Maintenance:{' '}
-                  {devices.filter(d => (d.deployment_mode ?? 'online') === 'maintenance').length}
+                  🛠 Maintenance: {deviceSummaryCounts.maintenance}
                 </div>
                 <div className="text-xs text-red-300">
-                  🔴 Offline: {devices.filter(d => d.device_status === 'offline').length}
+                  🔴 Offline: {deviceSummaryCounts.offline}
                 </div>
-
-                <div className="text-xs text-blue-300">
-                  🔵 Active: {devices.filter(d => d.device_status === 'playing').length}
-                </div>
-
-                <div className="text-xs text-yellow-300">
-                  🟡 AFK: {devices.filter(d => d.device_status === 'idle').length}
-                </div>
-
+                <div className="text-xs text-blue-300">🔵 Active: {deviceSummaryCounts.active}</div>
+                <div className="text-xs text-yellow-300">🟡 AFK: {deviceSummaryCounts.afk}</div>
                 <div className="text-xs text-orange-300">
-                  🟠 Low Hopper:{' '}
-                  {hopperAlertsEnabled
-                    ? devices.filter(d => {
-                        const threshold = asNumber((d as any)?.hopper_alert_threshold ?? 500)
-                        return asNumber(d.hopper_balance) <= threshold
-                      }).length
-                    : 0}
+                  🟠 Low Hopper: {deviceSummaryCounts.lowHopper}
                 </div>
                 <div className="text-xs text-fuchsia-300">
-                  🟣 High RTP:{' '}
-                  {
-                    devices.filter(d => {
-                      const rtp = getDeviceRtp(d)
-                      return rtp > 110
-                    }).length
-                  }
+                  🟣 High RTP: {deviceSummaryCounts.highRtp}
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 text-sm text-slate-300">
-                <span className="text-slate-400">Alerts</span>
+              <div className="flex items-center text-center space-y-2 md:hidden">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-300">
+                  <div className="text-xs text-green-300">
+                    🟢 Online: {deviceSummaryCounts.online}
+                  </div>
+                  <div className="text-xs text-blue-300">
+                    🔵 Active: {deviceSummaryCounts.active}
+                  </div>
+                  <div className="text-xs text-yellow-300">🟡 AFK: {deviceSummaryCounts.afk}</div>
+                  <div className="text-xs text-orange-300">
+                    🟠 Low Hopper: {deviceSummaryCounts.lowHopper}
+                  </div>
+                </div>
 
-                <select
-                  value={hopperAlertsEnabled ? 'on' : 'off'}
-                  onChange={e => setHopperAlertsEnabled(e.target.value === 'on')}
-                  className="rounded border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200"
-                >
-                  <option value="on">Hopper Alerts: ON</option>
-                  <option value="off">Hopper Alerts: OFF</option>
-                </select>
+                {showAllMobileDeviceCounters && (
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-300">
+                    <div className="text-xs text-violet-300">
+                      🛠 Maintenance: {deviceSummaryCounts.maintenance}
+                    </div>
+                    <div className="text-xs text-red-300">
+                      🔴 Offline: {deviceSummaryCounts.offline}
+                    </div>
+                    <div className="text-xs text-fuchsia-300">
+                      🟣 High RTP: {deviceSummaryCounts.highRtp}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="md:hidden">
+                <MobileToggleButton
+                  expanded={showAllMobileDeviceCounters}
+                  onClick={() => setShowAllMobileDeviceCounters(current => !current)}
+                />
               </div>
             </div>
           </div>
@@ -661,7 +1048,7 @@ export default function Dashboard() {
             </div>
             <div className="space-y-2 p-2">
               {paginatedDevices.map(d => {
-                const deviceRtp = getDeviceRtp(d)
+                const deviceRtp = getDeviceRtp(d.device_id)
                 const deviceAverageBet = getDeviceAverageBet(d)
 
                 const deviceHouseWin = asNumber(
@@ -672,172 +1059,197 @@ export default function Dashboard() {
                 // --- Alert Computations ---
                 const HIGH_RTP_THRESHOLD = 110
                 const highRtp = deviceRtp > HIGH_RTP_THRESHOLD
-                const offline = d.device_status === 'offline'
                 const gameType = getDeviceGameType(d)
                 const telemetryLabel = getDeviceTelemetryLabel(d)
                 const jackpotStatus = getDeviceJackpotStatus(d)
+                const mobileExpanded = Boolean(expandedMobileDevices[d.device_id])
                 return (
-                  <button
+                  <div
                     key={d.device_id}
-                    type="button"
                     className={`w-full rounded-lg border p-3 text-left ${
                       d.jackpot_selected
                         ? 'border-amber-300/70 bg-gradient-to-br from-amber-900/30 via-slate-900/80 to-slate-900/90 shadow-[0_0_20px_rgba(251,191,36,0.18)]'
                         : 'border-slate-700 bg-slate-800'
                     }`}
-                    onClick={() =>
-                      setSelectedDevice({
-                        ...d,
-                        game_type: gameType,
-                      })
-                    }
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-slate-100">
-                          {d.name?.trim() || 'Unnamed Cabinet'}
-                        </div>
-                        <div className="truncate text-[10px] text-slate-400">
-                          {[d.area_name, d.station_name].filter(Boolean).join(' • ') ||
-                            'Unassigned'}
-                        </div>
-                        <div className="mt-1 flex items-center gap-2 text-[10px]">
-                          <span
-                            className={`rounded px-1.5 py-0.5 font-semibold ${
-                              d.device_status === 'playing'
-                                ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50'
-                                : d.device_status === 'offline'
-                                  ? 'bg-slate-800 text-slate-400 border border-slate-700'
-                                  : 'bg-amber-900/40 text-amber-300 border border-amber-700/50'
-                            }`}
-                          >
-                            {(d.device_status ?? 'idle').toUpperCase() === 'IDLE'
-                              ? 'AFK'
-                              : (d.device_status ?? 'idle').toUpperCase()}
-                          </span>
-                          <span className="rounded border border-slate-700 bg-slate-800/60 px-1.5 py-0.5 text-[10px] text-slate-300">
-                            {gameType.toUpperCase()}
-                          </span>
-                          {(d.deployment_mode ?? 'online') === 'maintenance' && (
-                            <span className="rounded border border-violet-700 bg-violet-900/40 px-1.5 py-0.5 text-[10px] text-violet-200">
-                              MAINT
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-1 text-[10px] text-slate-300">{telemetryLabel}</div>
+                    <div className="flex items-start gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedDevice({
+                            ...d,
+                            game_type: gameType,
+                          })
+                        }
+                        className="min-w-0 flex-1 text-left"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-semibold text-slate-100">
+                              {d.name?.trim() || 'Unnamed Cabinet'}
+                            </div>
+                            <div className="truncate text-[10px] text-slate-400">
+                              {[d.area_name, d.station_name].filter(Boolean).join(' • ') ||
+                                'Unassigned'}
+                            </div>
+                            {mobileExpanded && (
+                              <>
+                                <div className="mt-1 flex items-center gap-2 text-[10px]">
+                                  <span
+                                    className={`rounded px-1.5 py-0.5 font-semibold ${
+                                      d.device_status === 'playing'
+                                        ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50'
+                                        : d.device_status === 'offline'
+                                          ? 'bg-slate-800 text-slate-400 border border-slate-700'
+                                          : 'bg-amber-900/40 text-amber-300 border border-amber-700/50'
+                                    }`}
+                                  >
+                                    {(d.device_status ?? 'idle').toUpperCase() === 'IDLE'
+                                      ? 'AFK'
+                                      : (d.device_status ?? 'idle').toUpperCase()}
+                                  </span>
+                                  <span className="rounded border border-slate-700 bg-slate-800/60 px-1.5 py-0.5 text-[10px] text-slate-300">
+                                    {gameType.toUpperCase()}
+                                  </span>
+                                  {(d.deployment_mode ?? 'online') === 'maintenance' && (
+                                    <span className="rounded border border-violet-700 bg-violet-900/40 px-1.5 py-0.5 text-[10px] text-violet-200">
+                                      MAINT
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="mt-1 text-[10px] text-slate-300">
+                                  {telemetryLabel}
+                                </div>
 
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {hopperLow && (
-                            <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-red-500 bg-red-950 text-red-300">
-                              LOW
-                            </span>
-                          )}
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  {hopperLow && (
+                                    <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-red-500 bg-red-950 text-red-300">
+                                      LOW
+                                    </span>
+                                  )}
 
-                          {highRtp && (
-                            <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-fuchsia-500 bg-fuchsia-950 text-fuchsia-300">
-                              RTP
-                            </span>
-                          )}
-
-                          {/*{stuckSession && (*/}
-                          {/*  <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-yellow-500 bg-yellow-950 text-yellow-300">*/}
-                          {/*    STUCK*/}
-                          {/*  </span>*/}
-                          {/*)}*/}
-
-                          {offline && (
-                            <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-slate-500 bg-slate-900 text-slate-300">
-                              OFF
-                            </span>
-                          )}
-                        </div>
-                        {d.jackpot_selected && (
-                          <div className="mt-1 text-[10px] font-semibold text-amber-200">
-                            JACKPOT TARGET {formatJackpotCurrency(d.jackpot_target_amount)} •
-                            Remaining {formatJackpotCurrency(d.jackpot_remaining_amount)}
+                                  {highRtp && (
+                                    <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-fuchsia-500 bg-fuchsia-950 text-fuchsia-300">
+                                      RTP
+                                    </span>
+                                  )}
+                                </div>
+                                {d.jackpot_selected && (
+                                  <div className="mt-1 text-[10px] font-semibold text-amber-200">
+                                    JACKPOT TARGET {formatJackpotCurrency(d.jackpot_target_amount)}{' '}
+                                    • Remaining {formatJackpotCurrency(d.jackpot_remaining_amount)}
+                                  </div>
+                                )}
+                                {jackpotStatus && (
+                                  <div className="mt-1 text-[10px] text-amber-300">
+                                    {jackpotStatus}
+                                  </div>
+                                )}
+                              </>
+                            )}
                           </div>
-                        )}
-                        {jackpotStatus && (
-                          <div className="mt-1 text-[10px] text-amber-300">{jackpotStatus}</div>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <div className="text-[10px] text-slate-500">Last Seen</div>
-                        <div className="text-xs text-slate-300">
-                          {d.updated_at ? moment(d.updated_at).format('MM-DD HH:mm') : '—'}
-                        </div>
-                      </div>
-                    </div>
 
-                    <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
-                      <div>
-                        <div className="text-[10px] text-slate-500">Balance</div>
-                        <div className="font-mono text-sm font-bold text-green-400">
-                          {formatCurrency(d.balance)}
+                          <div className="mt-0.5 text-right">
+                            <div className="text-[10px] text-slate-500">Last Bet At</div>{' '}
+                            <div className="text-xs text-slate-300">
+                              {d.last_bet_at ? moment(d.last_bet_at).format('MM-DD hh:mm A') : '—'}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-slate-500">Coins-In</div>
-                        <div className="font-mono text-sm text-sky-300">
-                          {formatCurrency(d.coins_in_total)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-slate-500">Hopper</div>
+
                         <div
-                          className={`font-mono text-sm font-bold ${
-                            hopperLow ? 'text-red-300 animate-pulse' : 'text-amber-300'
-                          }`}
+                          className={
+                            mobileExpanded
+                              ? 'mt-3 grid grid-cols-2 gap-x-3 gap-y-2'
+                              : 'mt-3 flex flex-wrap gap-y-2'
+                          }
                         >
-                          {formatCurrency(d.hopper_balance)}
+                          <div className={mobileExpanded ? undefined : 'min-w-[88px] flex-1'}>
+                            <div className="text-[10px] text-slate-500">Balance</div>
+                            <div className="font-mono text-sm font-bold text-green-400">
+                              {formatCurrency(d.balance)}
+                            </div>
+                          </div>
+                          <div className={mobileExpanded ? undefined : 'min-w-[88px] flex-1'}>
+                            <div className="text-[10px] text-slate-500">Coins-In</div>
+                            <div className="font-mono text-sm text-sky-300">
+                              {formatCurrency(d.coins_in_total)}
+                            </div>
+                          </div>
+                          <div className={mobileExpanded ? undefined : 'min-w-[88px] flex-1'}>
+                            <div className="text-[10px] text-slate-500">Hopper</div>
+                            <div
+                              className={`font-mono text-sm font-bold ${
+                                hopperLow ? 'text-red-300 animate-pulse' : 'text-amber-300'
+                              }`}
+                            >
+                              {formatCurrency(d.hopper_balance)}
+                            </div>
+                          </div>
+                          {mobileExpanded && (
+                            <>
+                              <div>
+                                <div className="text-[10px] text-slate-500">Arcade Total</div>
+                                <div className="font-mono text-sm text-indigo-300">
+                                  {formatCurrency(d.arcade_total)}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] text-slate-500">Withdraw</div>
+                                <div className="font-mono text-sm text-rose-300">
+                                  {formatCurrency(d.withdraw_total)}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] text-slate-500">Avg Bet</div>
+                                <div className="font-mono text-sm text-violet-300">
+                                  {formatJackpotCurrency(deviceAverageBet)}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] text-slate-500">Last Bet</div>
+                                <div className="font-mono text-sm text-violet-300">
+                                  {formatCurrency(d.last_bet_amount)}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] text-slate-500">House Win</div>
+                                <div
+                                  className={`font-mono text-sm ${deviceHouseWin < 0 ? 'text-red-300' : 'text-orange-300'}`}
+                                >
+                                  {formatCurrency(deviceHouseWin)}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] text-slate-500">Spins</div>
+                                <div className="font-mono text-sm text-cyan-300">
+                                  {asNumber(d.spins_total).toLocaleString()}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] text-slate-500">RTP</div>
+                                <div className="font-mono text-sm text-fuchsia-300">
+                                  {activityRtpReady ? formatPercent(deviceRtp) : '—'}
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-slate-500">Arcade Total</div>
-                        <div className="font-mono text-sm text-indigo-300">
-                          {formatCurrency(d.arcade_total)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-slate-500">Withdraw</div>
-                        <div className="font-mono text-sm text-rose-300">
-                          {formatCurrency(d.withdraw_total)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-slate-500">Avg Bet</div>
-                        <div className="font-mono text-sm text-violet-300">
-                          {formatJackpotCurrency(deviceAverageBet)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-slate-500">Last Bet</div>
-                        <div className="font-mono text-sm text-violet-300">
-                          {formatCurrency(d.last_bet_amount)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-slate-500">House Win</div>
-                        <div
-                          className={`font-mono text-sm ${deviceHouseWin < 0 ? 'text-red-300' : 'text-orange-300'}`}
-                        >
-                          {formatCurrency(deviceHouseWin)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-slate-500">Spins</div>
-                        <div className="font-mono text-sm text-cyan-300">
-                          {asNumber(d.spins_total).toLocaleString()}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-slate-500">RTP</div>
-                        <div className="font-mono text-sm text-fuchsia-300">
-                          {formatPercent(deviceRtp)}
-                        </div>
-                      </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => toggleMobileDeviceCard(d.device_id)}
+                        aria-label={
+                          mobileExpanded ? 'Collapse device details' : 'Expand device details'
+                        }
+                        aria-expanded={mobileExpanded}
+                        className="mt-0.5 shrink-0 rounded p-1 text-lg leading-none text-slate-400 hover:bg-slate-700/60 hover:text-slate-200"
+                      >
+                        {mobileExpanded ? '▴' : '▾'}
+                      </button>
                     </div>
-                  </button>
+                  </div>
                 )
               })}
             </div>
@@ -906,17 +1318,17 @@ export default function Dashboard() {
                     <button
                       type="button"
                       className="hover:text-white"
-                      onClick={() => onSort('updated_at')}
+                      onClick={() => onSort('last_bet_at')}
                     >
-                      Last Seen{' '}
-                      {sortField === 'updated_at' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                      Last Bet At{' '}
+                      {sortField === 'last_bet_at' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
                 {paginatedDevices.map(d => {
-                  const deviceRtp = getDeviceRtp(d)
+                  const deviceRtp = getDeviceRtp(d.device_id)
                   const deviceAverageBet = getDeviceAverageBet(d)
                   const deviceHouseWin = asNumber(
                     d.house_take_total ?? asNumber(d.bet_total) - asNumber(d.win_total),
@@ -1078,7 +1490,9 @@ export default function Dashboard() {
                         </div>
                         <div className="flex gap-2 justify-end  font-mono text-xs text-fuchsia-300">
                           RTP:
-                          <span className="font-thin">{formatPercent(deviceRtp)}</span>
+                          <span className="font-thin">
+                            {activityRtpReady ? formatPercent(deviceRtp) : '—'}
+                          </span>
                         </div>
                       </td>
 
@@ -1101,7 +1515,7 @@ export default function Dashboard() {
                         {formatCurrency(deviceHouseWin)}
                       </td>
                       <td className="px-4 py-2 text-right text-xs text-slate-400">
-                        {d.updated_at ? moment(d.updated_at).format('YYYY-MM-DD HH:mm') : '—'}
+                        {d.last_bet_at ? moment(d.last_bet_at).format('YYYY-MM-DD hh:mm A') : '—'}
                       </td>
                     </tr>
                   )
@@ -1234,10 +1648,10 @@ export default function Dashboard() {
               {jackpotQueueGroups.activeQueues.length === 0 &&
                 jackpotQueueGroups.unassignedPendingPots.length === 0 &&
                 jackpotQueueGroups.completedQueues.length === 0 && (
-                <div className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm text-slate-400">
-                  No jackpot payout queues found.
-                </div>
-              )}
+                  <div className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm text-slate-400">
+                    No jackpot payout queues found.
+                  </div>
+                )}
               {jackpotQueueGroups.activeQueues.map(queue => {
                 const deviceId = String(queue.device_id ?? '').trim()
                 const completed = Boolean(queue.completed_at)
@@ -1287,7 +1701,7 @@ export default function Dashboard() {
                         <div className="text-slate-500">Created</div>
                         <div className="font-mono">
                           {queue.created_at
-                            ? moment(queue.created_at).format('MM-DD HH:mm:ss')
+                            ? moment(queue.created_at).format('MM-DD hh:mm:ss A')
                             : '—'}
                         </div>
                       </div>
@@ -1295,12 +1709,12 @@ export default function Dashboard() {
                     <div className="mt-2 text-xs text-slate-400">
                       Ready{' '}
                       {queue.payout_ready_at
-                        ? moment(queue.payout_ready_at).format('MM-DD HH:mm:ss')
+                        ? moment(queue.payout_ready_at).format('MM-DD hh:mm:ss A')
                         : '—'}
                       {' • '}
                       Completed{' '}
                       {queue.completed_at
-                        ? moment(queue.completed_at).format('MM-DD HH:mm:ss')
+                        ? moment(queue.completed_at).format('MM-DD hh:mm:ss A')
                         : '—'}
                     </div>
                   </div>
@@ -1344,7 +1758,9 @@ export default function Dashboard() {
                           <div>
                             <div className="text-slate-500">Created</div>
                             <div className="font-mono">
-                              {pot.created_at ? moment(pot.created_at).format('MM-DD HH:mm:ss') : '—'}
+                              {pot.created_at
+                                ? moment(pot.created_at).format('MM-DD hh:mm:ss A')
+                                : '—'}
                             </div>
                           </div>
                         </div>
@@ -1398,7 +1814,7 @@ export default function Dashboard() {
                               <div className="text-slate-500">Created</div>
                               <div className="font-mono">
                                 {queue.created_at
-                                  ? moment(queue.created_at).format('MM-DD HH:mm:ss')
+                                  ? moment(queue.created_at).format('MM-DD hh:mm:ss A')
                                   : '—'}
                               </div>
                             </div>
@@ -1406,12 +1822,12 @@ export default function Dashboard() {
                           <div className="mt-2 text-xs text-slate-400">
                             Ready{' '}
                             {queue.payout_ready_at
-                              ? moment(queue.payout_ready_at).format('MM-DD HH:mm:ss')
+                              ? moment(queue.payout_ready_at).format('MM-DD hh:mm:ss A')
                               : '—'}
                             {' • '}
                             Completed{' '}
                             {queue.completed_at
-                              ? moment(queue.completed_at).format('MM-DD HH:mm:ss')
+                              ? moment(queue.completed_at).format('MM-DD hh:mm:ss A')
                               : '—'}
                           </div>
                         </div>
@@ -1420,6 +1836,87 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showManualJackpotOverridesModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 p-5 sm:p-6">
+          <div className="mx-auto max-w-4xl rounded-lg border border-slate-700 bg-slate-950 p-5 sm:p-6">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">Manual Jackpot Overrides</h3>
+                <div className="mt-1 text-xs text-slate-400">
+                  Latest entries first. Shows all dashboard-triggered per-device jackpot overrides.
+                </div>
+              </div>
+              <button
+                onClick={() => setShowManualJackpotOverridesModal(false)}
+                className="text-slate-300 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="max-h-[70vh] overflow-auto space-y-2">
+              {manualJackpotOverrides.length === 0 && (
+                <div className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm text-slate-400">
+                  No manual jackpot overrides found.
+                </div>
+              )}
+              {manualJackpotOverrides.map(override => {
+                const snapshot = (override.goal_snapshot as Record<string, unknown> | null) ?? null
+                const deviceId = String(snapshot?.deviceId ?? '').trim()
+                const snapshotDeviceName = String(snapshot?.deviceName ?? '').trim()
+                const deviceLabel =
+                  snapshotDeviceName || deviceNameById.get(deviceId) || deviceId || 'Unknown Device'
+
+                return (
+                  <div
+                    key={override.id}
+                    className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm"
+                  >
+                    <div className="flex flex-wrap items-center gap-2 font-mono">
+                      <span>#{override.id}</span>
+                      <span className="rounded border border-amber-700 bg-amber-950/60 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                        {String(override.status ?? 'queued').toUpperCase()}
+                      </span>
+                      <span className="text-slate-300">{deviceLabel}</span>
+                      {deviceId && <span className="text-slate-500">{deviceId}</span>}
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-300 sm:grid-cols-4">
+                      <div>
+                        <div className="text-slate-500">Amount</div>
+                        <div className="font-mono">
+                          {formatJackpotCurrency(override.amount_total)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500">Remaining</div>
+                        <div className="font-mono">
+                          {formatJackpotCurrency(override.amount_remaining)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500">Created</div>
+                        <div className="font-mono">
+                          {override.created_at
+                            ? moment(override.created_at).format('MM-DD hh:mm:ss A')
+                            : '—'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500">Completed</div>
+                        <div className="font-mono">
+                          {override.completed_at
+                            ? moment(override.completed_at).format('MM-DD hh:mm:ss A')
+                            : '—'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>

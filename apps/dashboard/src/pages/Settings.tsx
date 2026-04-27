@@ -5,20 +5,6 @@ import { getGame, toggleGame, useGames } from '../hooks/useGames'
 import { prepareGamePackage, purgeGamePackages, removeGamePackage } from '../lib/arcadeAdmin'
 import { supabase } from '../lib/supabase'
 
-type OverCapWinRow = {
-  id: number
-  device_id: string
-  device_name: string | null
-  event_ts: string
-  runtime_mode: 'BASE' | 'HAPPY'
-  funding_source: string
-  requested_amount: number
-  accepted_amount: number
-  funding_cap_amount: number
-  over_amount: number
-  metadata?: Record<string, any> | null
-}
-
 export default function Settings() {
   const games = useGames()
   const devices = useDevices()
@@ -36,6 +22,13 @@ export default function Settings() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [isRuntimeFormDirty, setIsRuntimeFormDirty] = useState(false)
+  const [hopperAlertsEnabled, setHopperAlertsEnabled] = useState(() => {
+    try {
+      return localStorage.getItem('hopperAlertsEnabled') === 'true'
+    } catch {
+      return false
+    }
+  })
 
   const [baseProfileId, setBaseProfileId] = useState('')
   const [happyProfileId, setHappyProfileId] = useState('')
@@ -91,9 +84,6 @@ export default function Settings() {
     'Global Manual Hopper Override',
   )
   const [globalHopperNotes, setGlobalHopperNotes] = useState('')
-  const [overCapWins, setOverCapWins] = useState<OverCapWinRow[]>([])
-  const [overCapWinsLoading, setOverCapWinsLoading] = useState(false)
-  const [overCapWinsError, setOverCapWinsError] = useState<string | null>(null)
 
   // Agents & Areas state
   const [agents, setAgents] = useState<any[]>([])
@@ -113,6 +103,14 @@ export default function Settings() {
 
     loadAgentsAreas()
   }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('hopperAlertsEnabled', String(hopperAlertsEnabled))
+    } catch {
+      /* empty */
+    }
+  }, [hopperAlertsEnabled])
 
   // CRUD functions for agents and areas
   async function createAgent() {
@@ -276,11 +274,6 @@ export default function Settings() {
     return () => clearTimeout(t)
   }, [testResultMessage])
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/immutability
-    void loadOverCapWins()
-  }, [])
-
   const baseProfiles = useMemo(() => profiles.filter(p => p.mode === 'BASE'), [profiles])
   const happyProfiles = useMemo(() => profiles.filter(p => p.mode === 'HAPPY'), [profiles])
   const devDevices = useMemo(
@@ -342,8 +335,6 @@ export default function Settings() {
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
   const formatCurrency = (v: number | string | null | undefined) =>
     `₱${asNumber(v).toLocaleString()}`
-  const formatDateTime = (value: string | null | undefined) =>
-    value ? new Date(value).toLocaleString() : 'Unknown'
   const testJackpotAmountValue = Math.max(0, Number(testJackpotAmount || 0))
   const testJackpotWinnersValue = Math.max(1, Math.floor(Number(testJackpotWinners || 1)))
   const effectiveTestWinners = Math.max(
@@ -576,26 +567,6 @@ export default function Settings() {
     if (!result.ok) {
       setErrorMessage(result.error?.message ?? 'Failed to toggle happy hour')
     }
-  }
-
-  async function loadOverCapWins() {
-    setOverCapWinsLoading(true)
-    setOverCapWinsError(null)
-
-    const { data, error } = await supabase
-      .from('over_cap_win_events_live')
-      .select('*')
-      .order('event_ts', { ascending: false })
-      .limit(50)
-
-    setOverCapWinsLoading(false)
-
-    if (error) {
-      setOverCapWinsError(error.message)
-      return
-    }
-
-    setOverCapWins((data ?? []) as OverCapWinRow[])
   }
 
   async function purgeRuntimeCache() {
@@ -1715,89 +1686,30 @@ export default function Settings() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-rose-800/70 bg-rose-950/20 p-4 space-y-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-rose-200">Over-Cap Win Clients</h2>
-            <p className="text-xs text-rose-200/80">
-              Recent normal wins that the DB had to clamp. Use this to find stale or buggy clients.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void loadOverCapWins()}
-            disabled={overCapWinsLoading}
-            className="rounded border border-rose-700 bg-rose-900/30 px-3 py-1.5 text-xs font-semibold text-rose-200 disabled:opacity-50"
-          >
-            {overCapWinsLoading ? 'Refreshing…' : 'Refresh List'}
-          </button>
+      <section className="rounded-lg border border-slate-700 bg-slate-800 p-4 space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold">Dashboard Preferences</h2>
+          <p className="text-xs text-slate-400">
+            Controls dashboard-only display behavior stored in this browser.
+          </p>
         </div>
 
-        {overCapWinsError && (
-          <div className="rounded border border-red-700 bg-red-900/30 p-3 text-xs text-red-200">
-            {overCapWinsError}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-sm text-slate-200">Hopper Alerts</div>
+            <div className="text-xs text-slate-400">
+              Enables low-hopper warning badges and counts on the dashboard.
+            </div>
           </div>
-        )}
 
-        <div className="overflow-x-auto rounded border border-rose-900/60">
-          <table className="min-w-full divide-y divide-rose-900/60 text-sm">
-            <thead className="bg-slate-950/70 bg-white dark:bg-slate-900 text-xs uppercase tracking-wide text-rose-200/80">
-              <tr>
-                <th className="px-3 py-2 text-left">Time</th>
-                <th className="px-3 py-2 text-left">Cabinet</th>
-                <th className="px-3 py-2 text-right">Requested</th>
-                <th className="px-3 py-2 text-right">Accepted</th>
-                <th className="px-3 py-2 text-right">Over</th>
-                <th className="px-3 py-2 text-left">Mode</th>
-                <th className="px-3 py-2 text-left">Client</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-rose-900/40 bg-slate-950/40">
-              {overCapWins.length === 0 && !overCapWinsLoading && (
-                <tr>
-                  <td colSpan={7} className="px-3 py-6 text-center text-xs text-slate-400">
-                    No over-cap wins logged.
-                  </td>
-                </tr>
-              )}
-              {overCapWins.map(row => {
-                const metadata = row.metadata ?? {}
-                const clientApp = String(metadata.clientApp ?? 'unknown')
-                const clientBuild = String(metadata.clientBuild ?? 'unknown')
-                const displayName = row.device_name?.trim() || 'Unnamed Cabinet'
-                return (
-                  <tr key={row.id} className="align-top">
-                    <td className="px-3 py-2 text-xs text-slate-300">
-                      {formatDateTime(row.event_ts)}
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="font-medium text-slate-100 text-slate-900 dark:text-slate-100">
-                        {displayName}
-                      </div>
-                      <div className="text-[11px] text-slate-400">{row.device_id}</div>
-                    </td>
-                    <td className="px-3 py-2 text-right text-rose-100">
-                      {formatCurrency(row.requested_amount)}
-                    </td>
-                    <td className="px-3 py-2 text-right text-slate-200">
-                      {formatCurrency(row.accepted_amount)}
-                    </td>
-                    <td className="px-3 py-2 text-right font-medium text-rose-300">
-                      {formatCurrency(row.over_amount)}
-                    </td>
-                    <td className="px-3 py-2 text-xs text-slate-300">
-                      <div>{row.runtime_mode}</div>
-                      <div className="text-[11px] text-slate-500">{row.funding_source}</div>
-                    </td>
-                    <td className="px-3 py-2 text-xs text-slate-300">
-                      <div>{clientApp}</div>
-                      <div className="text-[11px] text-slate-500">{clientBuild}</div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          <select
+            value={hopperAlertsEnabled ? 'on' : 'off'}
+            onChange={e => setHopperAlertsEnabled(e.target.value === 'on')}
+            className="rounded border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200"
+          >
+            <option value="on">ON</option>
+            <option value="off">OFF</option>
+          </select>
         </div>
       </section>
     </div>

@@ -65,15 +65,38 @@ export type CasinoRuntime = {
   hopper_alert_threshold: number
   updated_at: string
   active_target_rtp_pct?: number
+  manual_jackpot_override_total?: number
 }
 
 export function useCasinoRuntime() {
   const [runtime, setRuntime] = useState<CasinoRuntime | null>(null)
   const [profiles, setProfiles] = useState<RtpProfile[]>([])
 
+  async function fetchManualJackpotOverrideTotal() {
+    const { data, error } = await supabase
+      .from('jackpot_pots')
+      .select('amount_total')
+      .contains('goal_snapshot', { source: 'dashboard_device_override' })
+      .neq('status', 'processing')
+      .order('id', { ascending: true })
+
+    if (error) return null
+
+    return (data ?? []).reduce((sum, row) => sum + Number(row.amount_total ?? 0), 0)
+  }
+
   async function fetchRuntime() {
-    const { data, error } = await supabase.from('casino_runtime_live').select('*').eq('id', true).single()
-    if (!error) setRuntime(data as CasinoRuntime)
+    const [{ data, error }, manualJackpotOverrideTotal] = await Promise.all([
+      supabase.from('casino_runtime_live').select('*').eq('id', true).single(),
+      fetchManualJackpotOverrideTotal(),
+    ])
+
+    if (!error) {
+      setRuntime({
+        ...(data as CasinoRuntime),
+        manual_jackpot_override_total: manualJackpotOverrideTotal ?? undefined,
+      })
+    }
   }
 
   async function fetchProfiles() {

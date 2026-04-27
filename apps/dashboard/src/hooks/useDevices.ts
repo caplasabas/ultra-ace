@@ -82,6 +82,7 @@ export type DeviceRow = {
   pending_free_spins?: number | null
   show_free_spin_intro?: boolean | null
   current_spin_id?: number | null
+  last_bet_at?: string | null
   session_metadata?: Record<string, any> | null
   jackpot_selected?: boolean | null
   jackpot_target_amount?: number | null

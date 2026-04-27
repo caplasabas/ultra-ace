@@ -674,7 +674,7 @@ begin
     raise exception 'p_device_id is required';
   end if;
 
-  if v_target not in ('accounting_balance', 'hopper_balance') then
+  if v_target not in ('accounting_balance', 'hopper_balance', 'coins_in') then
     raise exception 'unsupported target: %', p_target;
   end if;
 
@@ -702,8 +702,10 @@ begin
 
   if v_target = 'accounting_balance' then
     v_before := greatest(coalesce(v_device.balance, 0), 0);
-  else
+  elsif v_target = 'hopper_balance' then
     v_before := greatest(coalesce(v_device.hopper_balance, 0), 0);
+  else
+    v_before := greatest(coalesce(v_device.coins_in_total, 0), 0);
   end if;
 
   if v_kind = 'credit' then
@@ -720,10 +722,16 @@ begin
       balance = v_after,
       updated_at = now()
     where device_id = p_device_id;
-  else
+  elsif v_target = 'hopper_balance' then
     update public.devices
     set
       hopper_balance = v_after,
+      updated_at = now()
+    where device_id = p_device_id;
+  else
+    update public.devices
+    set
+      coins_in_total = v_after,
       updated_at = now()
     where device_id = p_device_id;
   end if;
@@ -1918,7 +1926,7 @@ CREATE TABLE IF NOT EXISTS "public"."device_admin_ledger_entries" (
     "metadata" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
     CONSTRAINT "device_admin_ledger_entries_amount_check" CHECK (("amount" > (0)::numeric)),
     CONSTRAINT "device_admin_ledger_entries_entry_kind_check" CHECK (("entry_kind" = ANY (ARRAY['debit'::"text", 'credit'::"text"]))),
-    CONSTRAINT "device_admin_ledger_entries_target_check" CHECK (("target" = ANY (ARRAY['accounting_balance'::"text", 'hopper_balance'::"text"])))
+    CONSTRAINT "device_admin_ledger_entries_target_check" CHECK (("target" = ANY (ARRAY['accounting_balance'::"text", 'hopper_balance'::"text", 'coins_in'::"text"])))
 );
 
 

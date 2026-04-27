@@ -40,6 +40,7 @@ const GAME_BUILD_VERSION = import.meta.env.VITE_GAME_VERSION || 'dev'
 const FREE_SPIN_PRESTART_DELAY_MS = 1500
 const BIG_WIN_BET_MULTIPLIER = 10
 const BIG_WIN_MIN_AMOUNT = 20
+const BOOT_SPLASH_GAMEPLAY_GUARD_MS = 1200
 
 const VOICE_BY_SYMBOL: Record<string, string> = {
   A: aceVoice,
@@ -431,6 +432,7 @@ export default function App() {
   const lastPlayedPopAudioKeyRef = useRef<string>('')
   const lastPlayedDealAudioKeyRef = useRef<string>('')
   const pendingIntroStartRef = useRef(false)
+  const bootSplashDismissedAtRef = useRef(0)
   const activeForegroundAudioRef = useRef<HTMLAudioElement | null>(null)
   const activeForegroundAudioFinalizeRef = useRef<(() => void) | null>(null)
   const activeOneShotAudioRef = useRef(new Set<HTMLAudioElement>())
@@ -469,6 +471,15 @@ export default function App() {
   const setHasPressedStartRef = useRef(setHasPressedStart)
 
   const setAudioOnRef = useRef(setAudioOn)
+
+  function dismissBootSplash() {
+    bootSplashDismissedAtRef.current = Date.now()
+    setHasPressedStartRef.current(true)
+  }
+
+  function isBootSplashGameplayGuardActive() {
+    return Date.now() - bootSplashDismissedAtRef.current < BOOT_SPLASH_GAMEPLAY_GUARD_MS
+  }
 
   function stopForegroundAudio() {
     audioSequenceTokenRef.current += 1
@@ -1344,15 +1355,28 @@ export default function App() {
           requestParentExitConfirm()
           return
         } else if (isP1StartPlayerEvent) {
-          setHasPressedStartRef.current(true)
+          dismissBootSplash()
           return
         } else if (action === 'SPIN' && (payload.player === undefined || payload.player === 'P1')) {
           // keep compatibility with services that emit ACTION/SPIN for P1 START
-          setHasPressedStartRef.current(true)
+          dismissBootSplash()
           return
         } else {
           return
         }
+      }
+
+      if (
+        isBootSplashGameplayGuardActive() &&
+        (action === 'SPIN' ||
+          action === 'AUTO' ||
+          action === 'TURBO' ||
+          action === 'BET_UP' ||
+          action === 'BET_DOWN' ||
+          action === 'BUY' ||
+          action === 'WITHDRAW')
+      ) {
+        return
       }
 
       switch (action) {
@@ -1530,13 +1554,13 @@ export default function App() {
       <div className="viewport">
         <div
           className="boot-splash-screen"
-          onClick={allowBootSplashClick ? () => setHasPressedStart(true) : undefined}
+          onClick={allowBootSplashClick ? () => dismissBootSplash() : undefined}
           onKeyDown={
             allowBootSplashClick
               ? event => {
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault()
-                    setHasPressedStart(true)
+                    dismissBootSplash()
                   }
                 }
               : undefined
