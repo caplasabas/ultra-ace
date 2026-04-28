@@ -68,7 +68,7 @@ export type DeviceRow = {
   current_game_name?: string | null
   current_game_type?: 'arcade' | 'casino' | null
   device_status?: 'idle' | 'playing' | 'offline' | null
-  deployment_mode?: 'online' | 'maintenance' | null
+  deployment_mode?: 'online' | 'standby' | 'maintenance' | null
   withdraw_enabled?: boolean | null
   active_session_id?: number | null
   session_started_at?: string | null
@@ -88,6 +88,10 @@ export type DeviceRow = {
   jackpot_target_amount?: number | null
   jackpot_remaining_amount?: number | null
   jackpot_spins_until_start?: number | null
+  happy_override_selected?: boolean | null
+  happy_override_target_amount?: number | null
+  happy_override_remaining_amount?: number | null
+  happy_override_id?: number | null
   arcade_shell_version?: string | null
   current_ip?: string | null
   updated_at?: string | null

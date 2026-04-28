@@ -1586,7 +1586,7 @@ export default function App() {
 
   return (
     <div className="viewport">
-      <div className={`game-root mode-${runtimeMode.toLowerCase()}`}>
+      <div className="game-root">
         <div className="game-frame">
           <div className="frame-bg">
             <div className={`bg-inner ${showFreeSpinModeUi ? 'free-spin' : ''}`}>

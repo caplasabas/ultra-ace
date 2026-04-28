@@ -252,7 +252,9 @@ function pickWeightedSymbol(
         ? (cfg.reels.refillWeightsFree[s.kind] ?? 0.1)
         : (cfg.reels.refillWeights[s.kind] ?? 0.015)
     const penalty =
-      cfg.mode === 'HAPPY_HOUR' ? 1 : symbolReinforcementPenalty(winningMap.get(s.kind) ?? 0)
+      cfg.mode === 'HAPPY_HOUR'
+        ? happySymbolReinforcementPenalty(winningMap.get(s.kind) ?? 0)
+        : symbolReinforcementPenalty(winningMap.get(s.kind) ?? 0)
     return {
       symbol: s,
       weight: baseWeight * penalty,
@@ -285,6 +287,13 @@ function symbolReinforcementPenalty(count: number): number {
   if (count === 4) return 0.65
   if (count === 5) return 0.35
   return 0.2
+}
+
+function happySymbolReinforcementPenalty(count: number): number {
+  if (count <= 3) return 1.0
+  if (count === 4) return 0.94
+  if (count === 5) return 0.84
+  return 0.74
 }
 
 /* ----------------------------------------

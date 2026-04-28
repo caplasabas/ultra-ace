@@ -26,13 +26,20 @@ export function DeviceModal({
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [overrideBusy, setOverrideBusy] = useState(false)
   const [jackpotOverrideBusy, setJackpotOverrideBusy] = useState(false)
+  const [happyOverrideBusy, setHappyOverrideBusy] = useState(false)
   const [powerActionBusy, setPowerActionBusy] = useState<'restart' | 'shutdown' | 'reset' | null>(
     null,
   )
   const [nameBusy, setNameBusy] = useState(false)
   const [deviceName, setDeviceName] = useState(String(device.name ?? ''))
-  const [deploymentMode, setDeploymentMode] = useState<'online' | 'maintenance'>(
-    device.deployment_mode === 'maintenance' ? 'maintenance' : 'online',
+  const normalizeDeploymentMode = (value: unknown): 'online' | 'standby' | 'maintenance' => {
+    const mode = String(value ?? 'online').trim().toLowerCase()
+    if (mode === 'standby') return 'standby'
+    if (mode === 'maintenance') return 'maintenance'
+    return 'online'
+  }
+  const [deploymentMode, setDeploymentMode] = useState<'online' | 'standby' | 'maintenance'>(
+    normalizeDeploymentMode(device.deployment_mode),
   )
   const [deploymentBusy, setDeploymentBusy] = useState(false)
   const [withdrawEnabled, setWithdrawEnabled] = useState(Boolean(device.withdraw_enabled))
@@ -137,7 +144,10 @@ export function DeviceModal({
   const gameType: 'arcade' | 'casino' =
     gameTypeRaw === 'arcade' || gameTypeRaw === 'casino'
       ? (gameTypeRaw as 'arcade' | 'casino')
-      : device.runtime_mode || device.is_free_game || device.jackpot_selected
+      : device.runtime_mode ||
+          device.is_free_game ||
+          device.jackpot_selected ||
+          device.happy_override_selected
         ? 'casino'
         : 'arcade'
   const gameName = String(device.current_game_name ?? device.current_game_id ?? 'No Game')
@@ -160,6 +170,9 @@ export function DeviceModal({
     }
     return 'JACKPOT ARMED • trigger spin next'
   })()
+  const happyOverrideStatusLabel = device.happy_override_selected
+    ? `HAPPY OVERRIDE • TARGET ${formatJackpotCurrency(device.happy_override_target_amount)} • REMAINING ${formatJackpotCurrency(device.happy_override_remaining_amount)}`
+    : null
   const [balanceAmount, setBalanceAmount] = useState('0')
   const [balanceKind, setBalanceKind] = useState<'debit' | 'credit'>('credit')
   const [balanceAccountName, setBalanceAccountName] = useState('Manual Accounting Override')
@@ -177,6 +190,11 @@ export function DeviceModal({
   const [jackpotOverrideAmount, setJackpotOverrideAmount] = useState('')
   const [jackpotOverrideConfirmOpen, setJackpotOverrideConfirmOpen] = useState(false)
   const [jackpotOverridePendingAmount, setJackpotOverridePendingAmount] = useState<number | null>(
+    null,
+  )
+  const [happyOverrideAmount, setHappyOverrideAmount] = useState('')
+  const [happyOverrideConfirmOpen, setHappyOverrideConfirmOpen] = useState(false)
+  const [happyOverridePendingAmount, setHappyOverridePendingAmount] = useState<number | null>(
     null,
   )
 
@@ -197,12 +215,15 @@ export function DeviceModal({
     setCoinsInAmount('0')
     setDeviceName(String(device.name ?? ''))
     setJackpotOverrideAmount('')
+    setHappyOverrideAmount('')
     setJackpotOverrideConfirmOpen(false)
     setJackpotOverridePendingAmount(null)
+    setHappyOverrideConfirmOpen(false)
+    setHappyOverridePendingAmount(null)
   }, [device.device_id, device.balance, device.hopper_balance])
 
   useEffect(() => {
-    setDeploymentMode(device.deployment_mode === 'maintenance' ? 'maintenance' : 'online')
+    setDeploymentMode(normalizeDeploymentMode(device.deployment_mode))
   }, [device.device_id, device.deployment_mode])
 
   useEffect(() => {
@@ -444,7 +465,9 @@ export function DeviceModal({
     setSuccessMessage(
       deploymentMode === 'maintenance'
         ? `Device set to maintenance mode`
-        : `Device set to online mode`,
+        : deploymentMode === 'standby'
+          ? `Device set to standby mode`
+          : `Device set to online mode`,
     )
     setErrorMessage(null)
   }
@@ -530,6 +553,57 @@ export function DeviceModal({
     setJackpotOverridePendingAmount(null)
   }
 
+  function openHappyOverrideConfirm() {
+    const amount = roundOverrideAmount(happyOverrideAmount)
+    if (amount <= 0) {
+      setErrorMessage('Happy hour override amount must be greater than 0')
+      return
+    }
+
+    setHappyOverridePendingAmount(amount)
+    setHappyOverrideConfirmOpen(true)
+    setErrorMessage(null)
+  }
+
+  function closeHappyOverrideConfirm() {
+    if (happyOverrideBusy) return
+    setHappyOverrideConfirmOpen(false)
+    setHappyOverridePendingAmount(null)
+  }
+
+  async function confirmHappyOverride() {
+    const amount = happyOverridePendingAmount
+    if (!device?.device_id || !amount || amount <= 0) {
+      setErrorMessage('Happy hour override amount must be greater than 0')
+      setHappyOverrideConfirmOpen(false)
+      setHappyOverridePendingAmount(null)
+      return
+    }
+
+    setHappyOverrideBusy(true)
+
+    const { data, error } = await supabase.rpc('enqueue_device_happy_hour_override', {
+      p_device_id: device.device_id,
+      p_amount: amount,
+    })
+
+    setHappyOverrideBusy(false)
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+
+    const overrideId = Number((data as any)?.id ?? 0)
+    setSuccessMessage(
+      `Happy override armed for ${device.device_id} • ${formatJackpotCurrency(amount)} • override #${overrideId}`,
+    )
+    setErrorMessage(null)
+    setHappyOverrideAmount('')
+    setHappyOverrideConfirmOpen(false)
+    setHappyOverridePendingAmount(null)
+  }
+
   function roundOverrideAmount(value: string) {
     const amount = Math.max(0, Number(value || 0))
     if (!Number.isFinite(amount)) return 0
@@ -543,6 +617,8 @@ export function DeviceModal({
           className={`bg-slate-900 w-full max-w-2xl h-[85vh] flex flex-col rounded-xl border ${
             device.jackpot_selected
               ? 'border-amber-400/70 shadow-[0_0_28px_rgba(251,191,36,0.2)]'
+              : device.happy_override_selected
+                ? 'border-pink-400/70 shadow-[0_0_28px_rgba(236,72,153,0.18)]'
               : 'border-slate-800'
           }`}
         >
@@ -579,6 +655,9 @@ export function DeviceModal({
                 )}
                 {jackpotStatusLabel && (
                   <div className="mt-1 text-xs text-amber-300">{jackpotStatusLabel}</div>
+                )}
+                {happyOverrideStatusLabel && (
+                  <div className="mt-1 text-xs text-pink-300">{happyOverrideStatusLabel}</div>
                 )}
                 <div className="mt-2 flex flex-wrap gap-2">
                   {hopperLow && (
@@ -863,7 +942,12 @@ export function DeviceModal({
                       <button
                         type="button"
                         className="rounded border border-sky-600/80 bg-sky-900/30 px-3 py-1.5 text-xs font-semibold text-sky-200 hover:bg-sky-800/40 disabled:opacity-50"
-                        disabled={powerActionBusy !== null || overrideBusy || jackpotOverrideBusy}
+                        disabled={
+                          powerActionBusy !== null ||
+                          overrideBusy ||
+                          jackpotOverrideBusy ||
+                          happyOverrideBusy
+                        }
                         onClick={() => void runDeviceReset()}
                       >
                         {powerActionBusy === 'reset' ? 'Resetting Device...' : 'Reset Device'}
@@ -871,7 +955,12 @@ export function DeviceModal({
                       <button
                         type="button"
                         className="rounded border border-amber-600/80 bg-amber-900/30 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-800/40 disabled:opacity-50"
-                        disabled={powerActionBusy !== null || overrideBusy || jackpotOverrideBusy}
+                        disabled={
+                          powerActionBusy !== null ||
+                          overrideBusy ||
+                          jackpotOverrideBusy ||
+                          happyOverrideBusy
+                        }
                         onClick={() => void enqueuePowerCommand('restart')}
                       >
                         {powerActionBusy === 'restart' ? 'Queueing Restart...' : 'Restart Device'}
@@ -879,7 +968,12 @@ export function DeviceModal({
                       <button
                         type="button"
                         className="rounded border border-red-600/80 bg-red-900/30 px-3 py-1.5 text-xs font-semibold text-red-200 hover:bg-red-800/40 disabled:opacity-50"
-                        disabled={powerActionBusy !== null || overrideBusy || jackpotOverrideBusy}
+                        disabled={
+                          powerActionBusy !== null ||
+                          overrideBusy ||
+                          jackpotOverrideBusy ||
+                          happyOverrideBusy
+                        }
                         onClick={() => void enqueuePowerCommand('shutdown')}
                       >
                         {powerActionBusy === 'shutdown'
@@ -914,6 +1008,7 @@ export function DeviceModal({
                         className="rounded border border-amber-500/80 bg-amber-900/40 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-800/50 disabled:opacity-50"
                         disabled={
                           jackpotOverrideBusy ||
+                          happyOverrideBusy ||
                           overrideBusy ||
                           powerActionBusy !== null ||
                           deploymentBusy ||
@@ -927,6 +1022,48 @@ export function DeviceModal({
                     <div className="mt-3 text-[11px] text-slate-500">
                       The override is blocked if this cabinet already has an active jackpot queue or
                       is currently inside a free-spin flow.
+                    </div>
+                  </div>
+
+                  <h4 className="text-sm font-semibold mb-2">Happy Hour Override</h4>
+                  <div className="rounded border border-pink-700/50 bg-pink-950/20 p-3 mb-4">
+                    <div className="text-xs text-pink-200 mb-2">
+                      Arms a device-specific happy hour pool for this cabinet only.
+                    </div>
+                    <div className="text-xs text-slate-400 mb-3">
+                      While active, this device uses happy RTP and only the amount above the normal
+                      win funding cap consumes the override. The RTP drops back automatically the
+                      moment the remaining amount hits zero.
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={happyOverrideAmount}
+                        onChange={e => setHappyOverrideAmount(e.target.value)}
+                        placeholder="Happy hour amount"
+                        className="flex-1 rounded border border-pink-700/50 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+                      />
+                      <button
+                        type="button"
+                        className="rounded border border-pink-500/80 bg-pink-900/40 px-3 py-2 text-xs font-semibold text-pink-100 hover:bg-pink-800/50 disabled:opacity-50"
+                        disabled={
+                          happyOverrideBusy ||
+                          jackpotOverrideBusy ||
+                          overrideBusy ||
+                          powerActionBusy !== null ||
+                          deploymentBusy ||
+                          withdrawBusy
+                        }
+                        onClick={openHappyOverrideConfirm}
+                      >
+                        {happyOverrideBusy ? 'Arming Happy Override...' : 'Confirm Happy Override'}
+                      </button>
+                    </div>
+                    <div className="mt-3 text-[11px] text-slate-500">
+                      The override is blocked if this cabinet already has an active happy override
+                      or is currently inside a free-spin flow.
                     </div>
                   </div>
 
@@ -1006,14 +1143,11 @@ export function DeviceModal({
                         <div className="flex flex-col gap-2 sm:flex-row">
                           <select
                             value={deploymentMode}
-                            onChange={e =>
-                              setDeploymentMode(
-                                e.target.value === 'maintenance' ? 'maintenance' : 'online',
-                              )
-                            }
+                            onChange={e => setDeploymentMode(normalizeDeploymentMode(e.target.value))}
                             className="flex-1 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
                           >
                             <option value="online">Online</option>
+                            <option value="standby">Standby</option>
                             <option value="maintenance">Maintenance</option>
                           </select>
                           <button
@@ -1024,6 +1158,7 @@ export function DeviceModal({
                               withdrawBusy ||
                               overrideBusy ||
                               jackpotOverrideBusy ||
+                              happyOverrideBusy ||
                               powerActionBusy !== null
                             }
                             onClick={() => void saveDeploymentMode()}
@@ -1057,6 +1192,7 @@ export function DeviceModal({
                               deploymentBusy ||
                               overrideBusy ||
                               jackpotOverrideBusy ||
+                              happyOverrideBusy ||
                               powerActionBusy !== null
                             }
                             onClick={() => void saveWithdrawEnabled()}
@@ -1339,6 +1475,44 @@ export function DeviceModal({
                 onClick={() => void confirmJackpotOverride()}
               >
                 {jackpotOverrideBusy ? 'Queueing Jackpot...' : 'Yes, Queue Jackpot'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {happyOverrideConfirmOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-xl border border-pink-500/60 bg-slate-950 p-5 shadow-[0_0_40px_rgba(236,72,153,0.18)]">
+            <h4 className="text-base font-semibold text-pink-100">Confirm Happy Override</h4>
+            <div className="mt-3 text-sm text-slate-300">
+              Queue a device-only happy override for{' '}
+              <span className="font-mono text-white">{device.device_id}</span> worth{' '}
+              <span className="font-semibold text-pink-200">
+                {formatJackpotCurrency(happyOverridePendingAmount)}
+              </span>
+              ?
+            </div>
+            <div className="mt-3 rounded border border-slate-800 bg-slate-900/80 p-3 text-xs text-slate-400">
+              This enables happy RTP for this device only and logs override-funded wins separately.
+              The extra payout pool is consumed only by the amount above the normal win cap, and it
+              stops automatically once the remaining amount reaches zero.
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+                disabled={happyOverrideBusy}
+                onClick={closeHappyOverrideConfirm}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded border border-pink-500/80 bg-pink-900/40 px-3 py-2 text-xs font-semibold text-pink-100 hover:bg-pink-800/50 disabled:opacity-50"
+                disabled={happyOverrideBusy}
+                onClick={() => void confirmHappyOverride()}
+              >
+                {happyOverrideBusy ? 'Queueing Happy Override...' : 'Yes, Arm Happy Override'}
               </button>
             </div>
           </div>

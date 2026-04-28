@@ -25,10 +25,33 @@ export type CasinoRuntimeLive = {
   updated_at: string
 }
 
+export type DeviceHappyOverrideLive = {
+  happy_override_selected: boolean
+  happy_override_remaining_amount: number
+}
+
 export async function fetchCasinoRuntimeLive() {
   const { data, error } = await supabase.from('casino_runtime_live').select('*').eq('id', true).single()
   if (error) throw error
   return data as CasinoRuntimeLive
+}
+
+export async function fetchDeviceHappyOverrideLive(deviceId: string) {
+  const { data, error } = await supabase
+    .from('devices_dashboard_live')
+    .select('happy_override_selected,happy_override_remaining_amount')
+    .eq('device_id', deviceId)
+    .maybeSingle()
+
+  if (error) throw error
+
+  return {
+    happy_override_selected: Boolean(data?.happy_override_selected),
+    happy_override_remaining_amount: Math.max(
+      0,
+      Number(data?.happy_override_remaining_amount ?? 0),
+    ),
+  } as DeviceHappyOverrideLive
 }
 
 export function subscribeCasinoRuntimeLive(onUpdate: (next: CasinoRuntimeLive) => void) {

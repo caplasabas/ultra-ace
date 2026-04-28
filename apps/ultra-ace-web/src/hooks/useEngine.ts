@@ -21,6 +21,7 @@ import type { DeviceBalanceSnapshot } from '../lib/balance'
 import { fetchDeviceBalance, subscribeToDeviceBalance } from '../lib/balance'
 import {
   fetchCasinoRuntimeLive,
+  fetchDeviceHappyOverrideLive,
   type JackpotDeliveryMode,
   type JackpotPayoutCurve,
   subscribeCasinoRuntimeLive,
@@ -146,12 +147,15 @@ type AuthPlanVarianceComposeResult = {
 }
 
 type RuntimeSpinSnapshot = {
+  globalMode: 'BASE' | 'HAPPY'
   mode: 'BASE' | 'HAPPY'
   config: typeof DEFAULT_ENGINE_CONFIG
   deliveryMode: JackpotDeliveryMode
   payoutCurve: JackpotPayoutCurve
   prizePoolBalance: number
   happyHourPrizeBalance: number
+  deviceHappyOverrideActive: boolean
+  deviceHappyOverrideRemaining: number
   baseHousePct: number
   happyHousePct: number
 }
@@ -557,8 +561,10 @@ export function useEngine() {
       active_mode: 'BASE' | 'HAPPY'
       max_win_enabled?: boolean
       jackpot_delivery_mode?: JackpotDeliveryMode
+      device_happy_override_active?: boolean
     }) => {
-      const mode = runtime.active_mode === 'HAPPY' ? 'HAPPY' : 'BASE'
+      const mode =
+        runtime.active_mode === 'HAPPY' || runtime.device_happy_override_active ? 'HAPPY' : 'BASE'
       const nextConfig = mode === 'HAPPY' ? DEFAULT_ENGINE_HAPPY_HOUR : DEFAULT_ENGINE_CONFIG
       maxWinEnabledRef.current = runtime.max_win_enabled ?? true
       jackpotDeliveryModeRef.current = runtime.jackpot_delivery_mode ?? 'TARGET_FIRST'
@@ -764,16 +770,38 @@ export function useEngine() {
       setSessionReady(true)
 
       try {
-        const runtime = await fetchCasinoRuntimeLive()
+        const [runtime, deviceRuntime] = await Promise.all([
+          fetchCasinoRuntimeLive(),
+          fetchDeviceHappyOverrideLive(id),
+        ])
         if (mounted) {
-          applyRuntimeMode(runtime)
+          applyRuntimeMode({
+            ...runtime,
+            device_happy_override_active:
+              deviceRuntime.happy_override_selected &&
+              Number(deviceRuntime.happy_override_remaining_amount ?? 0) > 0.0001,
+          })
         }
       } catch (err) {
         console.error('[runtime] initial load failed', err)
       }
 
       runtimeChannel = subscribeCasinoRuntimeLive(next => {
-        applyRuntimeMode(next)
+        void (async () => {
+          try {
+            const currentDeviceId = deviceIdRef.current ?? id
+            const deviceRuntime = await fetchDeviceHappyOverrideLive(currentDeviceId)
+            applyRuntimeMode({
+              ...next,
+              device_happy_override_active:
+                deviceRuntime.happy_override_selected &&
+                Number(deviceRuntime.happy_override_remaining_amount ?? 0) > 0.0001,
+            })
+          } catch (error) {
+            console.error('[runtime] device override refresh failed', loggableError(error))
+            applyRuntimeMode(next)
+          }
+        })()
       })
     }
 
@@ -898,8 +926,25 @@ export function useEngine() {
 
   async function refreshRuntimeMode(): Promise<RuntimeSpinSnapshot> {
     try {
-      const runtime = await fetchCasinoRuntimeLive()
-      const mode = runtime.active_mode === 'HAPPY' ? 'HAPPY' : 'BASE'
+      const currentDeviceId = deviceIdRef.current
+      const [runtime, deviceRuntime] = await Promise.all([
+        fetchCasinoRuntimeLive(),
+        currentDeviceId
+          ? fetchDeviceHappyOverrideLive(currentDeviceId)
+          : Promise.resolve({
+              happy_override_selected: false,
+              happy_override_remaining_amount: 0,
+            }),
+      ])
+      const deviceHappyOverrideActive =
+        runtime.active_mode !== 'HAPPY' &&
+        deviceRuntime.happy_override_selected &&
+        Number(deviceRuntime.happy_override_remaining_amount ?? 0) > 0.0001
+      const deviceHappyOverrideRemaining = Math.max(
+        0,
+        Number(deviceRuntime.happy_override_remaining_amount ?? 0),
+      )
+      const mode = runtime.active_mode === 'HAPPY' || deviceHappyOverrideActive ? 'HAPPY' : 'BASE'
       const nextConfig = mode === 'HAPPY' ? DEFAULT_ENGINE_HAPPY_HOUR : DEFAULT_ENGINE_CONFIG
       maxWinEnabledRef.current = runtime.max_win_enabled ?? true
       const deliveryMode = runtime.jackpot_delivery_mode ?? 'TARGET_FIRST'
@@ -911,12 +956,15 @@ export function useEngine() {
       })
       setRuntimeMode(mode)
       return {
+        globalMode: runtime.active_mode === 'HAPPY' ? 'HAPPY' : 'BASE',
         mode,
         config: nextConfig,
         deliveryMode,
         payoutCurve,
         prizePoolBalance: Math.max(0, Number(runtime.prize_pool_balance ?? 0)),
         happyHourPrizeBalance: Math.max(0, Number(runtime.happy_hour_prize_balance ?? 0)),
+        deviceHappyOverrideActive,
+        deviceHappyOverrideRemaining,
         baseHousePct: Math.min(100, Math.max(0, Number(runtime.base_house_pct ?? 0))),
         happyHousePct: Math.min(100, Math.max(0, Number(runtime.happy_house_pct ?? 0))),
       } satisfies RuntimeSpinSnapshot
@@ -925,12 +973,15 @@ export function useEngine() {
       const mode = runtimeMode === 'HAPPY' ? 'HAPPY' : 'BASE'
       const fallbackConfig = mode === 'HAPPY' ? DEFAULT_ENGINE_HAPPY_HOUR : DEFAULT_ENGINE_CONFIG
       return {
+        globalMode: runtimeMode === 'HAPPY' ? 'HAPPY' : 'BASE',
         mode,
         config: fallbackConfig,
         deliveryMode: jackpotDeliveryModeRef.current,
         payoutCurve: 'center',
         prizePoolBalance: 0,
         happyHourPrizeBalance: 0,
+        deviceHappyOverrideActive: false,
+        deviceHappyOverrideRemaining: 0,
         baseHousePct: 20,
         happyHousePct: 20,
       }
@@ -962,7 +1013,7 @@ export function useEngine() {
   ): number | null {
     const normalizedBet = roundMoney(Math.max(0, Number(betAmount ?? 0)))
     const reserveBalance =
-      runtimeSnapshot.mode === 'HAPPY'
+      runtimeSnapshot.globalMode === 'HAPPY'
         ? Math.max(0, Number(runtimeSnapshot.happyHourPrizeBalance ?? 0))
         : Math.max(0, Number(runtimeSnapshot.prizePoolBalance ?? 0))
     const housePct =
@@ -970,10 +1021,15 @@ export function useEngine() {
         ? Math.min(100, Math.max(0, Number(runtimeSnapshot.happyHousePct ?? 0)))
         : Math.min(100, Math.max(0, Number(runtimeSnapshot.baseHousePct ?? 0)))
     const postHouseBudget =
-      runtimeSnapshot.mode === 'HAPPY'
+      runtimeSnapshot.globalMode === 'HAPPY'
         ? 0
         : roundMoney(Math.max(0, normalizedBet - normalizedBet * (housePct / 100)))
-    return roundMoney(clampToCurrentSpinMax(Math.max(0, reserveBalance + postHouseBudget)))
+    const deviceOverrideBudget = runtimeSnapshot.deviceHappyOverrideActive
+      ? Math.max(0, Number(runtimeSnapshot.deviceHappyOverrideRemaining ?? 0))
+      : 0
+    return roundMoney(
+      clampToCurrentSpinMax(Math.max(0, reserveBalance + postHouseBudget + deviceOverrideBudget)),
+    )
   }
 
   function selectNormalOutcomeWithinCap({
@@ -1869,12 +1925,13 @@ export function useEngine() {
     currentSpinMaxWinRef.current = isJackpotFreeSpin ? null : getMaxWinCapForBet(spinAmount)
     // Only apply the live-funding reroll cap to paid base spins. Free spins should not be
     // collapsed toward zero by passing a zero bet amount into the funding-budget path.
-    const normalWinCap =
-      !isJackpotFreeSpin && !isFreeGame
-        ? getFundableNormalWinCap(runtimeSnapshot, spinAmount)
-        : null
+    const shouldApplyFundingCapReroll =
+      !isJackpotFreeSpin && !isFreeGame && runtimeSnapshot.mode !== 'HAPPY'
+    const normalWinCap = shouldApplyFundingCapReroll
+      ? getFundableNormalWinCap(runtimeSnapshot, spinAmount)
+      : null
     const selectedNormalSpin =
-      !isJackpotFreeSpin && !isFreeGame
+      shouldApplyFundingCapReroll
         ? selectNormalOutcomeWithinCap({
             initialOutcome: seededOutcome,
             winCap: normalWinCap,
@@ -2204,13 +2261,18 @@ export function useEngine() {
     } satisfies Parameters<typeof spin>[1]
     const seededOutcome: SpinOutcome = spin(rngRef.current, spinInput)
     currentSpinMaxWinRef.current = getMaxWinCapForBet(cost)
-    const totalWinCap = getFundableNormalWinCap(runtimeSnapshot, cost)
-    const selectedOutcome = selectNormalOutcomeWithinCap({
-      initialOutcome: seededOutcome,
-      winCap: totalWinCap,
-      rng: rngRef.current,
-      spinInput,
-    })
+    const shouldApplyBuyFundingCapReroll = runtimeSnapshot.mode !== 'HAPPY'
+    const totalWinCap = shouldApplyBuyFundingCapReroll
+      ? getFundableNormalWinCap(runtimeSnapshot, cost)
+      : null
+    const selectedOutcome = shouldApplyBuyFundingCapReroll
+      ? selectNormalOutcomeWithinCap({
+          initialOutcome: seededOutcome,
+          winCap: totalWinCap,
+          rng: rngRef.current,
+          spinInput,
+        })
+      : { outcome: seededOutcome, rerolled: false, attemptCount: 1 }
     const outcome = selectedOutcome.outcome
     const rawTotalWin = getOutcomeTotalWin(outcome)
     const totalWin = clampToCurrentSpinMax(rawTotalWin)

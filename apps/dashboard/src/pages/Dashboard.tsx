@@ -31,9 +31,11 @@ type SortDirection = 'asc' | 'desc'
 type DeploymentFilter =
   | 'all'
   | 'online'
+  | 'standby'
   | 'maintenance'
   | 'playing'
   | 'playing_online'
+  | 'playing_standby'
   | 'playing_maintenance'
 
 type ActivityRtpTotals = {
@@ -56,9 +58,11 @@ const SORT_OPTIONS: { field: SortField; label: string }[] = [
 const DEPLOYMENT_FILTER_OPTIONS: { value: DeploymentFilter; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'online', label: 'Online' },
+  { value: 'standby', label: 'Standby' },
   { value: 'maintenance', label: 'Maintenance' },
   { value: 'playing', label: 'Playing' },
   { value: 'playing_online', label: 'Playing Online' },
+  { value: 'playing_standby', label: 'Playing Standby' },
   { value: 'playing_maintenance', label: 'Playing Maintenance' },
 ]
 
@@ -222,6 +226,7 @@ export default function Dashboard() {
     function getActivityRtpAmount(row: any, eventType: 'spin' | 'win') {
       const fundingSource = getActivityFundingSource(row)
       if (fundingSource === 'happy_prize_pool') return 0
+      if (fundingSource === 'device_happy_override') return 0
       if (
         String(row?.metadata?.triggerType ?? '')
           .trim()
@@ -464,9 +469,8 @@ export default function Dashboard() {
   )
   const deviceSummaryCounts = useMemo(
     () => ({
-      online: devices.filter(
-        d => d.device_status !== 'offline' && (d.deployment_mode ?? 'online') !== 'maintenance',
-      ).length,
+      online: devices.filter(d => (d.deployment_mode ?? 'online') === 'online').length,
+      standby: devices.filter(d => (d.deployment_mode ?? 'online') === 'standby').length,
       maintenance: devices.filter(d => (d.deployment_mode ?? 'online') === 'maintenance').length,
       offline: devices.filter(d => d.device_status === 'offline').length,
       active: devices.filter(d => d.device_status === 'playing').length,
@@ -499,7 +503,8 @@ export default function Dashboard() {
       device.runtime_mode ||
       Boolean(device.is_free_game) ||
       asNumber(device.pending_free_spins) > 0 ||
-      Boolean(device.jackpot_selected)
+      Boolean(device.jackpot_selected) ||
+      Boolean(device.happy_override_selected)
     ) {
       return 'casino'
     }
@@ -547,6 +552,11 @@ export default function Dashboard() {
     return 'JACKPOT ARMED • trigger spin next'
   }
 
+  const getDeviceHappyOverrideStatus = (device: DeviceRow): string | null => {
+    if (!device.happy_override_selected) return null
+    return `HAPPY OVERRIDE • Target ${formatJackpotCurrency(device.happy_override_target_amount)} • Remaining ${formatJackpotCurrency(device.happy_override_remaining_amount)}`
+  }
+
   const getSortValue = (device: DeviceRow, field: SortField): number | string => {
     if (field === 'name') return (device.name ?? '').toLowerCase()
     if (field === 'last_bet_at')
@@ -562,19 +572,24 @@ export default function Dashboard() {
   const matchesDeploymentFilter = (device: DeviceRow, filter: DeploymentFilter) => {
     const deploymentMode = device.deployment_mode ?? 'online'
     const isMaintenance = deploymentMode === 'maintenance'
+    const isStandby = deploymentMode === 'standby'
     const isPlaying = device.device_status === 'playing'
 
     switch (filter) {
       case 'all':
         return true
       case 'online':
-        return !isMaintenance
+        return !isMaintenance && !isStandby
+      case 'standby':
+        return isStandby
       case 'maintenance':
         return isMaintenance
       case 'playing':
         return isPlaying
       case 'playing_online':
-        return isPlaying && !isMaintenance
+        return isPlaying && !isMaintenance && !isStandby
+      case 'playing_standby':
+        return isPlaying && isStandby
       case 'playing_maintenance':
         return isPlaying && isMaintenance
       default:
@@ -966,6 +981,9 @@ export default function Dashboard() {
                 <div className="text-xs text-green-300">
                   🟢 Online: {deviceSummaryCounts.online}
                 </div>
+                <div className="text-xs text-amber-300">
+                  ⏸ Standby: {deviceSummaryCounts.standby}
+                </div>
                 <div className="text-xs text-violet-300">
                   🛠 Maintenance: {deviceSummaryCounts.maintenance}
                 </div>
@@ -986,6 +1004,9 @@ export default function Dashboard() {
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-300">
                   <div className="text-xs text-green-300">
                     🟢 Online: {deviceSummaryCounts.online}
+                  </div>
+                  <div className="text-xs text-amber-300">
+                    ⏸ Standby: {deviceSummaryCounts.standby}
                   </div>
                   <div className="text-xs text-blue-300">
                     🔵 Active: {deviceSummaryCounts.active}
@@ -1062,6 +1083,7 @@ export default function Dashboard() {
                 const gameType = getDeviceGameType(d)
                 const telemetryLabel = getDeviceTelemetryLabel(d)
                 const jackpotStatus = getDeviceJackpotStatus(d)
+                const happyOverrideStatus = getDeviceHappyOverrideStatus(d)
                 const mobileExpanded = Boolean(expandedMobileDevices[d.device_id])
                 return (
                   <div
@@ -1069,6 +1091,8 @@ export default function Dashboard() {
                     className={`w-full rounded-lg border p-3 text-left ${
                       d.jackpot_selected
                         ? 'border-amber-300/70 bg-gradient-to-br from-amber-900/30 via-slate-900/80 to-slate-900/90 shadow-[0_0_20px_rgba(251,191,36,0.18)]'
+                        : d.happy_override_selected
+                          ? 'border-pink-300/70 bg-gradient-to-br from-pink-900/30 via-slate-900/80 to-slate-900/90 shadow-[0_0_20px_rgba(236,72,153,0.16)]'
                         : 'border-slate-700 bg-slate-800'
                     }`}
                   >
@@ -1111,6 +1135,11 @@ export default function Dashboard() {
                                   <span className="rounded border border-slate-700 bg-slate-800/60 px-1.5 py-0.5 text-[10px] text-slate-300">
                                     {gameType.toUpperCase()}
                                   </span>
+                                  {(d.deployment_mode ?? 'online') === 'standby' && (
+                                    <span className="rounded border border-amber-700 bg-amber-900/40 px-1.5 py-0.5 text-[10px] text-amber-200">
+                                      STANDBY
+                                    </span>
+                                  )}
                                   {(d.deployment_mode ?? 'online') === 'maintenance' && (
                                     <span className="rounded border border-violet-700 bg-violet-900/40 px-1.5 py-0.5 text-[10px] text-violet-200">
                                       MAINT
@@ -1143,6 +1172,19 @@ export default function Dashboard() {
                                 {jackpotStatus && (
                                   <div className="mt-1 text-[10px] text-amber-300">
                                     {jackpotStatus}
+                                  </div>
+                                )}
+                                {d.happy_override_selected && (
+                                  <div className="mt-1 text-[10px] font-semibold text-pink-200">
+                                    HAPPY TARGET{' '}
+                                    {formatJackpotCurrency(d.happy_override_target_amount)} •
+                                    Remaining{' '}
+                                    {formatJackpotCurrency(d.happy_override_remaining_amount)}
+                                  </div>
+                                )}
+                                {happyOverrideStatus && (
+                                  <div className="mt-1 text-[10px] text-pink-300">
+                                    {happyOverrideStatus}
                                   </div>
                                 )}
                               </>
@@ -1341,6 +1383,7 @@ export default function Dashboard() {
                   const offline = d.device_status === 'offline'
                   const telemetryLabel = getDeviceTelemetryLabel(d)
                   const jackpotStatus = getDeviceJackpotStatus(d)
+                  const happyOverrideStatus = getDeviceHappyOverrideStatus(d)
                   const gameType = getDeviceGameType(d)
                   return (
                     <tr
@@ -1356,6 +1399,8 @@ export default function Dashboard() {
                               ? 'bg-fuchsia-950/30 ring-1 ring-fuchsia-500/40'
                               : d.jackpot_selected
                                 ? 'bg-amber-950/25 hover:bg-amber-900/30 ring-1 ring-inset ring-amber-400/40'
+                                : d.happy_override_selected
+                                  ? 'bg-pink-950/25 hover:bg-pink-900/30 ring-1 ring-inset ring-pink-400/40'
                                 : 'hover:bg-slate-900/50'
                       }`}
                       onClick={() =>
@@ -1415,6 +1460,16 @@ export default function Dashboard() {
                               JACKPOT
                             </span>
                           )}
+                          {d.happy_override_selected && (
+                            <span className="rounded border border-pink-400/70 bg-pink-900/40 px-1.5 py-0.5 text-[10px] font-semibold text-pink-200">
+                              HAPPY OVR
+                            </span>
+                          )}
+                          {(d.deployment_mode ?? 'online') === 'standby' && (
+                            <span className="rounded border border-amber-700 bg-amber-900/40 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200">
+                              STANDBY
+                            </span>
+                          )}
                           {(d.deployment_mode ?? 'online') === 'maintenance' && (
                             <span className="rounded border border-violet-700 bg-violet-900/40 px-1.5 py-0.5 text-[10px] font-semibold text-violet-200">
                               MAINT
@@ -1445,6 +1500,9 @@ export default function Dashboard() {
                             Target {formatJackpotCurrency(d.jackpot_target_amount)} • Remaining{' '}
                             {formatJackpotCurrency(d.jackpot_remaining_amount)}
                           </div>
+                        )}
+                        {happyOverrideStatus && (
+                          <div className="text-pink-300">{happyOverrideStatus}</div>
                         )}
                       </td>
                       <td className="px-4 py-2 text-right font-mono font-bold text-green-400">
