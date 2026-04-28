@@ -62,10 +62,7 @@ export default function Accounting() {
     <div className="p-6 max-w-[96rem] mx-auto space-y-8 bg-slate-900 text-slate-100">
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold">Accounting</h1>
-        <p className="text-slate-400 text-sm">
-          Live proof-of-concept daily reporting from event rollups. Default range is today in
-          Asia/Manila.
-        </p>
+        <p className="text-slate-400 text-sm">Default range is today in Asia/Manila.</p>
       </header>
 
       <section className="rounded-lg border border-slate-700 bg-slate-800 p-4 space-y-4">
@@ -144,7 +141,7 @@ export default function Accounting() {
         <div className="rounded-lg border border-violet-700/40 bg-slate-800 p-4">
           <div className="text-xs text-violet-300/80 mb-1">Coins In / Out</div>
           <div className="text-base font-bold font-mono text-violet-400">
-            {formatCurrency(summary.coinsIn)} / {formatCurrency(summary.hopperOut)}
+            {formatCurrency(summary.coinsIn)} / {formatCurrency(summary.coinsOut)}
           </div>
         </div>
         <div className="rounded-lg border border-orange-700/40 bg-slate-800 p-4">
@@ -167,7 +164,7 @@ export default function Accounting() {
           <div className="text-xl font-mono">{formatCurrency(summary.withdraw)}</div>
         </div>
         <div className="rounded-lg border border-slate-700 bg-slate-800 p-4">
-          <div className="text-xs text-slate-400 mb-1">Hopper Refill / Coins Out</div>
+          <div className="text-xs text-slate-400 mb-1">Hopper In / Out</div>
           <div className="text-xl font-mono">
             {formatCurrency(summary.hopperIn)} / {formatCurrency(summary.hopperOut)}
           </div>
@@ -212,11 +209,7 @@ export default function Accounting() {
       <section className="rounded-lg border border-slate-700 bg-slate-800 p-4">
         <div className="text-xs text-slate-400 mb-2">Net Income Formula</div>
         <div className="text-sm font-mono text-slate-200">
-          Coins In + Coins Out - Balance - House Take - Jackpot Override
-        </div>
-        <div className="mt-2 text-xs text-slate-500">
-          Range totals come from device daily rollups. Coins Out uses hopper-out / withdrawal payout
-          totals. Balance is the current device balance.
+          Net Income = (Balance + House Take + Withdrawal + Jackpot Override)-(Coins In + Coins Out)
         </div>
       </section>
 
@@ -234,6 +227,9 @@ export default function Accounting() {
                 <th className="px-4 py-2 text-right">Bet</th>
                 <th className="px-4 py-2 text-right">Win</th>
                 <th className="px-4 py-2 text-right">Coins Out</th>
+
+                <th className="px-4 py-2 text-right">Balance</th>
+
                 <th className="px-4 py-2 text-right">House Take</th>
                 <th className="px-4 py-2 text-right">Jackpot Override</th>
                 <th className="px-4 py-2 text-right">RTP</th>
@@ -256,8 +252,13 @@ export default function Accounting() {
                     {formatCurrency(row.total_win)}
                   </td>
                   <td className="px-4 py-2 text-right font-mono text-sky-400">
-                    {formatCurrency(row.total_hopper_out)}
+                    {formatCurrency(row.total_coins_out)}
                   </td>
+
+                  <td className="px-4 py-2 text-right font-mono text-cyan-400">
+                    {formatCurrency(row.total_balance_change)}
+                  </td>
+
                   <td className="px-4 py-2 text-right font-mono text-fuchsia-400">
                     {formatCurrency(row.total_house_take)}
                   </td>
@@ -281,7 +282,7 @@ export default function Accounting() {
             <thead className="bg-slate-800 text-slate-300">
               <tr>
                 <th className="px-4 py-2 text-left">Device</th>
-                <th className="px-4 py-2 text-right">Balance</th>
+                <th className="px-4 py-2 text-right">Balance Δ</th>
                 <th className="px-4 py-2 text-right">Coins In</th>
                 <th className="px-4 py-2 text-right">Coins Out</th>
                 <th className="px-4 py-2 text-right">House Take</th>
@@ -305,7 +306,7 @@ export default function Accounting() {
                     {formatCurrency(row.coins_in_total)}
                   </td>
                   <td className="px-4 py-2 text-right font-mono text-sky-400">
-                    {formatCurrency(row.hopper_out_total)}
+                    {formatCurrency(row.coins_out_total)}
                   </td>
                   <td className="px-4 py-2 text-right font-mono text-fuchsia-400">
                     {formatCurrency(row.house_take_total)}
