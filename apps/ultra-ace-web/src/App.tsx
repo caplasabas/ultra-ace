@@ -1296,7 +1296,14 @@ export default function App() {
       }
 
       // --- WITHDRAW COMPLETE ---
+      if (payload.type === 'WITHDRAW_STARTED') {
+        withdrawRequestedAmountRef.current = Number(payload.requested ?? 20) || 20
+        setIsWithdrawingRef.current(true)
+        return
+      }
+
       if (payload.type === 'WITHDRAW_DISPENSE') {
+        previewExternalBalanceChange(-Number(payload.dispensed ?? 0))
         minusBalanceRef.current('hopper', payload.dispensed)
 
         return
@@ -1769,10 +1776,7 @@ export default function App() {
 
               <div className="bottom-container">
                 <div className={`win-display ${showFreeSpinIntro && 'hidden'}`}>
-                  WIN:{' '}
-                  <span className="win-amount">
-                    {formatPeso(displayedWinAmount)}
-                  </span>
+                  WIN: <span className="win-amount">{formatPeso(displayedWinAmount)}</span>
                 </div>
                 <div className="bottom-controls">
                   <div className={`controls-left ${showFreeSpinIntro && 'hidden'}`}>
