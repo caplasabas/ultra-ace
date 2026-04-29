@@ -6,14 +6,19 @@ const ROLE_OPTIONS: DashboardRole[] = ['superadmin', 'admin', 'staff', 'runner',
 
 type Props = {
   viewerRole: DashboardRole
+  currentUserId: string
 }
 
-export default function Accounts({ viewerRole }: Props) {
+export default function Accounts({ viewerRole, currentUserId }: Props) {
   const [rows, setRows] = useState<DashboardProfile[]>([])
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [savingUserId, setSavingUserId] = useState<string | null>(null)
+  const [passwordUserId, setPasswordUserId] = useState<string | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [resettingPassword, setResettingPassword] = useState(false)
 
   useEffect(() => {
     void load()
@@ -54,15 +59,63 @@ export default function Accounts({ viewerRole }: Props) {
     await load()
   }
 
+  async function resetPassword() {
+    if (!passwordUserId || viewerRole !== 'superadmin') return
+
+    setMessage(null)
+    setErrorMessage(null)
+
+    if (newPassword.length < 6) {
+      setErrorMessage('Password must be at least 6 characters')
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      setErrorMessage('Passwords do not match')
+      return
+    }
+
+    setResettingPassword(true)
+
+    const { error } = await supabase.functions.invoke('dashboard-account-password', {
+      body: {
+        targetUserId: passwordUserId,
+        newPassword,
+      },
+    })
+
+    setResettingPassword(false)
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+
+    const targetRow = rows.find(row => row.user_id === passwordUserId)
+    const isOwnAccount = passwordUserId === currentUserId
+
+    setPasswordUserId(null)
+    setNewPassword('')
+    setConfirmPassword('')
+    setMessage(
+      isOwnAccount
+        ? 'Password updated. Your session will now be signed out.'
+        : `Password updated for ${targetRow?.email ?? 'account'}. Existing sessions were revoked.`,
+    )
+
+    if (isOwnAccount) {
+      await supabase.auth.signOut({ scope: 'global' })
+    }
+  }
+
   const canManageRoles = viewerRole === 'superadmin' || viewerRole === 'admin' || viewerRole === 'accounts'
+  const canResetPasswords = viewerRole === 'superadmin'
 
   return (
     <div className="p-6 max-w-[90rem] mx-auto space-y-6">
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold">Accounts</h1>
-        <p className="text-sm text-slate-400">
-          Dashboard access uses Supabase Auth. This page manages dashboard roles only.
-        </p>
+        <p className="text-sm text-slate-400">Dashboard access uses Supabase Auth.</p>
       </header>
 
       {message && (
@@ -82,7 +135,64 @@ export default function Accounts({ viewerRole }: Props) {
         <div>
           Create Auth users in Supabase Auth first, then insert/update their row in `dashboard_users`.
         </div>
+        {canResetPasswords && (
+          <div>Superadmin can reset account passwords and revoke active dashboard sessions.</div>
+        )}
       </section>
+
+      {passwordUserId && canResetPasswords && (
+        <section className="rounded-lg border border-slate-700 bg-slate-800 p-4 space-y-4">
+          <div className="space-y-1">
+            <div className="text-sm font-semibold text-slate-100">Set Account Password</div>
+            <div className="text-sm text-slate-400">
+              {rows.find(row => row.user_id === passwordUserId)?.email ?? 'Selected account'}
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="space-y-1">
+              <span className="text-sm text-slate-300">New Password</span>
+              <input
+                className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100"
+                type="password"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+              />
+            </label>
+
+            <label className="space-y-1">
+              <span className="text-sm text-slate-300">Confirm Password</span>
+              <input
+                className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100"
+                type="password"
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+              />
+            </label>
+          </div>
+
+          <div className="flex items-center justify-end gap-2">
+            <button
+              className="rounded border border-slate-700 px-3 py-2 text-sm text-slate-200"
+              disabled={resettingPassword}
+              onClick={() => {
+                setPasswordUserId(null)
+                setNewPassword('')
+                setConfirmPassword('')
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              className="rounded bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 disabled:opacity-50"
+              disabled={resettingPassword || !newPassword || !confirmPassword}
+              onClick={() => void resetPassword()}
+            >
+              {resettingPassword ? 'Updating...' : 'Update Password'}
+            </button>
+          </div>
+        </section>
+      )}
 
       <section className="rounded-lg border border-slate-700 overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-700 text-sm font-semibold">
@@ -127,18 +237,35 @@ export default function Accounts({ viewerRole }: Props) {
                       {row.is_active ? 'active' : 'disabled'}
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-right">
-                    <button
-                      className="rounded border border-slate-600 bg-slate-900 px-3 py-1 text-xs text-slate-100 disabled:opacity-50"
-                      disabled={!canManageRoles || savingUserId === row.user_id}
-                      onClick={() => void updateRow(row.user_id, { is_active: !row.is_active })}
-                    >
-                      {savingUserId === row.user_id
-                        ? 'Saving...'
-                        : row.is_active
-                          ? 'Disable'
-                          : 'Enable'}
-                    </button>
+                  <td className="px-4 py-2">
+                    <div className="flex items-center justify-end gap-2">
+                      {canResetPasswords && (
+                        <button
+                          className="rounded border border-slate-600 bg-slate-900 px-3 py-1 text-xs text-slate-100 disabled:opacity-50"
+                          disabled={savingUserId === row.user_id || resettingPassword}
+                          onClick={() => {
+                            setPasswordUserId(row.user_id)
+                            setNewPassword('')
+                            setConfirmPassword('')
+                            setMessage(null)
+                            setErrorMessage(null)
+                          }}
+                        >
+                          Set Password
+                        </button>
+                      )}
+                      <button
+                        className="rounded border border-slate-600 bg-slate-900 px-3 py-1 text-xs text-slate-100 disabled:opacity-50"
+                        disabled={!canManageRoles || savingUserId === row.user_id}
+                        onClick={() => void updateRow(row.user_id, { is_active: !row.is_active })}
+                      >
+                        {savingUserId === row.user_id
+                          ? 'Saving...'
+                          : row.is_active
+                            ? 'Disable'
+                            : 'Enable'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

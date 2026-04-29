@@ -41,6 +41,8 @@ const FREE_SPIN_PRESTART_DELAY_MS = 1500
 const BIG_WIN_BET_MULTIPLIER = 10
 const BIG_WIN_MIN_AMOUNT = 20
 const BOOT_SPLASH_GAMEPLAY_GUARD_MS = 1200
+const WITHDRAW_INPUT_DEBOUNCE_MS = 300
+const WITHDRAW_STALL_RESET_MS = 15000
 
 const VOICE_BY_SYMBOL: Record<string, string> = {
   A: aceVoice,
@@ -427,6 +429,8 @@ export default function App() {
   const [displayedCascadeWinTotal, setDisplayedCascadeWinTotal] = useState(0)
 
   const withdrawRequestedAmountRef = useRef(0)
+  const withdrawInputLockedUntilRef = useRef(0)
+  const withdrawLastActivityAtRef = useRef(0)
   const lastLoggedWinKeyRef = useRef<string>('')
   const lastPlayedWinAudioKeyRef = useRef<string>('')
   const lastPlayedPopAudioKeyRef = useRef<string>('')
@@ -853,6 +857,8 @@ export default function App() {
 
   useEffect(() => {
     if (!internetOnline) return
+    if (bootSplashStage !== null) return
+    if (isBootSplashGameplayGuardActive()) return
     if (!isReady) return
     if (spinning) return
     if (!autoSpin && !isFreeGame) return
@@ -879,6 +885,7 @@ export default function App() {
     pendingFreeSpins,
     balance,
     bet,
+    bootSplashStage,
     pauseColumn,
     showFreeSpinIntro,
     isFreeSpinPreview,
@@ -1229,6 +1236,8 @@ export default function App() {
 
   const requestShellWithdrawOpen = () => {
     if (window.parent === window) return
+    if (Date.now() < withdrawInputLockedUntilRef.current) return
+    withdrawInputLockedUntilRef.current = Date.now() + WITHDRAW_INPUT_DEBOUNCE_MS
     window.parent.postMessage({ type: 'ULTRAACE_WITHDRAW_REQUEST' }, '*')
   }
 
@@ -1298,11 +1307,13 @@ export default function App() {
       // --- WITHDRAW COMPLETE ---
       if (payload.type === 'WITHDRAW_STARTED') {
         withdrawRequestedAmountRef.current = Number(payload.requested ?? 20) || 20
+        withdrawLastActivityAtRef.current = Date.now()
         setIsWithdrawingRef.current(true)
         return
       }
 
       if (payload.type === 'WITHDRAW_DISPENSE') {
+        withdrawLastActivityAtRef.current = Date.now()
         previewExternalBalanceChange(-Number(payload.dispensed ?? 0))
         minusBalanceRef.current('hopper', payload.dispensed)
 
@@ -1326,6 +1337,8 @@ export default function App() {
       }
 
       if (payload.type === 'WITHDRAW_COMPLETE') {
+        withdrawInputLockedUntilRef.current = Date.now() + WITHDRAW_INPUT_DEBOUNCE_MS
+        withdrawLastActivityAtRef.current = 0
         setIsWithdrawingRef.current(false)
         setShowWithdrawModalRef.current(false)
         setWithdrawAmount(withdrawRequestedAmountRef.current || 20)
@@ -1335,6 +1348,8 @@ export default function App() {
       }
 
       if (payload.type === 'WITHDRAW_ABORTED') {
+        withdrawInputLockedUntilRef.current = Date.now() + WITHDRAW_INPUT_DEBOUNCE_MS
+        withdrawLastActivityAtRef.current = 0
         setIsWithdrawingRef.current(false)
         setShowWithdrawModalRef.current(false)
         setWithdrawAmount(
@@ -1430,6 +1445,7 @@ export default function App() {
             return
           }
           if (s.showWithdrawModal) {
+            withdrawInputLockedUntilRef.current = Date.now() + WITHDRAW_INPUT_DEBOUNCE_MS
             setShowWithdrawModalRef.current(false)
             return
           }
@@ -1553,6 +1569,32 @@ export default function App() {
       delete window.__ARCADE_INPUT__
     }
   }, [])
+
+  useEffect(() => {
+    if (!isWithdrawing) {
+      withdrawLastActivityAtRef.current = 0
+      return
+    }
+
+    const timer = window.setInterval(() => {
+      const lastActivityAt = withdrawLastActivityAtRef.current
+      if (!lastActivityAt) return
+      if (Date.now() - lastActivityAt < WITHDRAW_STALL_RESET_MS) return
+
+      console.warn('[ULTRAACE] watchdog cleared stalled withdraw state', {
+        requestedAmount: withdrawRequestedAmountRef.current,
+      })
+      setIsWithdrawing(false)
+      setShowWithdrawModal(false)
+      setWithdrawAmount(withdrawRequestedAmountRef.current || 20)
+      withdrawRequestedAmountRef.current = 0
+      withdrawLastActivityAtRef.current = 0
+    }, 1000)
+
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [isWithdrawing, setIsWithdrawing, setShowWithdrawModal, setWithdrawAmount])
 
   if (!sessionReady) return null
 

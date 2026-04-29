@@ -1735,6 +1735,12 @@ export function useEngine() {
     if (!isFreeGame && (!isValidPaidSpinBet(bet) || authoritativeBalance < bet)) return
     if (isFreeGame && freeSpinsLeftRef.current <= 0) return
 
+    // Acquire the lock before any awaited work. Multiple callers can arrive in the
+    // same frame from manual input, auto-spin, or free-spin progression; if we wait
+    // until after async reads, each caller can emit a distinct paid spin.
+    spinLockRef.current = true
+    setSpinning(true)
+
     let queueForBaseSpin = activeJackpotQueue
     if (!isFreeGame && deviceIdRef.current) {
       try {
@@ -1752,9 +1758,6 @@ export function useEngine() {
     if (forceJackpotScatter) {
       forceJackpotScatterRef.current = false
     }
-
-    spinLockRef.current = true
-    setSpinning(true)
 
     spinSafetyTimeoutRef.current = window.setTimeout(() => {
       if (spinLockRef.current) {
@@ -2391,6 +2394,14 @@ export function useEngine() {
         await finalizeDeviceJackpotPayouts(currentDeviceId)
         const nextQueue = await fetchActiveJackpotQueue(currentDeviceId)
         setActiveJackpotQueue(nextQueue)
+        if (isShellIframe()) {
+          const shellState = await requestShellState({ forceRefresh: true })
+          if (shellState) {
+            applyShellBalance(shellState.balance, shellState.updatedAt ?? null)
+          }
+        } else {
+          await syncBalanceFromDb()
+        }
       } catch (error) {
         console.error('[engine] final jackpot queue finalize failed', error)
       }

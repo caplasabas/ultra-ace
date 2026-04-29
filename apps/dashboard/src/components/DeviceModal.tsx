@@ -2,6 +2,7 @@ import { toggleCabinetGame, useCabinetGames } from '../hooks/useCabinetGames.ts'
 import { useEffect, useState } from 'react'
 import { prepareGamePackage, removeGamePackage } from '../lib/arcadeAdmin.ts'
 import { supabase } from '../lib/supabase.ts'
+import type { DashboardRole } from '../hooks/useDashboardAuth.ts'
 import moment from 'moment'
 
 type ActivityRow = {
@@ -15,10 +16,12 @@ export function DeviceModal({
   device,
   onClose,
   hopperAlertsEnabled,
+  role,
 }: {
   device: any
   onClose: () => void
   hopperAlertsEnabled?: boolean
+  role: DashboardRole
 }) {
   const JACKPOT_OVERRIDE_STEP_COUNT = 10
   const cabinetGames = useCabinetGames(device.device_id)
@@ -54,6 +57,7 @@ export function DeviceModal({
   const [activityTotalCount, setActivityTotalCount] = useState(0)
   const activityPageSize = 16
   const activityTotalPages = Math.max(1, Math.ceil(activityTotalCount / activityPageSize))
+  const isStaffView = role === 'staff'
 
   // Assignment UI/Logic state
   const [agents, setAgents] = useState<any[]>([])
@@ -615,9 +619,9 @@ export function DeviceModal({
       <div className="min-h-full flex items-start md:items-center justify-center p-4">
         <div
           className={`bg-slate-900 w-full max-w-2xl h-[85vh] flex flex-col rounded-xl border ${
-            device.jackpot_selected
+            !isStaffView && device.jackpot_selected
               ? 'border-amber-400/70 shadow-[0_0_28px_rgba(251,191,36,0.2)]'
-              : device.happy_override_selected
+              : !isStaffView && device.happy_override_selected
                 ? 'border-pink-400/70 shadow-[0_0_28px_rgba(236,72,153,0.18)]'
               : 'border-slate-800'
           }`}
@@ -647,16 +651,16 @@ export function DeviceModal({
                     ✕
                   </button>
                 </div>
-                {device.jackpot_selected && (
+                {!isStaffView && device.jackpot_selected && (
                   <div className="mt-1 text-xs font-semibold text-amber-200">
                     JACKPOT TARGET {formatJackpotCurrency(device.jackpot_target_amount)} • Remaining{' '}
                     {formatJackpotCurrency(device.jackpot_remaining_amount)}
                   </div>
                 )}
-                {jackpotStatusLabel && (
+                {!isStaffView && jackpotStatusLabel && (
                   <div className="mt-1 text-xs text-amber-300">{jackpotStatusLabel}</div>
                 )}
-                {happyOverrideStatusLabel && (
+                {!isStaffView && happyOverrideStatusLabel && (
                   <div className="mt-1 text-xs text-pink-300">{happyOverrideStatusLabel}</div>
                 )}
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -666,7 +670,7 @@ export function DeviceModal({
                     </span>
                   )}
 
-                  {highRtp && (
+                  {!isStaffView && highRtp && (
                     <span className="px-2 py-0.5 text-[10px] font-bold rounded border border-fuchsia-500 bg-fuchsia-950 text-fuchsia-300">
                       HIGH RTP
                     </span>
@@ -702,7 +706,7 @@ export function DeviceModal({
             <div className="mt-3 flex gap-2 border-b border-slate-800">
               {[
                 { key: 'overview', label: 'Overview' },
-                { key: 'activity', label: 'Activity' },
+                ...(!isStaffView ? [{ key: 'activity', label: 'Activity' }] : []),
                 { key: 'controls', label: 'Controls' },
                 { key: 'games', label: 'Games' },
               ].map(tab => (
@@ -795,20 +799,6 @@ export function DeviceModal({
                   <div className="rounded border border-slate-700 bg-slate-800 p-4 mt-5 flex flex-col justify-between">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <div className="text-[10px] text-slate-400">Total Bet</div>
-                        <div className="text-base font-mono font-bold text-violet-400">
-                          {formatCurrency(device.bet_total)}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="text-[10px] text-slate-400">Total Win</div>
-                        <div className="text-base font-mono font-bold text-red-400">
-                          {formatCurrency(device.win_total)}
-                        </div>
-                      </div>
-
-                      <div>
                         <div className="text-[10px] text-slate-400">Coins In</div>
                         <div className="text-base font-mono font-bold text-sky-400">
                           {formatCurrency(device.coins_in_total)}
@@ -822,26 +812,44 @@ export function DeviceModal({
                         </div>
                       </div>
 
-                      <div>
-                        <div className="text-[10px] text-slate-400">RTP</div>
-                        <div className="text-base font-mono font-bold text-fuchsia-400">
-                          {deviceRtp.toFixed(2)}%
-                        </div>
-                      </div>
+                      {!isStaffView && (
+                        <>
+                          <div>
+                            <div className="text-[10px] text-slate-400">Total Bet</div>
+                            <div className="text-base font-mono font-bold text-violet-400">
+                              {formatCurrency(device.bet_total)}
+                            </div>
+                          </div>
 
-                      <div>
-                        <div className="text-[10px] text-slate-400">House Win</div>
-                        <div className="text-base font-mono font-bold text-orange-400">
-                          {formatCurrency(deviceHouseWin)}
-                        </div>
-                      </div>
+                          <div>
+                            <div className="text-[10px] text-slate-400">Total Win</div>
+                            <div className="text-base font-mono font-bold text-red-400">
+                              {formatCurrency(device.win_total)}
+                            </div>
+                          </div>
 
-                      <div>
-                        <div className="text-[10px] text-slate-400">Spins</div>
-                        <div className="text-base font-mono font-bold text-emerald-400">
-                          {asNumber(device.spins_total).toLocaleString()}
-                        </div>
-                      </div>
+                          <div>
+                            <div className="text-[10px] text-slate-400">RTP</div>
+                            <div className="text-base font-mono font-bold text-fuchsia-400">
+                              {deviceRtp.toFixed(2)}%
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-[10px] text-slate-400">House Win</div>
+                            <div className="text-base font-mono font-bold text-orange-400">
+                              {formatCurrency(deviceHouseWin)}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-[10px] text-slate-400">Spins</div>
+                            <div className="text-base font-mono font-bold text-emerald-400">
+                              {asNumber(device.spins_total).toLocaleString()}
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
 
                     <div className="mt-4 pt-3 border-t border-slate-700 text-xs text-slate-400">
@@ -939,19 +947,21 @@ export function DeviceModal({
                       Sends command to this device only.
                     </div>
                     <div className="flex gap-2 ">
-                      <button
-                        type="button"
-                        className="rounded border border-sky-600/80 bg-sky-900/30 px-3 py-1.5 text-xs font-semibold text-sky-200 hover:bg-sky-800/40 disabled:opacity-50"
-                        disabled={
-                          powerActionBusy !== null ||
-                          overrideBusy ||
-                          jackpotOverrideBusy ||
-                          happyOverrideBusy
-                        }
-                        onClick={() => void runDeviceReset()}
-                      >
-                        {powerActionBusy === 'reset' ? 'Resetting Device...' : 'Reset Device'}
-                      </button>
+                      {!isStaffView && (
+                        <button
+                          type="button"
+                          className="rounded border border-sky-600/80 bg-sky-900/30 px-3 py-1.5 text-xs font-semibold text-sky-200 hover:bg-sky-800/40 disabled:opacity-50"
+                          disabled={
+                            powerActionBusy !== null ||
+                            overrideBusy ||
+                            jackpotOverrideBusy ||
+                            happyOverrideBusy
+                          }
+                          onClick={() => void runDeviceReset()}
+                        >
+                          {powerActionBusy === 'reset' ? 'Resetting Device...' : 'Reset Device'}
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="rounded border border-amber-600/80 bg-amber-900/30 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-800/40 disabled:opacity-50"
@@ -983,8 +993,10 @@ export function DeviceModal({
                     </div>
                   </div>
 
-                  <h4 className="text-sm font-semibold mb-2">Jackpot Override</h4>
-                  <div className="rounded border border-amber-700/50 bg-amber-950/20 p-3 mb-4">
+                  {!isStaffView && (
+                    <>
+                      <h4 className="text-sm font-semibold mb-2">Jackpot Override</h4>
+                      <div className="rounded border border-amber-700/50 bg-amber-950/20 p-3 mb-4">
                     <div className="text-xs text-amber-200 mb-2">
                       Arms a device-specific jackpot immediately for this cabinet.
                     </div>
@@ -1023,10 +1035,10 @@ export function DeviceModal({
                       The override is blocked if this cabinet already has an active jackpot queue or
                       is currently inside a free-spin flow.
                     </div>
-                  </div>
+                      </div>
 
-                  <h4 className="text-sm font-semibold mb-2">Happy Hour Override</h4>
-                  <div className="rounded border border-pink-700/50 bg-pink-950/20 p-3 mb-4">
+                      <h4 className="text-sm font-semibold mb-2">Happy Hour Override</h4>
+                      <div className="rounded border border-pink-700/50 bg-pink-950/20 p-3 mb-4">
                     <div className="text-xs text-pink-200 mb-2">
                       Arms a device-specific happy hour pool for this cabinet only.
                     </div>
@@ -1065,7 +1077,9 @@ export function DeviceModal({
                       The override is blocked if this cabinet already has an active happy override
                       or is currently inside a free-spin flow.
                     </div>
-                  </div>
+                      </div>
+                    </>
+                  )}
 
                   <div className="grid md:grid-cols-2 grid-cols-1 gap-3 mb-4">
                     <div className="flex flex-col">

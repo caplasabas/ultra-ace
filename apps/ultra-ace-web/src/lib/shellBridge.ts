@@ -78,9 +78,11 @@ export function subscribeShellState(listener: (state: ShellStateSnapshot) => voi
   }
 }
 
-export function requestShellState(): Promise<ShellStateSnapshot | null> {
+export function requestShellState(options?: {
+  forceRefresh?: boolean
+}): Promise<ShellStateSnapshot | null> {
   if (!isIframe) return Promise.resolve(null)
-  if (latestShellState) return Promise.resolve(latestShellState)
+  if (latestShellState && !options?.forceRefresh) return Promise.resolve(latestShellState)
 
   return new Promise(resolve => {
     const timer = window.setTimeout(() => {
