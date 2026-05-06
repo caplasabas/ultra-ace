@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 
-export type DashboardRole = 'superadmin' | 'admin' | 'staff' | 'runner' | 'accounts'
+export type DashboardRole = 'superadmin' | 'admin' | 'staff' | 'runner' | 'accounts' | 'boss'
 
 export type DashboardProfile = {
   user_id: string

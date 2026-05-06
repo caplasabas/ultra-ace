@@ -33,6 +33,7 @@ export function DeviceModal({
   const [powerActionBusy, setPowerActionBusy] = useState<'restart' | 'shutdown' | 'reset' | null>(
     null,
   )
+  const [closeAccountsBusy, setCloseAccountsBusy] = useState(false)
   const [nameBusy, setNameBusy] = useState(false)
   const [deviceName, setDeviceName] = useState(String(device.name ?? ''))
   const normalizeDeploymentMode = (value: unknown): 'online' | 'standby' | 'maintenance' => {
@@ -140,6 +141,16 @@ export function DeviceModal({
   const STUCK_THRESHOLD_MS = 1000 * 60 * 2
   const stuckSession =
     device.device_status === 'playing' && now - lastHeartbeat > STUCK_THRESHOLD_MS
+  const closeAccountsBlocked =
+    device.device_status === 'playing' ||
+    Boolean(device.active_session_id) ||
+    Boolean(device.is_free_game) ||
+    asNumber(device.free_spins_left) > 0 ||
+    asNumber(device.pending_free_spins) > 0 ||
+    Boolean(device.show_free_spin_intro)
+  const closeAccountsBlockReason = closeAccountsBlocked
+    ? 'Close accounts is available only when this device is idle with no active session or free-spin flow.'
+    : null
 
   const offline = device.device_status === 'offline'
   const gameTypeRaw = String(device.game_type ?? (device.session_metadata as any)?.gameType ?? '')
@@ -388,6 +399,40 @@ export function DeviceModal({
 
     setSuccessMessage(`Reset complete for ${device.device_id} • cleared ${deletedTotal} rows`)
     setErrorMessage(null)
+  }
+
+  async function closeDeviceAccounts() {
+    if (!device?.device_id) return
+
+    const confirmed = window.confirm(
+      `Close accounts for ${device.device_id}?\n\nThis snapshots the current counters and completed device jackpots for reporting. Dashboard accounting totals will start from this closing while device history, balance, and hopper balance are preserved.`,
+    )
+    if (!confirmed) return
+
+    setCloseAccountsBusy(true)
+    setErrorMessage(null)
+
+    const { data, error } = await supabase.rpc('close_device_revenue_period', {
+      p_device_id: device.device_id,
+    })
+
+    setCloseAccountsBusy(false)
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+
+    const result = (data ?? {}) as {
+      coins_in?: number
+      withdrawal?: number
+      income?: number
+      jackpot?: number
+    }
+
+    setSuccessMessage(
+      `Accounts closed • Coins In ${formatCurrency(result.coins_in)} • Withdrawal ${formatCurrency(result.withdrawal)} • Income ${formatCurrency(result.income)} • Jackpot ${formatCurrency(result.jackpot)}`,
+    )
   }
 
   async function enqueuePowerCommand(command: 'restart' | 'shutdown') {
@@ -992,6 +1037,35 @@ export function DeviceModal({
                       </button>
                     </div>
                   </div>
+
+                  {!isStaffView && role !== 'runner' && (
+                    <div className="rounded border border-slate-800 bg-slate-900 p-3 mb-4">
+                      <div className="mb-2 text-sm font-semibold text-slate-100">
+                        Revenue Closing
+                      </div>
+                      <div className="text-xs text-slate-400 mb-3">
+                        Snapshot this device for reporting, then start a new accounting period for visible totals.
+                      </div>
+                      <button
+                        type="button"
+                        className="rounded border border-emerald-600/80 bg-emerald-900/30 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-800/40 disabled:opacity-50"
+                        disabled={
+                          closeAccountsBusy ||
+                          closeAccountsBlocked ||
+                          powerActionBusy !== null ||
+                          overrideBusy ||
+                          jackpotOverrideBusy ||
+                          happyOverrideBusy
+                        }
+                        onClick={() => void closeDeviceAccounts()}
+                      >
+                        {closeAccountsBusy ? 'Closing Accounts...' : 'Close Accounts'}
+                      </button>
+                      {closeAccountsBlockReason && (
+                        <div className="mt-2 text-xs text-amber-300">{closeAccountsBlockReason}</div>
+                      )}
+                    </div>
+                  )}
 
                   {!isStaffView && (
                     <>

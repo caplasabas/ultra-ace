@@ -1,108 +1,85 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-type DeviceRow = {
+type RevenueClosingRow = {
+  id: number | string
   device_id: string
-  name: string | null
+  closed_at: string
+  coins_in_delta: number | string | null
+  withdraw_delta: number | string | null
+  bet_delta: number | string | null
+  win_delta: number | string | null
+  house_take_delta: number | string | null
+  spins_delta: number | string | null
+  jackpot_delta: number | string | null
+  metadata: Record<string, unknown> | null
+}
+
+export type AccountingClosingRow = {
+  id: string
+  business_date: string
+  closed_at: string
+  device_id: string
+  device_name: string | null
   deployment_mode: string | null
-  balance: number | string | null
-}
-
-type DeviceDailyStatsRow = {
-  device_id: string
-  stat_date: string
-  coins_in_total: number | string | null
-  hopper_in_total: number | string | null
-  hopper_out_total: number | string | null
-  bet_total: number | string | null
-  win_total: number | string | null
-  withdraw_total: number | string | null
-  balance_change: number | string | null
-  spins_total: number | string | null
-  house_take_total: number | string | null
-}
-
-type CoinsOutMetricRow = {
-  device_id: string
-  event_ts: string
-  amount: number | string | null
-}
-
-type BalanceMetricRow = {
-  device_id: string
-  event_ts: string
-  event_type: string
-  amount: number | string | null
-}
-
-type JackpotOverrideRow = {
-  amount_total: number
-  completed_at: string
-  goal_snapshot: Record<string, unknown> | null
-  status: string | null
+  coins_in: number
+  withdrawal: number
+  income: number
+  bet: number
+  win: number
+  house_take: number
+  jackpot: number
+  spins: number
+  rtp_percent: number
+  house_edge_percent: number
 }
 
 export type AccountingDailyRow = {
   business_date: string
-
+  closing_count: number
   total_devices: number
-
   total_coins_in: number
-
-  total_hopper_in: number
-
-  total_hopper_out: number
-
-  total_coins_out: number
-
-  total_balance_change: number
-
+  total_withdraw: number
+  total_income: number
   total_bet: number
   total_win: number
-  total_withdraw: number
   total_spins: number
   total_house_take: number
-  total_jackpot_override: number
+  total_jackpot: number
   rtp_percent: number
   house_edge_percent: number
+  closings: AccountingClosingRow[]
 }
 
 export type AccountingDeviceRow = {
   device_id: string
   device_name: string | null
   deployment_mode: string | null
-  balance: number
+  closing_count: number
   coins_in_total: number
-  hopper_in_total: number
-  hopper_out_total: number
-  coins_out_total: number
+  withdraw_total: number
+  income_total: number
   bet_total: number
   win_total: number
-  withdraw_total: number
   spins_total: number
   house_take_total: number
-  jackpot_override_total: number
+  jackpot_total: number
   rtp_percent: number
   house_edge_percent: number
-  net_income: number
-  gross_income: number
+  closings: AccountingClosingRow[]
 }
 
 type Summary = {
   totalDevices: number
-  balance: number
+  closingCount: number
   coinsIn: number
-  hopperIn: number
-  hopperOut: number
-  coinsOut: number
+  withdraw: number
+  income: number
   bet: number
   win: number
-  withdraw: number
   spins: number
   houseTake: number
-  jackpotOverride: number
-  netIncome: number
-  grossIncome: number
+  jackpot: number
 }
 
 function asNumber(value: number | string | null | undefined) {
@@ -137,54 +114,62 @@ function toManilaEndExclusiveIso(date: string) {
   return `${addDaysToYmd(date, 1)}T00:00:00+08:00`
 }
 
-function emptyDailyRow(businessDate: string): AccountingDailyRow {
+function closingFromRow(row: RevenueClosingRow): AccountingClosingRow {
+  const coinsIn = Math.max(asNumber(row.coins_in_delta), 0)
+  const withdrawal = Math.max(asNumber(row.withdraw_delta), 0)
+  const bet = Math.max(asNumber(row.bet_delta), 0)
+  const win = Math.max(asNumber(row.win_delta), 0)
+  const houseTake = asNumber(row.house_take_delta)
+  const jackpot = Math.max(asNumber(row.jackpot_delta), 0)
+  const spins = Math.max(asNumber(row.spins_delta), 0)
+  const metadata = row.metadata ?? {}
+  const deviceName = String(metadata.deviceName ?? '').trim() || null
+  const deploymentMode = String(metadata.deploymentMode ?? '').trim() || null
+
   return {
-    business_date: businessDate,
-
-    total_devices: 0,
-
-    total_coins_in: 0,
-
-    total_hopper_in: 0,
-
-    total_hopper_out: 0,
-
-    total_coins_out: 0,
-
-    total_balance_change: 0,
-
-    total_bet: 0,
-    total_win: 0,
-    total_withdraw: 0,
-    total_spins: 0,
-    total_house_take: 0,
-    total_jackpot_override: 0,
-    rtp_percent: 0,
-    house_edge_percent: 0,
+    id: String(row.id),
+    business_date: formatManilaYmd(row.closed_at),
+    closed_at: row.closed_at,
+    device_id: String(row.device_id),
+    device_name: deviceName,
+    deployment_mode: deploymentMode,
+    coins_in: coinsIn,
+    withdrawal,
+    income: coinsIn - withdrawal,
+    bet,
+    win,
+    house_take: houseTake,
+    jackpot,
+    spins,
+    rtp_percent: bet > 0 ? (win / bet) * 100 : 0,
+    house_edge_percent: bet > 0 ? (houseTake / bet) * 100 : 0,
   }
 }
 
-function emptyDeviceRow(deviceId: string, deviceInfo?: DeviceRow): AccountingDeviceRow {
-  return {
-    device_id: deviceId,
-    device_name: deviceInfo?.name ?? null,
-    deployment_mode: deviceInfo?.deployment_mode ?? null,
-    balance: 0,
-    coins_in_total: 0,
-    hopper_in_total: 0,
-    hopper_out_total: 0,
-    coins_out_total: 0,
-    bet_total: 0,
-    win_total: 0,
-    withdraw_total: 0,
-    spins_total: 0,
-    house_take_total: 0,
-    jackpot_override_total: 0,
-    rtp_percent: 0,
-    house_edge_percent: 0,
-    net_income: 0,
-    gross_income: 0,
-  }
+function summarizeClosings(closings: AccountingClosingRow[]) {
+  return closings.reduce(
+    (acc, row) => {
+      acc.coinsIn += row.coins_in
+      acc.withdraw += row.withdrawal
+      acc.income += row.income
+      acc.bet += row.bet
+      acc.win += row.win
+      acc.spins += row.spins
+      acc.houseTake += row.house_take
+      acc.jackpot += row.jackpot
+      return acc
+    },
+    {
+      coinsIn: 0,
+      withdraw: 0,
+      income: 0,
+      bet: 0,
+      win: 0,
+      spins: 0,
+      houseTake: 0,
+      jackpot: 0,
+    },
+  )
 }
 
 export function useAccounting(dateFrom: string, dateTo: string) {
@@ -202,226 +187,83 @@ export function useAccounting(dateFrom: string, dateTo: string) {
       setLoading(true)
       setError(null)
 
-      const [
-        dailyStatsResult,
-        devicesResult,
-        coinsOutResult,
-        balanceMetricsResult,
-        jackpotOverridesResult,
-      ] = await Promise.all([
-        supabase
-          .from('device_daily_stats')
-          .select(
-            'device_id,stat_date,coins_in_total:included_coins_in_amount,hopper_in_total:included_hopper_in_amount,hopper_out_total:included_hopper_out_amount,bet_total:included_bet_amount,win_total:included_win_amount,withdraw_total:included_withdrawal_amount,balance_change:included_balance_change,spins_total:included_spins_count,house_take_total:included_house_take_amount',
-          )
-          .gte('stat_date', dateFrom)
-          .lte('stat_date', dateTo),
-
-        supabase.from('devices').select('device_id,name,deployment_mode,balance'),
-        supabase
-          .from('device_metric_events')
-          .select('device_id,event_ts,amount')
-          .eq('event_type', 'coins_out')
-          .eq('counts_toward_global', true)
-          .gte('event_ts', toManilaStartIso(dateFrom))
-          .lt('event_ts', toManilaEndExclusiveIso(dateTo)),
-        supabase
-          .from('device_metric_events')
-          .select('device_id,event_ts,event_type,amount')
-          .in('event_type', ['coins_in', 'spin', 'win', 'withdrawal'])
-          .eq('counts_toward_global', true)
-          .gte('event_ts', toManilaStartIso(dateFrom))
-          .lt('event_ts', toManilaEndExclusiveIso(dateTo)),
-        supabase
-          .from('jackpot_pots')
-          .select('amount_total,completed_at,goal_snapshot,status')
-          .contains('goal_snapshot', { source: 'dashboard_device_override' })
-          .eq('status', 'completed')
-          .gte('completed_at', toManilaStartIso(dateFrom))
-          .lt('completed_at', toManilaEndExclusiveIso(dateTo))
-          .order('completed_at', { ascending: false }),
-      ])
+      const { data, error: closingsError } = await supabase
+        .from('device_revenue_closings')
+        .select(
+          'id,device_id,closed_at,coins_in_delta,withdraw_delta,bet_delta,win_delta,house_take_delta,spins_delta,jackpot_delta,metadata',
+        )
+        .gte('closed_at', toManilaStartIso(dateFrom))
+        .lt('closed_at', toManilaEndExclusiveIso(dateTo))
+        .order('closed_at', { ascending: false })
+        .order('id', { ascending: false })
 
       if (cancelled) return
 
-      const nextErrors = [
-        dailyStatsResult.error?.message,
-        devicesResult.error?.message,
-        coinsOutResult.error?.message,
-        balanceMetricsResult.error?.message,
-        jackpotOverridesResult.error?.message,
-      ].filter(Boolean)
-
-      if (nextErrors.length > 0) {
-        setError(nextErrors.join(' | '))
+      if (closingsError) {
+        setError(closingsError.message)
+        setDailyRows([])
+        setDeviceRows([])
+        setLoading(false)
+        return
       }
 
-      const statRows = (dailyStatsResult.data ?? []) as DeviceDailyStatsRow[]
-      const deviceInfoRows = (devicesResult.data ?? []) as DeviceRow[]
-      const coinsOutRows = (coinsOutResult.data ?? []) as CoinsOutMetricRow[]
-      const balanceMetricRows = (balanceMetricsResult.data ?? []) as BalanceMetricRow[]
-      const jackpotRows = (jackpotOverridesResult.data ?? []) as JackpotOverrideRow[]
+      const closings = ((data ?? []) as RevenueClosingRow[]).map(closingFromRow)
+      const dailyMap = new Map<string, AccountingClosingRow[]>()
+      const deviceMap = new Map<string, AccountingClosingRow[]>()
 
-      const deviceInfoById = new Map(deviceInfoRows.map(row => [row.device_id, row] as const))
-      const dailyMap = new Map<string, AccountingDailyRow>()
-      const dailyDeviceSets = new Map<string, Set<string>>()
-      const deviceMap = new Map<string, AccountingDeviceRow>()
+      for (const closing of closings) {
+        const dailyClosings = dailyMap.get(closing.business_date) ?? []
+        dailyClosings.push(closing)
+        dailyMap.set(closing.business_date, dailyClosings)
 
-      for (const stat of statRows) {
-        const businessDate = String(stat.stat_date)
-        const deviceId = String(stat.device_id)
-        const deviceInfo = deviceInfoById.get(deviceId)
-        const coinsIn = Math.max(asNumber(stat.coins_in_total), 0)
-
-        const dailyCurrent = dailyMap.get(businessDate) ?? emptyDailyRow(businessDate)
-
-        dailyCurrent.total_coins_in += coinsIn
-        dailyCurrent.total_hopper_in += asNumber(stat.hopper_in_total)
-        dailyCurrent.total_hopper_out += asNumber(stat.hopper_out_total)
-        dailyCurrent.total_bet += asNumber(stat.bet_total)
-        dailyCurrent.total_win += asNumber(stat.win_total)
-
-        dailyCurrent.total_withdraw += asNumber(stat.withdraw_total)
-
-        dailyCurrent.total_spins += asNumber(stat.spins_total)
-
-        dailyCurrent.total_house_take += asNumber(stat.house_take_total)
-        dailyMap.set(businessDate, dailyCurrent)
-
-        const dailyDeviceSet = dailyDeviceSets.get(businessDate) ?? new Set<string>()
-        dailyDeviceSet.add(deviceId)
-        dailyDeviceSets.set(businessDate, dailyDeviceSet)
-
-        const deviceCurrent = deviceMap.get(deviceId) ?? emptyDeviceRow(deviceId, deviceInfo)
-
-        deviceCurrent.device_name = deviceInfo?.name ?? deviceCurrent.device_name
-        deviceCurrent.deployment_mode = deviceInfo?.deployment_mode ?? deviceCurrent.deployment_mode
-        deviceCurrent.coins_in_total += coinsIn
-        deviceCurrent.hopper_in_total += asNumber(stat.hopper_in_total)
-        deviceCurrent.hopper_out_total += asNumber(stat.hopper_out_total)
-        deviceCurrent.bet_total += asNumber(stat.bet_total)
-        deviceCurrent.win_total += asNumber(stat.win_total)
-        deviceCurrent.withdraw_total += asNumber(stat.withdraw_total)
-        deviceCurrent.spins_total += asNumber(stat.spins_total)
-        deviceCurrent.house_take_total += asNumber(stat.house_take_total)
-
-        deviceMap.set(deviceId, deviceCurrent)
+        const deviceClosings = deviceMap.get(closing.device_id) ?? []
+        deviceClosings.push(closing)
+        deviceMap.set(closing.device_id, deviceClosings)
       }
 
-      for (const balanceRow of balanceMetricRows) {
-        const businessDate = formatManilaYmd(String(balanceRow.event_ts))
-        const deviceId = String(balanceRow.device_id)
-        const deviceInfo = deviceInfoById.get(deviceId)
-        const eventType = String(balanceRow.event_type).trim().toLowerCase()
-        const amount = Math.max(asNumber(balanceRow.amount), 0)
-        let balanceDelta = 0
-
-        if (eventType === 'coins_in' || eventType === 'win') {
-          balanceDelta = amount
-        } else if (eventType === 'spin' || eventType === 'bet' || eventType === 'withdrawal') {
-          balanceDelta = -amount
-        }
-
-        if (balanceDelta === 0) continue
-
-        const dailyCurrent = dailyMap.get(businessDate) ?? emptyDailyRow(businessDate)
-        dailyCurrent.total_balance_change += balanceDelta
-        dailyMap.set(businessDate, dailyCurrent)
-
-        const dailyDeviceSet = dailyDeviceSets.get(businessDate) ?? new Set<string>()
-        dailyDeviceSet.add(deviceId)
-        dailyDeviceSets.set(businessDate, dailyDeviceSet)
-
-        const deviceCurrent = deviceMap.get(deviceId) ?? emptyDeviceRow(deviceId, deviceInfo)
-        deviceCurrent.device_name = deviceInfo?.name ?? deviceCurrent.device_name
-        deviceCurrent.deployment_mode = deviceInfo?.deployment_mode ?? deviceCurrent.deployment_mode
-        deviceCurrent.balance += balanceDelta
-        deviceMap.set(deviceId, deviceCurrent)
-      }
-
-      for (const coinsOutRow of coinsOutRows) {
-        const businessDate = formatManilaYmd(String(coinsOutRow.event_ts))
-        const deviceId = String(coinsOutRow.device_id)
-        const deviceInfo = deviceInfoById.get(deviceId)
-        const amount = Math.max(asNumber(coinsOutRow.amount), 0)
-        const dailyCurrent = dailyMap.get(businessDate) ?? emptyDailyRow(businessDate)
-        dailyCurrent.total_coins_out += amount
-        dailyMap.set(businessDate, dailyCurrent)
-        const dailyDeviceSet = dailyDeviceSets.get(businessDate) ?? new Set<string>()
-        dailyDeviceSet.add(deviceId)
-        dailyDeviceSets.set(businessDate, dailyDeviceSet)
-        const deviceCurrent = deviceMap.get(deviceId) ?? emptyDeviceRow(deviceId, deviceInfo)
-        deviceCurrent.device_name = deviceInfo?.name ?? deviceCurrent.device_name
-        deviceCurrent.deployment_mode = deviceInfo?.deployment_mode ?? deviceCurrent.deployment_mode
-        deviceCurrent.coins_out_total += amount
-        deviceMap.set(deviceId, deviceCurrent)
-      }
-      for (const override of jackpotRows) {
-        const businessDate = formatManilaYmd(String(override.completed_at))
-        const amount = asNumber(override.amount_total)
-        const snapshot = (override.goal_snapshot ?? {}) as Record<string, unknown>
-        const deviceId = String(snapshot.deviceId ?? '').trim()
-
-        const dailyCurrent = dailyMap.get(businessDate) ?? emptyDailyRow(businessDate)
-        dailyCurrent.total_jackpot_override += amount
-        dailyMap.set(businessDate, dailyCurrent)
-
-        if (deviceId) {
-          const deviceInfo = deviceInfoById.get(deviceId)
-          const deviceCurrent = deviceMap.get(deviceId) ?? emptyDeviceRow(deviceId, deviceInfo)
-          deviceCurrent.jackpot_override_total += amount
-          deviceMap.set(deviceId, deviceCurrent)
-        }
-      }
-
-      const nextDailyRows = [...dailyMap.values()]
-        .map(row => {
-          const totalDevices = dailyDeviceSets.get(row.business_date)?.size ?? 0
-          const reportingBalance =
-            row.total_coins_in +
-            row.total_coins_out +
-            row.total_jackpot_override +
-            row.total_win -
-            row.total_bet -
-            row.total_withdraw
-
-          const rtpPercent = row.total_bet > 0 ? (row.total_win / row.total_bet) * 100 : 0
-          const houseEdgePercent =
-            row.total_bet > 0 ? (row.total_house_take / row.total_bet) * 100 : 0
-
+      const nextDailyRows = [...dailyMap.entries()]
+        .map(([businessDate, rows]) => {
+          const totals = summarizeClosings(rows)
+          const totalDevices = new Set(rows.map(row => row.device_id)).size
           return {
-            ...row,
+            business_date: businessDate,
+            closing_count: rows.length,
             total_devices: totalDevices,
-            total_balance_change: reportingBalance,
-            rtp_percent: rtpPercent,
-            house_edge_percent: houseEdgePercent,
+            total_coins_in: totals.coinsIn,
+            total_withdraw: totals.withdraw,
+            total_income: totals.income,
+            total_bet: totals.bet,
+            total_win: totals.win,
+            total_spins: totals.spins,
+            total_house_take: totals.houseTake,
+            total_jackpot: totals.jackpot,
+            rtp_percent: totals.bet > 0 ? (totals.win / totals.bet) * 100 : 0,
+            house_edge_percent: totals.bet > 0 ? (totals.houseTake / totals.bet) * 100 : 0,
+            closings: rows,
           }
         })
         .sort((a, b) => b.business_date.localeCompare(a.business_date))
 
-      const nextDeviceRows = [...deviceMap.values()]
-        .map(row => {
-          const rtpPercent = row.bet_total > 0 ? (row.win_total / row.bet_total) * 100 : 0
-          const houseEdgePercent =
-            row.bet_total > 0 ? (row.house_take_total / row.bet_total) * 100 : 0
-
-          const reportingBalance =
-            row.coins_in_total + row.win_total - row.bet_total - row.withdraw_total
-          const netIncome =
-            reportingBalance +
-            row.house_take_total +
-            row.withdraw_total +
-            row.jackpot_override_total -
-            (row.coins_in_total + row.coins_out_total)
-          const grossIncome = row.house_take_total + netIncome
-
+      const nextDeviceRows = [...deviceMap.entries()]
+        .map(([deviceId, rows]) => {
+          const totals = summarizeClosings(rows)
+          const latest = rows[0]
           return {
-            ...row,
-            balance: reportingBalance,
-            rtp_percent: rtpPercent,
-            house_edge_percent: houseEdgePercent,
-            net_income: netIncome,
-            gross_income: grossIncome,
+            device_id: deviceId,
+            device_name: latest?.device_name ?? null,
+            deployment_mode: latest?.deployment_mode ?? null,
+            closing_count: rows.length,
+            coins_in_total: totals.coinsIn,
+            withdraw_total: totals.withdraw,
+            income_total: totals.income,
+            bet_total: totals.bet,
+            win_total: totals.win,
+            spins_total: totals.spins,
+            house_take_total: totals.houseTake,
+            jackpot_total: totals.jackpot,
+            rtp_percent: totals.bet > 0 ? (totals.win / totals.bet) * 100 : 0,
+            house_edge_percent: totals.bet > 0 ? (totals.houseTake / totals.bet) * 100 : 0,
+            closings: rows,
           }
         })
         .sort((a, b) => {
@@ -442,41 +284,19 @@ export function useAccounting(dateFrom: string, dateTo: string) {
   }, [dateFrom, dateTo])
 
   const summary = useMemo<Summary>(() => {
-    return deviceRows.reduce(
-      (acc, row) => {
-        acc.totalDevices += 1
-        acc.balance += asNumber(row.balance)
-        acc.coinsIn += asNumber(row.coins_in_total)
-        acc.hopperIn += asNumber(row.hopper_in_total)
-        acc.hopperOut += asNumber(row.hopper_out_total)
-        acc.coinsOut += asNumber(row.coins_out_total)
-        acc.bet += asNumber(row.bet_total)
-        acc.win += asNumber(row.win_total)
-        acc.withdraw += asNumber(row.withdraw_total)
-        acc.spins += asNumber(row.spins_total)
-        acc.houseTake += asNumber(row.house_take_total)
-        acc.jackpotOverride += asNumber(row.jackpot_override_total)
-        acc.netIncome += asNumber(row.net_income)
-        acc.grossIncome += asNumber(row.gross_income)
-        return acc
-      },
-      {
-        totalDevices: 0,
-        balance: 0,
-        coinsIn: 0,
-        hopperIn: 0,
-        hopperOut: 0,
-        coinsOut: 0,
-        bet: 0,
-        win: 0,
-        withdraw: 0,
-        spins: 0,
-        houseTake: 0,
-        jackpotOverride: 0,
-        netIncome: 0,
-        grossIncome: 0,
-      },
-    )
+    const totals = summarizeClosings(deviceRows.flatMap(row => row.closings))
+    return {
+      totalDevices: deviceRows.length,
+      closingCount: deviceRows.reduce((acc, row) => acc + row.closing_count, 0),
+      coinsIn: totals.coinsIn,
+      withdraw: totals.withdraw,
+      income: totals.income,
+      bet: totals.bet,
+      win: totals.win,
+      spins: totals.spins,
+      houseTake: totals.houseTake,
+      jackpot: totals.jackpot,
+    }
   }, [deviceRows])
 
   const byDate = useMemo(() => {

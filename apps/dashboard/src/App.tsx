@@ -3,10 +3,11 @@ import Dashboard from './pages/Dashboard'
 import Settings from './pages/Settings'
 import Accounting from './pages/Accounting'
 import Accounts from './pages/Accounts'
+import BossReport from './pages/BossReport'
 import { useDashboardAuth, type DashboardRole } from './hooks/useDashboardAuth'
 import { supabase } from './lib/supabase'
 
-type Page = 'dashboard' | 'settings' | 'accounting' | 'accounts'
+type Page = 'dashboard' | 'settings' | 'accounting' | 'accounts' | 'boss'
 
 function SignInScreen() {
   const [email, setEmail] = useState('')
@@ -99,6 +100,8 @@ function AccessPendingScreen() {
 }
 
 function canAccess(page: Page, role: DashboardRole) {
+  if (page === 'boss') return role === 'boss' || role === 'superadmin'
+  if (role === 'boss') return false
   if (page === 'dashboard') return true
   if (page === 'accounting') return role !== 'runner' && role !== 'staff'
   if (page === 'settings') return role === 'superadmin' || role === 'admin'
@@ -130,8 +133,8 @@ function App() {
     return <AccessPendingScreen />
   }
 
-  const availablePages: Page[] = ['dashboard', 'accounting', 'settings', 'accounts'].filter(p =>
-    canAccess(p as Page, profile.role),
+  const availablePages: Page[] = ['dashboard', 'accounting', 'boss', 'settings', 'accounts'].filter(
+    p => canAccess(p as Page, profile.role),
   ) as Page[]
 
   const currentPage = canAccess(page, profile.role) ? page : availablePages[0]
@@ -255,6 +258,19 @@ function App() {
               </button>
             )}
 
+            {availablePages.includes('boss') && (
+              <button
+                onClick={() => setPage('boss')}
+                className={`px-3 py-1 rounded text-sm border whitespace-nowrap ${
+                  currentPage === 'boss'
+                    ? 'bg-slate-700 border-slate-500 text-white'
+                    : 'bg-slate-900 text-slate-100 border-slate-700'
+                }`}
+              >
+                Revenue Report
+              </button>
+            )}
+
             {availablePages.includes('settings') && (
               <button
                 onClick={() => setPage('settings')}
@@ -285,6 +301,7 @@ function App() {
       </nav>
 
       {currentPage === 'dashboard' ? <Dashboard role={profile.role} /> : null}
+      {currentPage === 'boss' ? <BossReport /> : null}
       {currentPage === 'settings' ? <Settings /> : null}
       {currentPage === 'accounting' ? <Accounting /> : null}
       {currentPage === 'accounts' ? (

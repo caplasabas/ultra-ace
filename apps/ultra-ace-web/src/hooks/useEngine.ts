@@ -500,7 +500,10 @@ export function useEngine() {
 
   const applyShellBalance = useCallback(
     (nextBalance: number, updatedAt?: string | null) => {
-      shellBalanceRevisionRef.current += 1
+      shellBalanceRevisionRef.current = Math.max(
+        shellBalanceRevisionRef.current + 1,
+        lastAuthoritativeRevisionRef.current + 1,
+      )
       applyAuthoritativeBalance({
         balance: Math.max(0, Number(nextBalance ?? 0)),
         updatedAt: updatedAt ?? new Date().toISOString(),
@@ -514,6 +517,10 @@ export function useEngine() {
     const id = deviceIdRef.current
     if (!id) return
     if (isShellIframe()) {
+      const shellState = await requestShellState({ forceRefresh: true })
+      if (shellState) {
+        applyShellBalance(shellState.balance, shellState.updatedAt ?? null)
+      }
       return
     }
     if (balanceSyncInFlightRef.current) {

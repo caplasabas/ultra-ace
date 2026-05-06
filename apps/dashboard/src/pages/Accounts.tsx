@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { DashboardProfile, DashboardRole } from '../hooks/useDashboardAuth'
 import { supabase } from '../lib/supabase'
 
-const ROLE_OPTIONS: DashboardRole[] = ['superadmin', 'admin', 'staff', 'runner', 'accounts']
+const ROLE_OPTIONS: DashboardRole[] = ['superadmin', 'admin', 'staff', 'runner', 'accounts', 'boss']
 
 type Props = {
   viewerRole: DashboardRole
@@ -131,7 +131,7 @@ export default function Accounts({ viewerRole, currentUserId }: Props) {
       )}
 
       <section className="rounded-lg border border-slate-700 bg-slate-800 p-4 text-sm text-slate-300 space-y-2">
-        <div>Roles: `superadmin`, `admin`, `staff`, `runner`, `accounts`</div>
+        <div>Roles: `superadmin`, `admin`, `staff`, `runner`, `accounts`, `boss`</div>
         <div>
           Create Auth users in Supabase Auth first, then insert/update their row in `dashboard_users`.
         </div>
