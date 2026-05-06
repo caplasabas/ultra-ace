@@ -5,7 +5,7 @@ import { WinOverlay } from './ui/WinOverlay'
 import { adaptWindow } from './game/adaptWindow'
 import { detectScatterPauseColumn, useCascadeTimeline } from './hooks/useCascadeTimeline'
 import { DebugHud } from './debug/DebugHud'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react'
 
 import { type CascadeStep, formatPeso } from '@ultra-ace/engine'
 import { useBackgroundAudio } from './audio/useBackgroundAudio'
@@ -31,11 +31,13 @@ import { FreeSpinIntro } from './ui/FreeSpinIntro'
 import { ScatterWinBanner } from './ui/ScatterWinBanner'
 import { BuySpinModal } from './ui/BuySpinModal'
 import { installAccountingRetryHooks, logLedgerEvent } from './lib/accounting'
+import { fetchLiveConfig, subscribeLiveConfig } from './lib/config'
 
 import splashStart from './assets/images/splash_start.png'
 import WILD_RED from './assets/symbols/WILD_RED.png'
 
 const DEV = import.meta.env.DEV
+const DEBUG_ULTRAACE = import.meta.env.VITE_ULTRAACE_DEBUG === '1'
 const GAME_BUILD_VERSION = import.meta.env.VITE_GAME_VERSION || 'dev'
 const FREE_SPIN_PRESTART_DELAY_MS = 1500
 const BIG_WIN_BET_MULTIPLIER = 10
@@ -43,6 +45,7 @@ const BIG_WIN_MIN_AMOUNT = 20
 const BOOT_SPLASH_GAMEPLAY_GUARD_MS = 1200
 const WITHDRAW_INPUT_DEBOUNCE_MS = 300
 const WITHDRAW_STALL_RESET_MS = 15000
+const MARQUEE_HIDE_ANIMATION_MS = 280
 
 const VOICE_BY_SYMBOL: Record<string, string> = {
   A: aceVoice,
@@ -74,6 +77,152 @@ type RedWildPropagationPath = {
 }
 
 const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kind }))
+
+type MarqueeRepeatMode = 'none' | 'daily' | 'weekly'
+
+type MarqueeConfig = {
+  enabled: boolean
+  message: string
+  repeat: MarqueeRepeatMode
+  startsAt: string | null
+  endsAt: string | null
+  startTime: string | null
+  endTime: string | null
+  daysOfWeek: number[] | null
+}
+
+type SideAdsConfig = {
+  enabled: boolean
+  leftImageUrl: string | null
+  rightImageUrl: string | null
+  leftAlt: string
+  rightAlt: string
+}
+
+const DEFAULT_MARQUEE: MarqueeConfig = {
+  enabled: false,
+  message: '',
+  repeat: 'none',
+  startsAt: null,
+  endsAt: null,
+  startTime: null,
+  endTime: null,
+  daysOfWeek: null,
+}
+
+const DISABLED_MARQUEE: MarqueeConfig = {
+  ...DEFAULT_MARQUEE,
+  enabled: false,
+}
+
+const DISABLED_SIDE_ADS: SideAdsConfig = {
+  enabled: false,
+  leftImageUrl: null,
+  rightImageUrl: null,
+  leftAlt: 'Promotion',
+  rightAlt: 'Promotion',
+}
+
+function normalizeMarqueeConfig(raw: unknown): MarqueeConfig {
+  if (typeof raw === 'string') {
+    const message = raw.trim()
+    return message ? { ...DEFAULT_MARQUEE, enabled: true, message } : DISABLED_MARQUEE
+  }
+
+  if (!raw || typeof raw !== 'object') return DISABLED_MARQUEE
+
+  const value = raw as Record<string, unknown>
+  const message = String(value.message ?? value.text ?? '').trim()
+  const repeat = String(value.repeat ?? value.scheduleMode ?? value.schedule_mode ?? 'none')
+    .trim()
+    .toLowerCase()
+  const rawDays = value.daysOfWeek ?? value.days_of_week
+  const days = Array.isArray(rawDays)
+    ? rawDays
+        .map((day: unknown) => Number(day))
+        .filter((day: number) => Number.isInteger(day) && day >= 0 && day <= 6)
+    : null
+
+  return {
+    enabled: value.enabled !== false && Boolean(message),
+    message,
+    repeat: repeat === 'daily' || repeat === 'weekly' ? repeat : 'none',
+    startsAt: value.startsAt || value.starts_at ? String(value.startsAt ?? value.starts_at) : null,
+    endsAt: value.endsAt || value.ends_at ? String(value.endsAt ?? value.ends_at) : null,
+    startTime:
+      value.startTime || value.start_time ? String(value.startTime ?? value.start_time) : null,
+    endTime: value.endTime || value.end_time ? String(value.endTime ?? value.end_time) : null,
+    daysOfWeek: days && days.length ? days : null,
+  }
+}
+
+function normalizeSideAdsConfig(raw: unknown): SideAdsConfig {
+  if (!raw || typeof raw !== 'object') return DISABLED_SIDE_ADS
+
+  const value = raw as Record<string, unknown>
+  const leftImageUrl = String(
+    value.leftImageUrl ?? value.left_image_url ?? value.leftUrl ?? value.left_url ?? '',
+  ).trim()
+  const rightImageUrl = String(
+    value.rightImageUrl ?? value.right_image_url ?? value.rightUrl ?? value.right_url ?? '',
+  ).trim()
+
+  return {
+    enabled: value.enabled !== false && Boolean(leftImageUrl || rightImageUrl),
+    leftImageUrl: leftImageUrl || null,
+    rightImageUrl: rightImageUrl || null,
+    leftAlt: String(value.leftAlt ?? value.left_alt ?? 'Promotion').trim() || 'Promotion',
+    rightAlt: String(value.rightAlt ?? value.right_alt ?? 'Promotion').trim() || 'Promotion',
+  }
+}
+
+function sideAdStyle(imageUrl: string): CSSProperties {
+  const safeImageUrl = imageUrl.replace(/["\\\n\r]/g, '')
+  return { '--side-ad-image': `url("${safeImageUrl}")` } as CSSProperties
+}
+
+function isSvgUrl(imageUrl: string): boolean {
+  return /\.svg(?:[?#].*)?$/i.test(imageUrl)
+}
+
+function minutesFromTime(value: string | null) {
+  if (!value) return null
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})/)
+  if (!match) return null
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null
+  return hours * 60 + minutes
+}
+
+function isMarqueeActive(config: MarqueeConfig, now = new Date()) {
+  if (!config.enabled || !config.message.trim()) return false
+
+  const startsAt = config.startsAt ? new Date(config.startsAt).getTime() : null
+  const endsAt = config.endsAt ? new Date(config.endsAt).getTime() : null
+  const nowMs = now.getTime()
+  if (startsAt && Number.isFinite(startsAt) && nowMs < startsAt) return false
+  if (endsAt && Number.isFinite(endsAt) && nowMs > endsAt) return false
+
+  if (config.repeat === 'weekly' && config.daysOfWeek && !config.daysOfWeek.includes(now.getDay())) {
+    return false
+  }
+
+  if (config.repeat === 'daily' || config.repeat === 'weekly') {
+    const startMinutes = minutesFromTime(config.startTime)
+    const endMinutes = minutesFromTime(config.endTime)
+    if (startMinutes === null && endMinutes === null) return true
+
+    const currentMinutes = now.getHours() * 60 + now.getMinutes()
+    if (startMinutes !== null && endMinutes !== null && startMinutes > endMinutes) {
+      return currentMinutes >= startMinutes || currentMinutes <= endMinutes
+    }
+    if (startMinutes !== null && currentMinutes < startMinutes) return false
+    if (endMinutes !== null && currentMinutes > endMinutes) return false
+  }
+
+  return true
+}
 
 function getWinVoiceSequence(cascade: CascadeStep): string[] {
   const clips: string[] = []
@@ -206,6 +355,14 @@ export default function App() {
   const [internetOnline, setInternetOnline] = useState(() =>
     typeof navigator !== 'undefined' ? navigator.onLine : true,
   )
+  const [marqueeConfig, setMarqueeConfig] = useState<MarqueeConfig>(DISABLED_MARQUEE)
+  const [sideAdsConfig, setSideAdsConfig] = useState<SideAdsConfig>(DISABLED_SIDE_ADS)
+  const [marqueeClock, setMarqueeClock] = useState(() => Date.now())
+  const [renderedMarqueeConfig, setRenderedMarqueeConfig] = useState<MarqueeConfig | null>(null)
+  const [marqueeVisible, setMarqueeVisible] = useState(false)
+  const marqueeTransitionTimerRef = useRef<number | null>(null)
+  const lastMarqueeConfigKeyRef = useRef('')
+  const lastSideAdsConfigKeyRef = useRef('')
 
   useEffect(() => {
     const scale = Math.min(window.innerWidth / 430, window.innerHeight / 900)
@@ -216,6 +373,51 @@ export default function App() {
 
   useEffect(() => {
     installAccountingRetryHooks()
+  }, [])
+
+  useEffect(() => {
+    let mounted = true
+    const applyConfig = (cfg: any) => {
+      const rawMarquee = cfg?.marquee ?? cfg?.ultraace_marquee ?? cfg?.promo_marquee
+      const rawSideAds = cfg?.side_ads ?? cfg?.sideAds ?? cfg?.ultraace_side_ads
+      const nextConfig = normalizeMarqueeConfig(rawMarquee)
+      const nextKey = JSON.stringify(nextConfig)
+      if (mounted && nextKey !== lastMarqueeConfigKeyRef.current) {
+        lastMarqueeConfigKeyRef.current = nextKey
+        setMarqueeConfig(nextConfig)
+      }
+
+      const nextSideAdsConfig = normalizeSideAdsConfig(rawSideAds)
+      const nextSideAdsKey = JSON.stringify(nextSideAdsConfig)
+      if (mounted && nextSideAdsKey !== lastSideAdsConfigKeyRef.current) {
+        lastSideAdsConfigKeyRef.current = nextSideAdsKey
+        setSideAdsConfig(nextSideAdsConfig)
+      }
+    }
+
+    const refreshConfig = () => {
+      fetchLiveConfig()
+        .then(applyConfig)
+        .catch(error => {
+          if (DEBUG_ULTRAACE) console.warn('[MARQUEE] config load failed', error)
+        })
+    }
+
+    refreshConfig()
+    const pollTimer = window.setInterval(refreshConfig, 3000)
+
+    const channel = subscribeLiveConfig(applyConfig)
+
+    return () => {
+      mounted = false
+      window.clearInterval(pollTimer)
+      void channel.unsubscribe()
+    }
+  }, [])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setMarqueeClock(Date.now()), 30000)
+    return () => window.clearInterval(timer)
   }, [])
 
   useEffect(() => {
@@ -657,8 +859,8 @@ export default function App() {
     commitSpin,
   )
 
-  // Debug: Log cascade state changes
   useEffect(() => {
+    if (!DEBUG_ULTRAACE) return
     console.log('[CASCADE STATE]', {
       phase,
       cascadeIndex,
@@ -732,14 +934,24 @@ export default function App() {
     phase === 'cascadeRefill' ||
     (phase === 'postGoldTransform' && !isScatterOnlyTerminal)
 
-  const adaptedWindow =
-    windowForRender &&
-    adaptWindow(
+  const adaptedWindow = useMemo(
+    () =>
+      windowForRender
+        ? adaptWindow(
+            windowForRender,
+            phase === 'cascadeRefill' ? activeCascade?.removedPositions : undefined,
+            shouldUsePrevious ? previousCascade?.window : undefined,
+            phase,
+          )
+        : undefined,
+    [
       windowForRender,
-      phase === 'cascadeRefill' ? activeCascade?.removedPositions : undefined,
-      shouldUsePrevious ? previousCascade?.window : undefined,
       phase,
-    )
+      activeCascade?.removedPositions,
+      shouldUsePrevious,
+      previousCascade?.window,
+    ],
+  )
 
   const redWildPropagationPaths = useMemo<RedWildPropagationPath[]>(() => {
     if (phase !== 'postGoldTransform' || !activeCascade?.window || !previousCascade?.window)
@@ -902,12 +1114,14 @@ export default function App() {
   }, [phase, spinId, isFreeGame, commitSpinVisualDeduction])
 
   useEffect(() => {
-    console.log('[WIN] effect running:', {
-      phase,
-      activeCascadeWin: activeCascade?.win,
-      spinId,
-      cascadeIndex,
-    })
+    if (DEBUG_ULTRAACE) {
+      console.log('[WIN] effect running:', {
+        phase,
+        activeCascadeWin: activeCascade?.win,
+        spinId,
+        cascadeIndex,
+      })
+    }
     if (phase !== 'highlight') return
     if (!activeCascade?.win) return
 
@@ -915,7 +1129,9 @@ export default function App() {
     if (lastLoggedWinKeyRef.current === winKey) return
     lastLoggedWinKeyRef.current = winKey
 
-    console.log('[WIN] commitWin called:', { winKey, win: activeCascade.win, cascadeIndex })
+    if (DEBUG_ULTRAACE) {
+      console.log('[WIN] commitWin called:', { winKey, win: activeCascade.win, cascadeIndex })
+    }
     setDisplayedCascadeWinTotal(current =>
       Math.max(0, Math.round((current + Number(activeCascade.win ?? 0)) * 10000) / 10000),
     )
@@ -955,6 +1171,60 @@ export default function App() {
   }
 
   const activeMultiplierIndex = getDisplayMultiplierIndex(phase, cascadeIndex)
+  const marqueeActive = useMemo(
+    () => isMarqueeActive(marqueeConfig, new Date(marqueeClock)),
+    [marqueeConfig, marqueeClock],
+  )
+  const marqueeMessage = marqueeConfig.message.trim()
+
+  useEffect(() => {
+    if (marqueeTransitionTimerRef.current !== null) {
+      window.clearTimeout(marqueeTransitionTimerRef.current)
+      marqueeTransitionTimerRef.current = null
+    }
+
+    if (marqueeActive && marqueeMessage) {
+      const renderedMessage = renderedMarqueeConfig?.message.trim() ?? ''
+
+      if (!renderedMarqueeConfig) {
+        setRenderedMarqueeConfig(marqueeConfig)
+        window.requestAnimationFrame(() => setMarqueeVisible(true))
+        return
+      }
+
+      if (renderedMessage !== marqueeMessage) {
+        setMarqueeVisible(false)
+        marqueeTransitionTimerRef.current = window.setTimeout(() => {
+          setRenderedMarqueeConfig(marqueeConfig)
+          window.requestAnimationFrame(() => setMarqueeVisible(true))
+          marqueeTransitionTimerRef.current = null
+        }, MARQUEE_HIDE_ANIMATION_MS)
+        return () => {
+          if (marqueeTransitionTimerRef.current !== null) {
+            window.clearTimeout(marqueeTransitionTimerRef.current)
+            marqueeTransitionTimerRef.current = null
+          }
+        }
+      }
+
+      setRenderedMarqueeConfig(marqueeConfig)
+      window.requestAnimationFrame(() => setMarqueeVisible(true))
+      return
+    }
+
+    setMarqueeVisible(false)
+    marqueeTransitionTimerRef.current = window.setTimeout(() => {
+      setRenderedMarqueeConfig(null)
+      marqueeTransitionTimerRef.current = null
+    }, MARQUEE_HIDE_ANIMATION_MS)
+
+    return () => {
+      if (marqueeTransitionTimerRef.current !== null) {
+        window.clearTimeout(marqueeTransitionTimerRef.current)
+        marqueeTransitionTimerRef.current = null
+      }
+    }
+  }, [marqueeActive, marqueeConfig, marqueeMessage, renderedMarqueeConfig])
   const freeSpinDisplayCount = isFreeGame ? freeSpinsLeft : pendingFreeSpins
   const showFreeSpinModeUi = isFreeGame || isFreeSpinPreview || showScatterWinBanner || freezeUI
   const showFreeSpinCount = (isFreeGame || isFreeSpinPreview) && freeSpinDisplayCount > 0
@@ -1268,17 +1538,23 @@ export default function App() {
 
   useEffect(() => {
     window.__ARCADE_INPUT__ = payload => {
-      console.log('[ARCADE]', payload)
+      if (DEBUG_ULTRAACE) {
+        console.log('[ARCADE]', payload)
+      }
 
       if (payload?.type === 'INTERNET_LOST') {
-        console.log('[ULTRAACE] INTERNET_LOST')
+        if (DEBUG_ULTRAACE) {
+          console.log('[ULTRAACE] INTERNET_LOST')
+        }
 
         setInternetOnline(false)
         return
       }
 
       if (payload?.type === 'INTERNET_RESTORED' || payload?.type === 'INTERNET_OK') {
-        console.log('[ULTRAACE] INTERNET_RESTORED')
+        if (DEBUG_ULTRAACE) {
+          console.log('[ULTRAACE] INTERNET_RESTORED')
+        }
 
         setInternetOnline(true)
         return
@@ -1629,6 +1905,42 @@ export default function App() {
   return (
     <div className="viewport">
       <div className="game-root">
+        {sideAdsConfig.enabled && sideAdsConfig.leftImageUrl && (
+          <aside
+            className="desktop-side-ad left"
+            aria-label={sideAdsConfig.leftAlt}
+            style={sideAdStyle(sideAdsConfig.leftImageUrl)}
+          >
+            {isSvgUrl(sideAdsConfig.leftImageUrl) && (
+              <object
+                className="desktop-side-ad-object"
+                data={sideAdsConfig.leftImageUrl}
+                type="image/svg+xml"
+                aria-hidden="true"
+                tabIndex={-1}
+              />
+            )}
+            <span className="desktop-side-ad-alt">{sideAdsConfig.leftAlt}</span>
+          </aside>
+        )}
+        {sideAdsConfig.enabled && sideAdsConfig.rightImageUrl && (
+          <aside
+            className="desktop-side-ad right"
+            aria-label={sideAdsConfig.rightAlt}
+            style={sideAdStyle(sideAdsConfig.rightImageUrl)}
+          >
+            {isSvgUrl(sideAdsConfig.rightImageUrl) && (
+              <object
+                className="desktop-side-ad-object"
+                data={sideAdsConfig.rightImageUrl}
+                type="image/svg+xml"
+                aria-hidden="true"
+                tabIndex={-1}
+              />
+            )}
+            <span className="desktop-side-ad-alt">{sideAdsConfig.rightAlt}</span>
+          </aside>
+        )}
         <div className="game-frame">
           <div className="frame-bg">
             <div className={`bg-inner ${showFreeSpinModeUi ? 'free-spin' : ''}`}>
@@ -1646,7 +1958,7 @@ export default function App() {
               <ScatterWinBanner amount={showScatterWinBanner ? freeSpinTotal : 0} />
             </div>
 
-            <div className="top-container">
+            <div className={`top-container ${renderedMarqueeConfig ? 'has-marquee' : ''}`}>
               {DEV && <DebugHud info={debugInfo} />}
 
               <button
@@ -1700,6 +2012,22 @@ export default function App() {
                   </div>
                 ))}
               </div>
+
+              {renderedMarqueeConfig && (
+                <div
+                  className={`promo-marquee ${marqueeVisible ? 'visible' : 'hiding'}`}
+                  aria-live="polite"
+                >
+                  <div className="promo-marquee-cap left" />
+                  <div className="promo-marquee-track">
+                    <span className="promo-marquee-text">{renderedMarqueeConfig.message}</span>
+                    <span className="promo-marquee-text duplicate" aria-hidden="true">
+                      {renderedMarqueeConfig.message}
+                    </span>
+                  </div>
+                  <div className="promo-marquee-cap right" />
+                </div>
+              )}
             </div>
             {showBuySpinModal && (
               <BuySpinModal

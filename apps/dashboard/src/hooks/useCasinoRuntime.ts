@@ -56,6 +56,10 @@ export type CasinoRuntime = {
   jackpot_pool_spin_counter: number
   happy_pool_goal_anchor_at: string | null
   jackpot_pool_goal_anchor_at: string | null
+  happy_pool_goal_queue: number[]
+  happy_pool_goal_queue_index: number
+  jackpot_pool_goal_queue: number[]
+  jackpot_pool_goal_queue_index: number
   happy_pots_queued_count: number
   happy_pots_queued_amount: number
   jackpot_pots_queued_count: number

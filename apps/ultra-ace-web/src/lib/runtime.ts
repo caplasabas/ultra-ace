@@ -1,5 +1,7 @@
 import { supabase } from './supabase'
 
+let runtimeChannelSeq = 0
+
 export type RuntimeMode = 'BASE' | 'HAPPY'
 export type JackpotDeliveryMode = 'TARGET_FIRST' | 'AUTHENTIC_PAYTABLE'
 export type JackpotPayoutCurve = 'flat' | 'front' | 'center' | 'back'
@@ -55,8 +57,10 @@ export async function fetchDeviceHappyOverrideLive(deviceId: string) {
 }
 
 export function subscribeCasinoRuntimeLive(onUpdate: (next: CasinoRuntimeLive) => void) {
+  const channelName = `casino-runtime-live-${Date.now()}-${runtimeChannelSeq++}`
+
   return supabase
-    .channel('casino-runtime-live')
+    .channel(channelName)
     .on(
       'postgres_changes',
       {

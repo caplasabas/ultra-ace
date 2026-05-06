@@ -1,5 +1,7 @@
 import { supabase } from './supabase'
 
+let balanceChannelSeq = 0
+
 export type DeviceBalanceSnapshot = {
   balance: number
   updatedAt: string | null
@@ -46,8 +48,9 @@ export function subscribeToDeviceBalance(
   deviceId: string,
   onChange: (snapshot: DeviceBalanceSnapshot) => void,
 ) {
+  const channelName = `device-balance-${deviceId}-${Date.now()}-${balanceChannelSeq++}`
   const channel = supabase
-    .channel(`device-balance-${deviceId}`)
+    .channel(channelName)
     .on(
       'postgres_changes',
       {

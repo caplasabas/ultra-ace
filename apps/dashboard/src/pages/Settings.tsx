@@ -5,6 +5,293 @@ import { getGame, toggleGame, useGames } from '../hooks/useGames'
 import { prepareGamePackage, purgeGamePackages, removeGamePackage } from '../lib/arcadeAdmin'
 import { supabase } from '../lib/supabase'
 
+type MarqueeRepeatMode = 'none' | 'daily' | 'weekly'
+
+type MarqueeFormState = {
+  enabled: boolean
+  message: string
+  repeat: MarqueeRepeatMode
+  startsAt: string
+  endsAt: string
+  startTime: string
+  endTime: string
+  daysOfWeek: number[]
+}
+
+type SideAdsFormState = {
+  enabled: boolean
+  leftImageUrl: string
+  rightImageUrl: string
+  leftAlt: string
+  rightAlt: string
+}
+
+const EMPTY_MARQUEE_FORM: MarqueeFormState = {
+  enabled: false,
+  message: '',
+  repeat: 'daily',
+  startsAt: '',
+  endsAt: '',
+  startTime: '',
+  endTime: '',
+  daysOfWeek: [],
+}
+
+const EMPTY_SIDE_ADS_FORM: SideAdsFormState = {
+  enabled: false,
+  leftImageUrl: '',
+  rightImageUrl: '',
+  leftAlt: 'Promotion',
+  rightAlt: 'Promotion',
+}
+
+const WEEK_DAYS = [
+  { value: 0, label: 'Sun' },
+  { value: 1, label: 'Mon' },
+  { value: 2, label: 'Tue' },
+  { value: 3, label: 'Wed' },
+  { value: 4, label: 'Thu' },
+  { value: 5, label: 'Fri' },
+  { value: 6, label: 'Sat' },
+]
+
+function toDateTimeLocal(value: unknown) {
+  if (!value) return ''
+  const date = new Date(String(value))
+  if (!Number.isFinite(date.getTime())) return ''
+  const offsetMs = date.getTimezoneOffset() * 60 * 1000
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16)
+}
+
+function fromDateTimeLocal(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  const date = new Date(trimmed)
+  if (!Number.isFinite(date.getTime())) return null
+  return date.toISOString()
+}
+
+function normalizeMarqueeForm(raw: unknown): MarqueeFormState {
+  if (!raw || typeof raw !== 'object') return EMPTY_MARQUEE_FORM
+
+  const value = raw as Record<string, unknown>
+  const rawDays = value.daysOfWeek ?? value.days_of_week
+  const daysOfWeek = Array.isArray(rawDays)
+    ? rawDays
+        .map(day => Number(day))
+        .filter(day => Number.isInteger(day) && day >= 0 && day <= 6)
+    : []
+  const repeat = String(value.repeat ?? value.scheduleMode ?? value.schedule_mode ?? 'none')
+    .trim()
+    .toLowerCase()
+
+  return {
+    enabled: value.enabled !== false,
+    message: String(value.message ?? value.text ?? '').trim(),
+    repeat: repeat === 'daily' || repeat === 'weekly' ? repeat : 'none',
+    startsAt: toDateTimeLocal(value.startsAt ?? value.starts_at),
+    endsAt: toDateTimeLocal(value.endsAt ?? value.ends_at),
+    startTime: String(value.startTime ?? value.start_time ?? '').slice(0, 5),
+    endTime: String(value.endTime ?? value.end_time ?? '').slice(0, 5),
+    daysOfWeek,
+  }
+}
+
+function buildMarqueePayload(form: MarqueeFormState) {
+  const message = form.message.trim()
+  if (!form.enabled || !message) return null
+  const startsAt = fromDateTimeLocal(form.startsAt) ?? new Date().toISOString()
+
+  return {
+    enabled: true,
+    message,
+    repeat: form.repeat,
+    startsAt,
+    endsAt: fromDateTimeLocal(form.endsAt),
+    startTime: form.repeat === 'daily' || form.repeat === 'weekly' ? form.startTime || null : null,
+    endTime: form.repeat === 'daily' || form.repeat === 'weekly' ? form.endTime || null : null,
+    daysOfWeek: form.repeat === 'weekly' && form.daysOfWeek.length ? form.daysOfWeek : null,
+  }
+}
+
+function normalizeSideAdsForm(raw: unknown): SideAdsFormState {
+  if (!raw || typeof raw !== 'object') return EMPTY_SIDE_ADS_FORM
+  const value = raw as Record<string, unknown>
+
+  return {
+    enabled: value.enabled !== false,
+    leftImageUrl: String(value.leftImageUrl ?? value.left_image_url ?? '').trim(),
+    rightImageUrl: String(value.rightImageUrl ?? value.right_image_url ?? '').trim(),
+    leftAlt: String(value.leftAlt ?? value.left_alt ?? 'Promotion').trim() || 'Promotion',
+    rightAlt: String(value.rightAlt ?? value.right_alt ?? 'Promotion').trim() || 'Promotion',
+  }
+}
+
+function buildSideAdsPayload(form: SideAdsFormState) {
+  const leftImageUrl = form.leftImageUrl.trim()
+  const rightImageUrl = form.rightImageUrl.trim()
+  if (!form.enabled || (!leftImageUrl && !rightImageUrl)) return null
+
+  return {
+    enabled: true,
+    leftImageUrl: leftImageUrl || null,
+    rightImageUrl: rightImageUrl || null,
+    leftAlt: form.leftAlt.trim() || 'Promotion',
+    rightAlt: form.rightAlt.trim() || 'Promotion',
+  }
+}
+
+function normalizeGoalQueue(
+  raw: unknown,
+  fallbackGoal: number | string | null | undefined,
+  currentIndex: number | null | undefined = 0,
+) {
+  const rawValues = Array.isArray(raw) ? raw : []
+  const parsed = rawValues
+    .map(value => Number(value))
+    .filter(value => Number.isFinite(value) && value > 0)
+
+  if (parsed.length > 0) {
+    const startIndex = Math.min(Math.max(Math.trunc(Number(currentIndex ?? 0)), 0), parsed.length - 1)
+    return [...parsed.slice(startIndex), ...parsed.slice(0, startIndex)].map(value => String(value))
+  }
+
+  const fallback = Number(fallbackGoal ?? 0)
+  return Number.isFinite(fallback) && fallback > 0 ? [String(fallback)] : ['']
+}
+
+function sanitizeGoalQueue(values: string[]) {
+  return values
+    .map(value => Number(value || 0))
+    .filter(value => Number.isFinite(value) && value > 0)
+}
+
+function moveArrayItem<T>(items: T[], index: number, nextIndex: number) {
+  if (nextIndex < 0 || nextIndex >= items.length) return items
+  const next = [...items]
+  const [item] = next.splice(index, 1)
+  next.splice(nextIndex, 0, item)
+  return next
+}
+
+type GoalQueueEditorProps = {
+  title: string
+  values: string[]
+  addValue: string
+  currentIndex?: number
+  disabled?: boolean
+  onAddValueChange: (value: string) => void
+  onValuesChange: (values: string[]) => void
+}
+
+function GoalQueueEditor({
+  title,
+  values,
+  addValue,
+  currentIndex = 0,
+  disabled = false,
+  onAddValueChange,
+  onValuesChange,
+}: GoalQueueEditorProps) {
+  const safeCurrentIndex =
+    values.length > 0 ? Math.min(Math.max(Math.trunc(currentIndex), 0), values.length - 1) : 0
+
+  function addGoal() {
+    const amount = Number(addValue || 0)
+    if (!Number.isFinite(amount) || amount <= 0) return
+    onValuesChange([...values, String(amount)])
+    onAddValueChange('')
+  }
+
+  return (
+    <div className="rounded border border-slate-700 bg-slate-900/40 p-3 space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-slate-100">{title}</div>
+          <div className="text-xs text-slate-400">Runs top to bottom, then loops.</div>
+        </div>
+        <div className="text-xs text-slate-400">{values.length} goal{values.length === 1 ? '' : 's'}</div>
+      </div>
+
+      <div className="space-y-2">
+        {values.map((value, index) => (
+          <div key={`${title}-${index}`} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] gap-2">
+            <div className="flex h-9 items-center justify-center rounded border border-slate-700 bg-slate-950 text-xs text-slate-400">
+              {index + 1}
+            </div>
+            <input
+              className="h-9 min-w-0 rounded border border-slate-700 bg-slate-950 px-3 text-sm"
+              type="number"
+              min={1}
+              step={1}
+              value={value}
+              disabled={disabled}
+              onChange={e => {
+                const next = [...values]
+                next[index] = e.target.value
+                onValuesChange(next)
+              }}
+            />
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                className="h-9 rounded border border-slate-700 px-2 text-xs text-slate-200 disabled:opacity-40"
+                disabled={disabled || index === 0}
+                onClick={() => onValuesChange(moveArrayItem(values, index, index - 1))}
+              >
+                Up
+              </button>
+              <button
+                type="button"
+                className="h-9 rounded border border-slate-700 px-2 text-xs text-slate-200 disabled:opacity-40"
+                disabled={disabled || index === values.length - 1}
+                onClick={() => onValuesChange(moveArrayItem(values, index, index + 1))}
+              >
+                Down
+              </button>
+              <button
+                type="button"
+                className="h-9 rounded border border-red-700/80 px-2 text-xs text-red-300 disabled:opacity-40"
+                disabled={disabled || values.length <= 1}
+                onClick={() => onValuesChange(values.filter((_, valueIndex) => valueIndex !== index))}
+              >
+                Remove
+              </button>
+            </div>
+            {index === safeCurrentIndex && (
+              <div className="col-start-2 text-xs text-emerald-300">Current active goal</div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+        <input
+          className="h-9 min-w-0 rounded border border-slate-700 bg-slate-950 px-3 text-sm"
+          type="number"
+          min={1}
+          step={1}
+          value={addValue}
+          disabled={disabled}
+          onChange={e => onAddValueChange(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') addGoal()
+          }}
+          placeholder="Add goal amount"
+        />
+        <button
+          type="button"
+          className="h-9 rounded border border-emerald-700 bg-emerald-900/30 px-3 text-xs font-semibold text-emerald-300 disabled:opacity-40"
+          disabled={disabled || !Number.isFinite(Number(addValue || 0)) || Number(addValue || 0) <= 0}
+          onClick={addGoal}
+        >
+          Add
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function Settings() {
   const games = useGames()
   const devices = useDevices()
@@ -14,13 +301,17 @@ export default function Settings() {
     updateRuntime,
     updateProfile,
     setHappyHour,
-    demoReset,
-    enqueueDevJackpotTest,
+
   } = useCasinoRuntime()
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [marqueeSaving, setMarqueeSaving] = useState(false)
+  const [marqueeLoading, setMarqueeLoading] = useState(true)
+  const [marqueeForm, setMarqueeForm] = useState<MarqueeFormState>(EMPTY_MARQUEE_FORM)
+  const [sideAdsSaving, setSideAdsSaving] = useState(false)
+  const [sideAdsForm, setSideAdsForm] = useState<SideAdsFormState>(EMPTY_SIDE_ADS_FORM)
   const [isRuntimeFormDirty, setIsRuntimeFormDirty] = useState(false)
   const [hopperAlertsEnabled, setHopperAlertsEnabled] = useState(() => {
     try {
@@ -36,6 +327,10 @@ export default function Settings() {
   const [prizePoolBalance, setPrizePoolBalance] = useState('0')
   const [jackpotPoolGoal, setJackpotPoolGoal] = useState('10000')
   const [jackpotPoolBalance, setJackpotPoolBalance] = useState('0')
+  const [happyGoalQueue, setHappyGoalQueue] = useState<string[]>(['10000'])
+  const [jackpotGoalQueue, setJackpotGoalQueue] = useState<string[]>(['10000'])
+  const [newHappyGoalQueueAmount, setNewHappyGoalQueueAmount] = useState('')
+  const [newJackpotGoalQueueAmount, setNewJackpotGoalQueueAmount] = useState('')
   const [baseHousePctInput, setBaseHousePctInput] = useState('20')
   const [baseJackpotPctInput, setBaseJackpotPctInput] = useState('20')
   const [baseHappyPctInput, setBaseHappyPctInput] = useState('60')
@@ -59,14 +354,8 @@ export default function Settings() {
   const [maxWinEnabled, setMaxWinEnabled] = useState(true)
   const [hopperAlertThreshold, setHopperAlertThreshold] = useState('500')
   const [autoHappy, setAutoHappy] = useState(true)
-  const [resetConfirm, setResetConfirm] = useState('')
-  const [testJackpotAmount, setTestJackpotAmount] = useState('5000')
-  const [testJackpotWinners, setTestJackpotWinners] = useState('1')
-  const [testDelayMinSpins, setTestDelayMinSpins] = useState('2')
-  const [testDelayMaxSpins, setTestDelayMaxSpins] = useState('3')
-  const [testIgnoreMaxWinCap, setTestIgnoreMaxWinCap] = useState(false)
-  const [selectedDevDeviceIds, setSelectedDevDeviceIds] = useState<string[]>([])
-  const [testSubmitting, setTestSubmitting] = useState(false)
+
+
   const [testResultMessage, setTestResultMessage] = useState<string | null>(null)
   const [globalPowerBusy, setGlobalPowerBusy] = useState<'restart' | 'shutdown' | 'reset' | null>(
     null,
@@ -111,6 +400,54 @@ export default function Settings() {
       /* empty */
     }
   }, [hopperAlertsEnabled])
+
+  useEffect(() => {
+    let mounted = true
+
+    async function loadMarquee() {
+      setMarqueeLoading(true)
+      const { data, error } = await supabase
+        .from('live_config')
+        .select('marquee, side_ads')
+        .eq('id', true)
+        .maybeSingle()
+
+      if (!mounted) return
+      setMarqueeLoading(false)
+
+      if (error) {
+        setErrorMessage(error.message)
+        return
+      }
+
+      setMarqueeForm(normalizeMarqueeForm((data as any)?.marquee))
+      setSideAdsForm(normalizeSideAdsForm((data as any)?.side_ads))
+    }
+
+    void loadMarquee()
+
+    const channel = supabase
+      .channel(`dashboard-live-config-marquee-${Date.now()}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'live_config',
+        },
+        payload => {
+          if (!mounted) return
+          setMarqueeForm(normalizeMarqueeForm((payload.new as any)?.marquee))
+          setSideAdsForm(normalizeSideAdsForm((payload.new as any)?.side_ads))
+        },
+      )
+      .subscribe()
+
+    return () => {
+      mounted = false
+      void channel.unsubscribe()
+    }
+  }, [])
 
   // CRUD functions for agents and areas
   async function createAgent() {
@@ -231,6 +568,22 @@ export default function Settings() {
     setPrizePoolBalance(String(runtime.prize_pool_balance ?? 0))
     setJackpotPoolGoal(String(runtime.jackpot_pool_goal ?? 10000))
     setJackpotPoolBalance(String(runtime.jackpot_pool_balance ?? 0))
+    setHappyGoalQueue(
+      normalizeGoalQueue(
+        runtime.happy_pool_goal_queue,
+        runtime.prize_pool_goal,
+        runtime.happy_pool_goal_queue_index,
+      ),
+    )
+    setJackpotGoalQueue(
+      normalizeGoalQueue(
+        runtime.jackpot_pool_goal_queue,
+        runtime.jackpot_pool_goal,
+        runtime.jackpot_pool_goal_queue_index,
+      ),
+    )
+    setNewHappyGoalQueueAmount('')
+    setNewJackpotGoalQueueAmount('')
     setJackpotMinWinners(String(runtime.jackpot_min_winners ?? 1))
     setJackpotMaxWinners(String(runtime.jackpot_max_winners ?? 5))
     setJackpotDelayMinSpins(String(runtime.jackpot_delay_min_spins ?? 2))
@@ -276,21 +629,11 @@ export default function Settings() {
 
   const baseProfiles = useMemo(() => profiles.filter(p => p.mode === 'BASE'), [profiles])
   const happyProfiles = useMemo(() => profiles.filter(p => p.mode === 'HAPPY'), [profiles])
-  const devDevices = useMemo(
-    () => devices.filter(device => (device.device_id ?? '').startsWith('dev-')),
-    [devices],
-  )
   const deviceIds = useMemo(
     () => devices.map(device => String(device.device_id ?? '').trim()).filter(Boolean),
     [devices],
   )
-  const playingDevDeviceIds = useMemo(
-    () =>
-      devDevices
-        .filter(device => device.device_status === 'playing')
-        .map(device => device.device_id),
-    [devDevices],
-  )
+
   const selectedBaseProfile = useMemo(
     () => baseProfiles.find(p => p.id === baseProfileId) ?? null,
     [baseProfiles, baseProfileId],
@@ -326,23 +669,12 @@ export default function Settings() {
     setHappyHappyPctInput(String(selectedHappyProfile.player_pct ?? 0))
   }, [selectedBaseProfile, selectedHappyProfile, isRuntimeFormDirty])
 
-  useEffect(() => {
-    setSelectedDevDeviceIds(current =>
-      current.filter(deviceId => devDevices.some(device => device.device_id === deviceId)),
-    )
-  }, [devDevices])
 
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
   const formatCurrency = (v: number | string | null | undefined) =>
     `₱${asNumber(v).toLocaleString()}`
-  const testJackpotAmountValue = Math.max(0, Number(testJackpotAmount || 0))
-  const testJackpotWinnersValue = Math.max(1, Math.floor(Number(testJackpotWinners || 1)))
-  const effectiveTestWinners = Math.max(
-    1,
-    Math.min(testJackpotWinnersValue, Math.max(1, selectedDevDeviceIds.length)),
-  )
-  const perWinnerTestAmount =
-    effectiveTestWinners > 0 ? testJackpotAmountValue / effectiveTestWinners : 0
+
+
   const deviceCount = deviceIds.length
 
   async function enqueueGlobalPowerCommand(command: 'restart' | 'shutdown' | 'reset') {
@@ -430,6 +762,64 @@ export default function Settings() {
     setErrorMessage(null)
   }
 
+  async function saveMarquee() {
+    const payload = buildMarqueePayload(marqueeForm)
+
+    if (marqueeForm.enabled && !payload) {
+      setErrorMessage('Marquee message is required when enabled.')
+      return
+    }
+
+    if (payload?.startsAt && payload?.endsAt && payload.startsAt > payload.endsAt) {
+      setErrorMessage('Marquee end date must be after the start date.')
+      return
+    }
+
+    setMarqueeSaving(true)
+
+    const { error } = await supabase
+      .from('live_config')
+      .upsert({
+        id: true,
+        marquee: payload,
+        updated_at: new Date().toISOString(),
+      })
+
+    setMarqueeSaving(false)
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+
+    setErrorMessage(null)
+    setSuccessMessage(payload ? 'UltraAce marquee saved.' : 'UltraAce marquee cleared.')
+  }
+
+  async function saveSideAds() {
+    const payload = buildSideAdsPayload(sideAdsForm)
+
+    setSideAdsSaving(true)
+
+    const { error } = await supabase
+      .from('live_config')
+      .upsert({
+        id: true,
+        side_ads: payload,
+        updated_at: new Date().toISOString(),
+      })
+
+    setSideAdsSaving(false)
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+
+    setErrorMessage(null)
+    setSuccessMessage(payload ? 'UltraAce side ads saved.' : 'UltraAce side ads cleared.')
+  }
+
   async function saveRuntime() {
     setSaving(true)
 
@@ -446,6 +836,8 @@ export default function Settings() {
     const happyHouse = Math.max(0, Number(happyHousePctInput || 0))
     const happyJackpot = Math.max(0, Number(happyJackpotPctInput || 0))
     const happyHappy = Math.max(0, Number(happyHappyPctInput || 0))
+    const nextHappyGoalQueue = sanitizeGoalQueue(happyGoalQueue)
+    const nextJackpotGoalQueue = sanitizeGoalQueue(jackpotGoalQueue)
 
     if (splitInvalid) {
       setSaving(false)
@@ -458,6 +850,12 @@ export default function Settings() {
     if (!baseProfileId || !happyProfileId) {
       setSaving(false)
       setErrorMessage('Select both Base and Happy profiles before saving.')
+      return
+    }
+
+    if (poolGoalMode === 'amount' && (nextHappyGoalQueue.length === 0 || nextJackpotGoalQueue.length === 0)) {
+      setSaving(false)
+      setErrorMessage('Add at least one happy goal and one jackpot goal before saving amount mode.')
       return
     }
 
@@ -488,10 +886,14 @@ export default function Settings() {
       base_profile_id: baseProfileId,
       happy_profile_id: happyProfileId,
       auto_happy_enabled: autoHappy,
-      prize_pool_goal: Math.max(0, Number(prizePoolGoal || 0)),
+      prize_pool_goal: nextHappyGoalQueue[0] ?? Math.max(0, Number(prizePoolGoal || 0)),
       prize_pool_balance: Math.max(0, Number(prizePoolBalance || 0)),
-      jackpot_pool_goal: Math.max(0, Number(jackpotPoolGoal || 0)),
+      jackpot_pool_goal: nextJackpotGoalQueue[0] ?? Math.max(0, Number(jackpotPoolGoal || 0)),
       jackpot_pool_balance: Math.max(0, Number(jackpotPoolBalance || 0)),
+      happy_pool_goal_queue: nextHappyGoalQueue,
+      happy_pool_goal_queue_index: 0,
+      jackpot_pool_goal_queue: nextJackpotGoalQueue,
+      jackpot_pool_goal_queue_index: 0,
       jackpot_contrib_pct: baseJackpot,
       jackpot_min_winners: winnerMin,
       jackpot_max_winners: winnerMax,
@@ -517,49 +919,7 @@ export default function Settings() {
     setIsRuntimeFormDirty(false)
   }
 
-  async function runDevJackpotTest() {
-    const amount = Math.max(0, Number(testJackpotAmount || 0))
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setErrorMessage('DEV test jackpot amount must be greater than 0')
-      return
-    }
 
-    if (selectedDevDeviceIds.length <= 0) {
-      setErrorMessage('Select at least one DEV device (device_id starts with dev-)')
-      return
-    }
-
-    const winners = Math.max(1, Number(testJackpotWinners || 1))
-    const delayMin = Math.max(0, Number(testDelayMinSpins || 0))
-    const delayMax = Math.max(delayMin, Number(testDelayMaxSpins || delayMin))
-
-    setTestSubmitting(true)
-    const result = await enqueueDevJackpotTest({
-      amount,
-      deviceIds: selectedDevDeviceIds,
-      winners: Math.min(winners, selectedDevDeviceIds.length),
-      delayMin,
-      delayMax,
-      ignoreMaxWin: testIgnoreMaxWinCap,
-    })
-    setTestSubmitting(false)
-
-    if (!result.ok) {
-      setErrorMessage(result.error?.message ?? 'Failed to queue DEV jackpot test')
-      return
-    }
-
-    const payload = (result as any)?.data ?? {}
-    const winnerDeviceIds = Array.isArray(payload?.winner_device_ids)
-      ? payload.winner_device_ids.join(', ')
-      : ''
-    setTestResultMessage(
-      `DEV jackpot queued: ₱${amount.toLocaleString()} for ${Math.min(winners, selectedDevDeviceIds.length)} winner(s)${
-        winnerDeviceIds ? ` • ${winnerDeviceIds}` : ''
-      }${testIgnoreMaxWinCap ? ' • override max-win cap: ON' : ''}`,
-    )
-    setErrorMessage(null)
-  }
 
   async function toggleHappyHour(enable: boolean) {
     const result = await setHappyHour(enable)
@@ -578,21 +938,7 @@ export default function Settings() {
     }
   }
 
-  async function runDemoReset() {
-    if (resetConfirm !== 'RESET') {
-      setErrorMessage('Type RESET to confirm demo reset')
-      return
-    }
 
-    const result = await demoReset()
-    if (!result.ok) {
-      setErrorMessage(result.error?.message ?? 'Failed to run demo reset')
-      return
-    }
-
-    setErrorMessage(null)
-    setResetConfirm('')
-  }
 
   return (
     <div className="p-6 max-w-[90rem] mx-auto space-y-10">
@@ -826,6 +1172,8 @@ export default function Settings() {
           <strong>{asNumber(runtime?.jackpot_pots_queued_count)}</strong>
         </p>
       </section>
+
+
 
       <section className="rounded-lg border border-slate-700 bg-slate-800 p-4 space-y-4">
         <h2 className="text-lg font-semibold">RTP Runtime Settings</h2>
@@ -1152,34 +1500,32 @@ export default function Settings() {
           </label>
 
           {poolGoalMode === 'amount' && (
-            <>
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-slate-300">Happy Pool Goal Amount</span>
-                <input
-                  className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
-                  type="number"
-                  min={0}
-                  value={prizePoolGoal}
-                  onChange={e => {
-                    setIsRuntimeFormDirty(true)
-                    setPrizePoolGoal(e.target.value)
-                  }}
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-slate-300">Jackpot Pool Goal Amount</span>
-                <input
-                  className="bg-slate-950 border border-slate-700 rounded px-3 py-2"
-                  type="number"
-                  min={0}
-                  value={jackpotPoolGoal}
-                  onChange={e => {
-                    setIsRuntimeFormDirty(true)
-                    setJackpotPoolGoal(e.target.value)
-                  }}
-                />
-              </label>
-            </>
+            <div className="md:col-span-3 grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <GoalQueueEditor
+                title="Happy Goal Queue"
+                values={happyGoalQueue}
+                addValue={newHappyGoalQueueAmount}
+                currentIndex={0}
+                onAddValueChange={setNewHappyGoalQueueAmount}
+                onValuesChange={values => {
+                  setIsRuntimeFormDirty(true)
+                  setHappyGoalQueue(values)
+                  setPrizePoolGoal(values[0] ?? '0')
+                }}
+              />
+              <GoalQueueEditor
+                title="Jackpot Goal Queue"
+                values={jackpotGoalQueue}
+                addValue={newJackpotGoalQueueAmount}
+                currentIndex={0}
+                onAddValueChange={setNewJackpotGoalQueueAmount}
+                onValuesChange={values => {
+                  setIsRuntimeFormDirty(true)
+                  setJackpotGoalQueue(values)
+                  setJackpotPoolGoal(values[0] ?? '0')
+                }}
+              />
+            </div>
           )}
 
           {poolGoalMode === 'spins' && (
@@ -1256,264 +1602,6 @@ export default function Settings() {
             className="px-4 py-2 rounded bg-blue-700/30 border border-blue-600 text-blue-300 disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Save Settings'}
-          </button>
-        </div>
-      </section>
-
-      <section className="rounded-lg border border-indigo-800/70 bg-indigo-950/20 p-4 space-y-4">
-        <h2 className="text-lg font-semibold text-indigo-200">DEV Jackpot Test</h2>
-        <p className="text-xs text-indigo-200/80">
-          DEV-only manual jackpot trigger. DB will only accept selected devices with{' '}
-          <code>dev-</code> prefix.
-        </p>
-
-        {testResultMessage && (
-          <div className="p-3 bg-green-900/30 border border-green-700 text-green-300 text-sm rounded">
-            {testResultMessage}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-indigo-200">Jackpot Amount</span>
-            <input
-              className="bg-slate-950 border border-indigo-800/60 rounded px-3 py-2"
-              type="number"
-              min={1}
-              value={testJackpotAmount}
-              onChange={e => setTestJackpotAmount(e.target.value)}
-            />
-          </label>
-
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-indigo-200">Winner Count</span>
-            <input
-              className="bg-slate-950 border border-indigo-800/60 rounded px-3 py-2"
-              type="number"
-              min={1}
-              value={testJackpotWinners}
-              onChange={e => setTestJackpotWinners(e.target.value)}
-            />
-          </label>
-
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-indigo-200">Delay Min Spins</span>
-            <input
-              className="bg-slate-950 border border-indigo-800/60 rounded px-3 py-2"
-              type="number"
-              min={0}
-              value={testDelayMinSpins}
-              onChange={e => setTestDelayMinSpins(e.target.value)}
-            />
-          </label>
-
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-indigo-200">Delay Max Spins</span>
-            <input
-              className="bg-slate-950 border border-indigo-800/60 rounded px-3 py-2"
-              type="number"
-              min={0}
-              value={testDelayMaxSpins}
-              onChange={e => setTestDelayMaxSpins(e.target.value)}
-            />
-          </label>
-        </div>
-
-        <label className="inline-flex items-center gap-2 text-sm text-indigo-200/90">
-          <input
-            type="checkbox"
-            checked={testIgnoreMaxWinCap}
-            onChange={e => setTestIgnoreMaxWinCap(e.target.checked)}
-          />
-          Ignore max-win cap for this DEV test only (override)
-        </label>
-
-        <div className="text-xs text-indigo-200/80">
-          Split preview: {formatCurrency(testJackpotAmountValue)} total / {effectiveTestWinners}{' '}
-          winner(s) = <strong>{formatCurrency(perWinnerTestAmount)}</strong> per winner.
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <button
-            type="button"
-            onClick={() => setSelectedDevDeviceIds(playingDevDeviceIds)}
-            className="px-2.5 py-1.5 rounded border border-indigo-600 text-indigo-200 bg-indigo-700/20"
-          >
-            Select Playing DEV Devices ({playingDevDeviceIds.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedDevDeviceIds(devDevices.map(device => device.device_id))}
-            className="px-2.5 py-1.5 rounded border border-indigo-600 text-indigo-200 bg-indigo-700/20"
-          >
-            Select All DEV Devices ({devDevices.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedDevDeviceIds([])}
-            className="px-2.5 py-1.5 rounded border border-slate-600 text-slate-300 bg-slate-800/30"
-          >
-            Clear Selection
-          </button>
-          <span className="text-indigo-200/80">
-            Selected: <strong>{selectedDevDeviceIds.length}</strong>
-          </span>
-        </div>
-
-        <div className="max-h-44 overflow-auto rounded border border-indigo-900/70 bg-slate-950/60 p-2">
-          {devDevices.length === 0 && (
-            <div className="text-xs text-indigo-200/70 p-2">No DEV devices detected.</div>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {devDevices.map(device => {
-              const checked = selectedDevDeviceIds.includes(device.device_id)
-              const status = (device.device_status ?? 'idle').toUpperCase()
-              return (
-                <label
-                  key={device.device_id}
-                  className="flex items-center justify-between gap-2 rounded border border-indigo-900/70 bg-slate-900/60 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs"
-                >
-                  <span className="truncate">
-                    <input
-                      type="checkbox"
-                      className="mr-2 align-middle"
-                      checked={checked}
-                      onChange={e => {
-                        if (e.target.checked) {
-                          setSelectedDevDeviceIds(current =>
-                            current.includes(device.device_id)
-                              ? current
-                              : [...current, device.device_id],
-                          )
-                        } else {
-                          setSelectedDevDeviceIds(current =>
-                            current.filter(deviceId => deviceId !== device.device_id),
-                          )
-                        }
-                      }}
-                    />
-                    {device.device_id}
-                  </span>
-                  <span className="text-indigo-200/80">{status}</span>
-                </label>
-              )
-            })}
-          </div>
-        </div>
-
-        <div>
-          <button
-            type="button"
-            onClick={runDevJackpotTest}
-            disabled={testSubmitting}
-            className="px-4 py-2 rounded bg-indigo-700/30 border border-indigo-600 text-indigo-200 disabled:opacity-50"
-          >
-            {testSubmitting ? 'Queueing DEV Jackpot…' : 'Queue DEV Test Jackpot'}
-          </button>
-        </div>
-      </section>
-
-      <section className="rounded-lg border border-slate-800 bg-slate-900/40 light:bg-slate-100 p-4 space-y-4">
-        <h2 className="text-lg font-semibold">Global Games</h2>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={purgeRuntimeCache}
-            className="px-3 py-2 rounded bg-rose-700/30 border border-rose-600 text-rose-300 text-sm"
-          >
-            Purge Runtime Cache
-          </button>
-          <span className="text-xs text-slate-400">
-            Clears decrypted runtime game bundles on connected cabinet API.
-          </span>
-        </div>
-
-        <div className="grid md:grid-cols-6 grid-cols-2 gap-4">
-          {games.map(g => (
-            <div
-              key={g.id}
-              className="flex flex-col gap-2 items-center justify-between p-2 border border-slate-800 rounded-lg"
-            >
-              <div className="flex  flex-col items-center text-center">
-                <div className="font-medium text-sm">{g.name}</div>
-                <div className="text-[10px] text-slate-600">
-                  {g.type} • v{g.version}
-                </div>
-              </div>
-
-              <button
-                onClick={async () => {
-                  const nextEnabled = !g.enabled
-                  const result = await toggleGame(g.id, nextEnabled)
-
-                  if (!result.ok) {
-                    setErrorMessage(result?.error?.message ?? null)
-                  } else {
-                    const gameResult = await getGame(g.id)
-                    if (gameResult.ok && gameResult.data) {
-                      const game = gameResult.data as any
-                      if (!nextEnabled) {
-                        const removeResult = await removeGamePackage(
-                          game.id,
-                          Number(game.version ?? 1),
-                          true,
-                        )
-                        if (!removeResult.ok) {
-                          setErrorMessage(
-                            `Disabled but remove failed: ${removeResult.error?.message ?? 'unknown error'}`,
-                          )
-                          return
-                        }
-                      } else if (game.package_url) {
-                        const prepareResult = await prepareGamePackage(
-                          game.id,
-                          game.package_url,
-                          Number(game.version ?? 1),
-                        )
-                        if (!prepareResult.ok) {
-                          setErrorMessage(
-                            `Enabled but prefetch failed: ${prepareResult.error?.message ?? 'unknown error'}`,
-                          )
-                          return
-                        }
-                      }
-                    }
-                    setErrorMessage(null)
-                  }
-                }}
-                className={`px-3 py-1 text-xs rounded ${
-                  g.enabled ? 'bg-green-600/20 text-green-400' : 'bg-red-600/20 text-red-400'
-                }`}
-              >
-                {g.enabled ? 'Enabled' : 'Disabled'}
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="rounded-lg border border-red-800/70 bg-red-950/20 p-4 space-y-4">
-        <h2 className="text-lg font-semibold text-red-300">Demo Reset</h2>
-        <p className="text-xs text-red-200/80">
-          Resets balances, ledgers, jackpot/free-spin runtime, session state, and queued admin
-          actions for all registered devices while keeping each device ID and name.
-        </p>
-
-        <label className="flex flex-col gap-1 text-sm max-w-xs">
-          <span className="text-red-200">Type RESET to confirm</span>
-          <input
-            className="bg-slate-950 border border-red-800/70 rounded px-3 py-2"
-            value={resetConfirm}
-            onChange={e => setResetConfirm(e.target.value)}
-            placeholder="RESET"
-          />
-        </label>
-
-        <div>
-          <button
-            onClick={runDemoReset}
-            className="px-4 py-2 rounded bg-red-700/30 border border-red-600 text-red-300"
-          >
-            Run Demo Reset
           </button>
         </div>
       </section>
@@ -1685,6 +1773,369 @@ export default function Settings() {
           </div>
         </div>
       </section>
+
+      <section className="rounded-lg border border-slate-800 bg-slate-900/40 light:bg-slate-100 p-4 space-y-4">
+        <h2 className="text-lg font-semibold">Global Games</h2>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={purgeRuntimeCache}
+            className="px-3 py-2 rounded bg-rose-700/30 border border-rose-600 text-rose-300 text-sm"
+          >
+            Purge Runtime Cache
+          </button>
+          <span className="text-xs text-slate-400">
+            Clears decrypted runtime game bundles on connected cabinet API.
+          </span>
+        </div>
+
+        <div className="grid md:grid-cols-6 grid-cols-2 gap-4">
+          {games.map(g => (
+            <div
+              key={g.id}
+              className="flex flex-col gap-2 items-center justify-between p-2 border border-slate-800 rounded-lg"
+            >
+              <div className="flex  flex-col items-center text-center">
+                <div className="font-medium text-sm">{g.name}</div>
+                <div className="text-[10px] text-slate-600">
+                  {g.type} • v{g.version}
+                </div>
+              </div>
+
+              <button
+                onClick={async () => {
+                  const nextEnabled = !g.enabled
+                  const result = await toggleGame(g.id, nextEnabled)
+
+                  if (!result.ok) {
+                    setErrorMessage(result?.error?.message ?? null)
+                  } else {
+                    const gameResult = await getGame(g.id)
+                    if (gameResult.ok && gameResult.data) {
+                      const game = gameResult.data as any
+                      if (!nextEnabled) {
+                        const removeResult = await removeGamePackage(
+                          game.id,
+                          Number(game.version ?? 1),
+                          true,
+                        )
+                        if (!removeResult.ok) {
+                          setErrorMessage(
+                            `Disabled but remove failed: ${removeResult.error?.message ?? 'unknown error'}`,
+                          )
+                          return
+                        }
+                      } else if (game.package_url) {
+                        const prepareResult = await prepareGamePackage(
+                          game.id,
+                          game.package_url,
+                          Number(game.version ?? 1),
+                        )
+                        if (!prepareResult.ok) {
+                          setErrorMessage(
+                            `Enabled but prefetch failed: ${prepareResult.error?.message ?? 'unknown error'}`,
+                          )
+                          return
+                        }
+                      }
+                    }
+                    setErrorMessage(null)
+                  }
+                }}
+                className={`px-3 py-1 text-xs rounded ${
+                  g.enabled ? 'bg-green-600/20 text-green-400' : 'bg-red-600/20 text-red-400'
+                }`}
+              >
+                {g.enabled ? 'Enabled' : 'Disabled'}
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-slate-700 bg-slate-800 p-4 space-y-4">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">UltraAce Marquee</h2>
+            <p className="text-xs text-slate-400">
+              Controls the scrolling promo message below the UltraAce multiplier indicators.
+            </p>
+          </div>
+          <span
+            className={[
+              'rounded-full border px-2 py-1 text-xs',
+              marqueeForm.enabled && marqueeForm.message.trim()
+                ? 'border-green-700 bg-green-900/30 text-green-300'
+                : 'border-slate-700 bg-slate-900 text-slate-400',
+            ].join(' ')}
+          >
+            {marqueeForm.enabled && marqueeForm.message.trim() ? 'Configured' : 'Not visible'}
+          </span>
+        </div>
+
+        <label className="inline-flex items-center gap-2 text-sm text-slate-300">
+          <input
+            type="checkbox"
+            checked={marqueeForm.enabled}
+            onChange={e => setMarqueeForm(current => ({ ...current, enabled: e.target.checked }))}
+          />
+          Show marquee on UltraAce
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-slate-300">Message</span>
+          <textarea
+            className="min-h-20 rounded border border-slate-700 bg-slate-950 px-3 py-2"
+            maxLength={180}
+            value={marqueeForm.message}
+            onChange={e => setMarqueeForm(current => ({ ...current, message: e.target.value }))}
+            placeholder="Example: Play from May 10 - May 12 for a chance to win up to 100k"
+          />
+          <span className="text-xs text-slate-500">
+            {marqueeForm.message.trim().length}/180 characters
+          </span>
+        </label>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-300">Schedule</span>
+            <select
+              className="rounded border border-slate-700 bg-slate-950 px-3 py-2"
+              value={marqueeForm.repeat}
+              onChange={e =>
+                setMarqueeForm(current => ({
+                  ...current,
+                  repeat: e.target.value as MarqueeRepeatMode,
+                }))
+              }
+            >
+              <option value="none">Once / date range</option>
+              <option value="daily">Repeat daily</option>
+              <option value="weekly">Repeat weekly</option>
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-300">Start Date & Time</span>
+            <input
+              className="rounded border border-slate-700 bg-slate-950 px-3 py-2"
+              type="datetime-local"
+              value={marqueeForm.startsAt}
+              onChange={e => setMarqueeForm(current => ({ ...current, startsAt: e.target.value }))}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-300">End Date & Time</span>
+            <input
+              className="rounded border border-slate-700 bg-slate-950 px-3 py-2"
+              type="datetime-local"
+              value={marqueeForm.endsAt}
+              onChange={e => setMarqueeForm(current => ({ ...current, endsAt: e.target.value }))}
+            />
+          </label>
+        </div>
+
+        {(marqueeForm.repeat === 'daily' || marqueeForm.repeat === 'weekly') && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-slate-300">Daily Start Time</span>
+              <input
+                className="rounded border border-slate-700 bg-slate-950 px-3 py-2"
+                type="time"
+                value={marqueeForm.startTime}
+                onChange={e =>
+                  setMarqueeForm(current => ({ ...current, startTime: e.target.value }))
+                }
+              />
+            </label>
+
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-slate-300">Daily End Time</span>
+              <input
+                className="rounded border border-slate-700 bg-slate-950 px-3 py-2"
+                type="time"
+                value={marqueeForm.endTime}
+                onChange={e =>
+                  setMarqueeForm(current => ({ ...current, endTime: e.target.value }))
+                }
+              />
+            </label>
+
+            {marqueeForm.repeat === 'weekly' && (
+              <div className="flex flex-col gap-2 text-sm">
+                <span className="text-slate-300">Repeat Days</span>
+                <div className="flex flex-wrap gap-2">
+                  {WEEK_DAYS.map(day => {
+                    const checked = marqueeForm.daysOfWeek.includes(day.value)
+                    return (
+                      <label
+                        key={day.value}
+                        className={[
+                          'inline-flex items-center gap-1 rounded border px-2 py-1 text-xs',
+                          checked
+                            ? 'border-blue-600 bg-blue-900/30 text-blue-200'
+                            : 'border-slate-700 bg-slate-950 text-slate-400',
+                        ].join(' ')}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={e =>
+                            setMarqueeForm(current => ({
+                              ...current,
+                              daysOfWeek: e.target.checked
+                                ? [...new Set([...current.daysOfWeek, day.value])].sort()
+                                : current.daysOfWeek.filter(value => value !== day.value),
+                            }))
+                          }
+                        />
+                        {day.label}
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => void saveMarquee()}
+            disabled={marqueeSaving || marqueeLoading}
+            className="px-4 py-2 rounded bg-blue-700/30 border border-blue-600 text-blue-300 disabled:opacity-50"
+          >
+            {marqueeSaving ? 'Saving...' : 'Save Marquee'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setMarqueeForm(EMPTY_MARQUEE_FORM)}
+            disabled={marqueeSaving || marqueeLoading}
+            className="px-4 py-2 rounded bg-slate-900 border border-slate-700 text-slate-300 disabled:opacity-50"
+          >
+            Clear Form
+          </button>
+        </div>
+
+        <p className="text-xs text-slate-500">
+          Saving with marquee off or with an empty message stores NULL, so UltraAce shows no marquee.
+        </p>
+      </section>
+
+      <section className="rounded-lg border border-slate-700 bg-slate-800 p-4 space-y-4">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">UltraAce Desktop Side Ads</h2>
+            <p className="text-xs text-slate-400">
+              Desktop-only image banners for the left and right empty spaces around the game.
+            </p>
+          </div>
+          <span
+            className={[
+              'rounded-full border px-2 py-1 text-xs',
+              sideAdsForm.enabled &&
+              (sideAdsForm.leftImageUrl.trim() || sideAdsForm.rightImageUrl.trim())
+                ? 'border-green-700 bg-green-900/30 text-green-300'
+                : 'border-slate-700 bg-slate-900 text-slate-400',
+            ].join(' ')}
+          >
+            {sideAdsForm.enabled &&
+            (sideAdsForm.leftImageUrl.trim() || sideAdsForm.rightImageUrl.trim())
+              ? 'Configured'
+              : 'Not visible'}
+          </span>
+        </div>
+
+        <label className="inline-flex items-center gap-2 text-sm text-slate-300">
+          <input
+            type="checkbox"
+            checked={sideAdsForm.enabled}
+            onChange={e => setSideAdsForm(current => ({ ...current, enabled: e.target.checked }))}
+          />
+          Show desktop side ads
+        </label>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="rounded border border-slate-700 bg-slate-900/50 p-3 space-y-3">
+            <h3 className="text-sm font-semibold text-slate-200">Left Banner</h3>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-slate-300">Image URL</span>
+              <input
+                className="rounded border border-slate-700 bg-slate-950 px-3 py-2"
+                value={sideAdsForm.leftImageUrl}
+                onChange={e =>
+                  setSideAdsForm(current => ({ ...current, leftImageUrl: e.target.value }))
+                }
+                placeholder="https://..."
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-slate-300">Alt Text</span>
+              <input
+                className="rounded border border-slate-700 bg-slate-950 px-3 py-2"
+                value={sideAdsForm.leftAlt}
+                onChange={e =>
+                  setSideAdsForm(current => ({ ...current, leftAlt: e.target.value }))
+                }
+              />
+            </label>
+          </div>
+
+          <div className="rounded border border-slate-700 bg-slate-900/50 p-3 space-y-3">
+            <h3 className="text-sm font-semibold text-slate-200">Right Banner</h3>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-slate-300">Image URL</span>
+              <input
+                className="rounded border border-slate-700 bg-slate-950 px-3 py-2"
+                value={sideAdsForm.rightImageUrl}
+                onChange={e =>
+                  setSideAdsForm(current => ({ ...current, rightImageUrl: e.target.value }))
+                }
+                placeholder="https://..."
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-slate-300">Alt Text</span>
+              <input
+                className="rounded border border-slate-700 bg-slate-950 px-3 py-2"
+                value={sideAdsForm.rightAlt}
+                onChange={e =>
+                  setSideAdsForm(current => ({ ...current, rightAlt: e.target.value }))
+                }
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => void saveSideAds()}
+            disabled={sideAdsSaving || marqueeLoading}
+            className="px-4 py-2 rounded bg-blue-700/30 border border-blue-600 text-blue-300 disabled:opacity-50"
+          >
+            {sideAdsSaving ? 'Saving...' : 'Save Side Ads'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setSideAdsForm(EMPTY_SIDE_ADS_FORM)}
+            disabled={sideAdsSaving || marqueeLoading}
+            className="px-4 py-2 rounded bg-slate-900 border border-slate-700 text-slate-300 disabled:opacity-50"
+          >
+            Clear Form
+          </button>
+        </div>
+
+        <p className="text-xs text-slate-500">
+          Saving with side ads off or with both URLs empty stores NULL, so UltraAce shows no side
+          ads.
+        </p>
+      </section>
+
+
+
+
 
       <section className="rounded-lg border border-slate-700 bg-slate-800 p-4 space-y-3">
         <div>

@@ -318,7 +318,6 @@ function ReelComponent({
                       className={['symbol-img', wildHighlight && 'wild-highlight']
                         .filter(Boolean)
                         .join(' ')}
-                      style={{ backgroundImage: `url(${imgSrc})` }}
                       draggable={false}
                     />
                   )}

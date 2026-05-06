@@ -163,6 +163,14 @@ export async function commitSpinAccounting({
 
   const events: MetricEventPayload[] = []
 
+  events.push({
+    device_id: deviceId,
+    event_type: 'spin',
+    amount: Math.max(0, Number(betAmount) || 0),
+    event_ts: now,
+    metadata: baseMetadata,
+  })
+
   if (totalWin > 0) {
     events.push({
       device_id: deviceId,
@@ -172,14 +180,6 @@ export async function commitSpinAccounting({
       metadata: baseMetadata,
     })
   }
-
-  events.push({
-    device_id: deviceId,
-    event_type: 'spin',
-    amount: Math.max(0, Number(betAmount) || 0),
-    event_ts: now,
-    metadata: baseMetadata,
-  })
 
   const shellResult = await pushEvents(events, {
     deviceId,

@@ -1,4 +1,4 @@
-@media (max-width: 1000px) {
+@media (max-width: 1023px) {
     :root {
         /* reference width of your original design */
         --design-width: 430px;
@@ -104,13 +104,13 @@
 
 
         width: var(--reels-total-width);
-        height: var(--reel-height);
+        height: var(--reel-height, 420px);
     }
 
     .reel {
         position: absolute;
-        width: var(--reel-width);
-        height: var(--reel-height);
+        width: var(--reel-width, 76px);
+        height: var(--reel-height, 420px);
         top: 0;
         left: 0;
     }
@@ -794,11 +794,8 @@
 @media (min-width: 1024px) {
 
     :root {
-        /* reference width of your original design */
-        --design-width: 768px;
-
-        /* scale factor (never zero, never NaN) */
-        --board-scale: min(1, calc(100vw / var(--design-width)));
+        /* Desktop layout is capped at 1; avoid Firefox calc-division issues. */
+        --board-scale: 1;
 
         --card-scale: calc(1.7 * var(--board-scale));
 
@@ -889,14 +886,14 @@
         left: calc(var(--highlight-pad) * 52.5);
 
 
-        width: var(--reel-width);
-        height: calc(var(--reel-height));
+        width: var(--reel-width, 124px);
+        height: calc(var(--reel-height, 705px));
     }
 
     .reel {
         position: absolute;
-        width: var(--reel-width);
-        height: var(--reel-height);
+        width: var(--reel-width, 124px);
+        height: var(--reel-height, 705px);
         top: 0;
         left: 0;
     }
@@ -941,7 +938,7 @@
     */
     .multiplier-strip {
         position: relative;
-        margin-top: -1.8rem;
+        margin-top: -1.75rem;
 
         width: 27%;
         /*margin: 0 auto;*/
@@ -1661,6 +1658,70 @@
     filter: drop-shadow(0 0 8px rgba(255, 98, 188, 0.5));
 }
 
+.desktop-side-ad {
+    display: none;
+}
+
+@media (min-width: 1024px) {
+    .desktop-side-ad {
+        position: fixed;
+        top: 50%;
+        height: clamp(360px, 50vh, 620px);
+        width: clamp(150px, 17vw, 300px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px;
+        border: 1px solid rgba(255, 220, 150, 0.28);
+        border-radius: 8px;
+        background-color: rgba(10, 6, 4, 0.42);
+        background-image:
+                linear-gradient(180deg, rgba(20, 12, 6, 0.56), rgba(0, 0, 0, 0.42)),
+                var(--side-ad-image);
+        background-position: center, center;
+        background-repeat: no-repeat, no-repeat;
+        background-size: auto, contain;
+        box-shadow:
+                inset 0 1px 0 rgba(255, 240, 200, 0.16),
+                0 12px 28px rgba(0, 0, 0, 0.32);
+        opacity: 0.96;
+        transform: translateY(-50%);
+        overflow: hidden;
+        pointer-events: none;
+        z-index: 80;
+    }
+
+    .desktop-side-ad.left {
+        left: clamp(10px, 2vw, 44px);
+    }
+
+    .desktop-side-ad.right {
+        right: clamp(10px, 2vw, 44px);
+    }
+
+    .desktop-side-ad-object {
+        position: absolute;
+        inset: 8px;
+        width: calc(100% - 16px);
+        height: calc(100% - 16px);
+        border: 0;
+        object-fit: contain;
+        pointer-events: none;
+    }
+
+    .desktop-side-ad-alt {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+}
+
 
 .frame-bg {
     position: absolute;
@@ -1712,7 +1773,6 @@
     z-index: 1;
 }
 
-
 .reel-paused-active {
     position: relative;
     z-index: 20; /* ABOVE frame-light-overlay (10), BELOW UI */
@@ -1725,7 +1785,7 @@
 }
 
 .reel.sweep-out-old .card {
-    filter: blur(4px);
+    opacity: 0.82;
 }
 
 @keyframes oldReelDown {
@@ -1752,8 +1812,8 @@
     position: absolute;
 
 
-    width: var(--scaled-card-width);
-    height: var(--scaled-card-height);
+    width: var(--scaled-card-width, 76px);
+    height: var(--scaled-card-height, 102px);
 
     /*background: #e4e8ec;*/
     border-radius: 6px;
@@ -1762,7 +1822,6 @@
     justify-content: center;
     align-items: center;
 
-    will-change: transform, opacity;
     transform: translateY(0);
     z-index: 1;
 }
@@ -1770,24 +1829,22 @@
 .card.deal {
     animation: cascadeDealIn 130ms cubic-bezier(0.18, 0.88, 0.22, 1) forwards;
     animation-fill-mode: both;
+    will-change: transform, opacity;
 }
 
 @keyframes cascadeDealIn {
     0% {
         opacity: 0;
         transform: translateY(-320%) scale(0.94);
-        filter: blur(6px) brightness(0.85);
     }
 
     35% {
         opacity: 1;
         transform: translateY(-80%) scale(0.98);
-        filter: blur(3px) brightness(0.95);
     }
 
     60% {
         transform: translateY(6%) scale(1.02);
-        filter: blur(0px) brightness(1.05);
     }
 
     78% {
@@ -1796,13 +1853,13 @@
 
     100% {
         transform: translateY(0) scale(1);
-        filter: blur(0px) brightness(1);
     }
 }
 
 .card.deal-initial {
     opacity: 0;
     animation: dealInitial 185ms cubic-bezier(0.22, 0.9, 0.32, 1) forwards;
+    will-change: transform, opacity;
 }
 
 @keyframes dealInitial {
@@ -1876,6 +1933,7 @@
 .card.pop {
     animation-fill-mode: forwards;
     pointer-events: none;
+    will-change: transform, opacity;
 }
 
 /* Prevent reappearance if phase changes mid-frame */
@@ -1903,8 +1961,8 @@
 
 .card-shell {
     position: absolute;
-    width: var(--scaled-card-width);
-    height: var(--scaled-card-height);
+    width: var(--scaled-card-width, 76px);
+    height: var(--scaled-card-height, 102px);
     pointer-events: none;
     z-index: 1;
 }
@@ -2165,15 +2223,14 @@
 .symbol-img {
     width: 100%;
     height: 100%;
+    display: block;
+    object-fit: contain;
     pointer-events: none;
 
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
 
-    /* GPU stability */
-    will-change: transform, opacity, filter;
-    transform: translateZ(0);
     overflow: hidden;
 }
 
@@ -2352,6 +2409,7 @@
 .top-container {
     width: 100%;
 
+    position: relative;
     height: 18vh;
     display: flex;
     flex-direction: column;
@@ -2359,6 +2417,170 @@
     z-index: 99;
     gap: 1rem
 
+}
+
+.promo-marquee {
+    --marquee-edge-width: 34px;
+    --marquee-duration: 15s;
+
+    position: absolute;
+    left: 50%;
+    top: calc(50% + 38px);
+    align-self: center;
+    width: min(520px, 50%);
+    height: 38px;
+    margin-top: 0;
+    overflow: hidden;
+    border: 2px solid rgba(255, 215, 95, 0.9);
+    border-radius: 6px;
+    background:
+            linear-gradient(180deg, rgba(255, 245, 172, 0.28) 0%, rgba(255, 245, 172, 0.06) 34%, rgba(0, 0, 0, 0) 56%),
+            radial-gradient(circle at 50% 0%, rgba(255, 185, 45, 0.34), rgba(255, 185, 45, 0) 46%),
+            linear-gradient(180deg, #5e0706 0%, #1b0505 48%, #070202 100%);
+    box-shadow:
+            inset 0 1px 0 rgba(255, 255, 210, 0.64),
+            inset 0 -3px 0 rgba(50, 0, 0, 0.86),
+            0 0 0 1px rgba(110, 35, 5, 0.9),
+            0 0 14px rgba(255, 156, 25, 0.44),
+            0 6px 14px rgba(0, 0, 0, 0.48);
+    opacity: 0;
+    transform: translate(-50%, -10px) scaleY(0.72);
+    transform-origin: 50% 0;
+    transition:
+            opacity 180ms ease,
+            transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+    z-index: 8;
+    pointer-events: none;
+}
+
+.promo-marquee.visible {
+    opacity: 1;
+    transform: translate(-50%, 0) scaleY(1);
+}
+
+.promo-marquee.hiding {
+    opacity: 0;
+    transform: translate(-50%, -8px) scaleY(0.76);
+}
+
+.promo-marquee::before,
+.promo-marquee::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: var(--marquee-edge-width);
+    z-index: 3;
+    pointer-events: none;
+}
+
+.promo-marquee::before {
+    left: 0;
+    background:
+            linear-gradient(90deg, rgba(38, 5, 3, 1), rgba(38, 5, 3, 0)),
+            radial-gradient(circle at 10px 50%, #fff4aa 0 2px, #ff9f1d 3px, transparent 5px);
+}
+
+.promo-marquee::after {
+    right: 0;
+    background:
+            linear-gradient(270deg, rgba(38, 5, 3, 1), rgba(38, 5, 3, 0)),
+            radial-gradient(circle at calc(100% - 10px) 50%, #fff4aa 0 2px, #ff9f1d 3px, transparent 5px);
+}
+
+.promo-marquee-track {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    width: max-content;
+    animation: promoMarqueeScroll var(--marquee-duration) linear infinite;
+    will-change: transform;
+}
+
+.promo-marquee-text {
+    flex: 0 0 auto;
+    min-width: calc(min(520px, 50vw) - var(--marquee-edge-width) * 2);
+    padding: 0 42px;
+    color: #fff8c9;
+    /*font-family: 'Teko', 'Orbitron', system-ui, sans-serif;*/
+    font-size: 27px;
+    font-weight: 900;
+    line-height: 38px;
+    text-align: center;
+    /*text-transform: uppercase;*/
+    white-space: nowrap;
+    letter-spacing: 0;
+    -webkit-text-stroke: 0.8px rgba(78, 12, 0, 0.9);
+    text-shadow:
+            0 2px 0 rgba(44, 3, 0, 0.96),
+            0 0 8px rgba(255, 239, 148, 0.88),
+            0 0 18px rgba(255, 121, 18, 0.76),
+            0 0 28px rgba(255, 40, 12, 0.42);
+}
+
+.promo-marquee-cap {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    width: 32px;
+    border-radius: 999px;
+    background:
+            linear-gradient(180deg, rgba(255, 255, 220, 0.86), rgba(255, 255, 255, 0.08) 34%, rgba(0, 0, 0, 0.48) 100%),
+            linear-gradient(90deg, #8b3508, #ffd87b 48%, #8b3508);
+    box-shadow:
+            inset 0 0 0 1px rgba(255, 252, 210, 0.48),
+            0 0 9px rgba(255, 180, 44, 0.52),
+            0 1px 5px rgba(0, 0, 0, 0.46);
+    z-index: 4;
+}
+
+.promo-marquee-cap.left {
+    left: -9px;
+}
+
+.promo-marquee-cap.right {
+    right: -9px;
+}
+
+@keyframes promoMarqueeScroll {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(-50%);
+    }
+}
+
+@media (max-width: 1023px) {
+    .promo-marquee {
+        --marquee-edge-width: 26px;
+        --marquee-duration: 13s;
+
+        width: 78%;
+        height: 30px;
+        margin-top: -0.35rem;
+    }
+
+    .promo-marquee-text {
+        min-width: calc(78vw - var(--marquee-edge-width) * 2);
+        padding: 0 32px;
+        font-size: 21px;
+        line-height: 30px;
+        -webkit-text-stroke-width: 0.55px;
+    }
+
+    .promo-marquee-cap {
+        top: 3px;
+        bottom: 3px;
+        width: 24px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .promo-marquee {
+        width: min(520px, 48%);
+    }
 }
 
 button {
@@ -3180,8 +3402,8 @@ button:focus-visible {
     position: absolute;
     left: var(--from-x);
     top: var(--from-y);
-    width: var(--scaled-card-width);
-    height: var(--scaled-card-height);
+    width: var(--scaled-card-width, 76px);
+    height: var(--scaled-card-height, 102px);
     pointer-events: none;
     z-index: 28;
 }

@@ -1,5 +1,7 @@
 import { supabase } from './supabase'
 
+let jackpotQueueChannelSeq = 0
+
 export type ActiveJackpotQueue = {
   id: number
   campaign_id: string
@@ -47,8 +49,9 @@ export function subscribeActiveJackpotQueue(
   deviceId: string,
   onChange: (next: ActiveJackpotQueue | null) => void,
 ) {
+  const channelName = `device-jackpot-queue-${deviceId}-${Date.now()}-${jackpotQueueChannelSeq++}`
   const channel = supabase
-    .channel(`device-jackpot-queue-${deviceId}`)
+    .channel(channelName)
     .on(
       'postgres_changes',
       {

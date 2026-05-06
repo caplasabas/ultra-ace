@@ -2333,7 +2333,9 @@ CREATE TABLE IF NOT EXISTS "public"."live_config" (
     "red_wild_chance" double precision,
     "reel_weights" "jsonb",
     "reel_weights_free" "jsonb",
-    "happy_hour" boolean DEFAULT false
+    "happy_hour" boolean DEFAULT false,
+    "marquee" "jsonb",
+    "side_ads" "jsonb"
 );
 
 
@@ -2642,6 +2644,9 @@ CREATE POLICY "insert device" ON "public"."devices" FOR INSERT WITH CHECK (true)
 
 
 ALTER TABLE "public"."live_config" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "insert config" ON "public"."live_config" FOR INSERT WITH CHECK (true);
 
 
 CREATE POLICY "read config" ON "public"."live_config" FOR SELECT USING (true);
