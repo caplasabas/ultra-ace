@@ -681,6 +681,9 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
     (currentPage - 1) * pageSize,
     currentPage * pageSize,
   )
+  const selectedLiveDevice = selectedDevice
+    ? devices.find(d => d.device_id === selectedDevice.device_id) ?? selectedDevice
+    : null
 
   return (
     <>
@@ -713,242 +716,244 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
           </div>
         )}
 
-        {!isStaffView && <section>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-xl border border-green-700/40 bg-green-900/20 p-4">
-              <div className="mb-2 flex items-start justify-between gap-3">
-                <div className="text-lg font-semibold text-green-200">Money Flow</div>
-                <button
-                  type="button"
-                  onClick={() => toggleStatCard('moneyFlow')}
-                  className="text-lg font-mono text-green-200/70  transition hover:text-green-100"
-                >
-                  {expandedStatCards.moneyFlow ? '▴' : '▾'}
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <div className="text-xs text-green-200/80">Total Balance</div>
-                  <div className="text-3xl font-extrabold font-mono text-green-200">
-                    {formatCurrency(stats?.total_balance)}
-                  </div>
+        {!isStaffView && (
+          <section>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-xl border border-green-700/40 bg-green-900/20 p-4">
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <div className="text-lg font-semibold text-green-200">Money Flow</div>
+                  <button
+                    type="button"
+                    onClick={() => toggleStatCard('moneyFlow')}
+                    className="text-lg font-mono text-green-200/70  transition hover:text-green-100"
+                  >
+                    {expandedStatCards.moneyFlow ? '▴' : '▾'}
+                  </button>
                 </div>
 
-                {expandedStatCards.moneyFlow && (
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
-                    <div>
-                      <div className="text-xs text-sky-200/80">Coins-In</div>
-                      <div className="text-lg font-mono text-sky-300">
-                        {formatCurrency(stats?.total_coins_in)}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-xs text-orange-200/80">Coins-Out</div>
-                      <div className="text-lg font-mono text-orange-300">
-                        {formatCurrency(stats?.total_coins_out)}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-xs text-amber-200/80">Hopper</div>
-                      <div className="text-lg font-mono text-amber-300">
-                        {formatCurrency(stats?.total_hopper)}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-xs text-rose-200/80">Withdrawals</div>
-                      <div className="text-lg font-mono text-rose-300">
-                        {formatCurrency(stats?.total_withdraw_amount)}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-xs text-indigo-200/80">Arcade</div>
-                      <div className="text-lg font-mono text-indigo-300">
-                        {formatCurrency(stats?.total_arcade_amount)}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-violet-700/40 bg-violet-900/20 p-4">
-              <div className="mb-2 flex items-start justify-between gap-3">
-                <div className="text-lg font-semibold text-violet-200">Game Flow</div>
-                <button
-                  type="button"
-                  onClick={() => toggleStatCard('gameFlow')}
-                  className="text-lg font-mono text-violet-200/70  transition hover:text-violet-100"
-                >
-                  {expandedStatCards.gameFlow ? '▴' : '▾'}
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <div className="text-xs text-violet-200/80">Total Bet</div>
-                  <div className="text-3xl font-bold font-mono text-violet-300">
-                    {formatCurrency(stats?.total_bet_amount)}
-                  </div>
-                </div>
-
-                <div className="text-xs font-mono text-violet-200/80">
-                  <div>Avg Bet {formatJackpotCurrency(globalAverageBet)}</div>
-                  <div>Total Spins {asNumber(stats?.total_spins).toLocaleString()}</div>
-                </div>
-
-                {expandedStatCards.gameFlow && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="flex flex-col justify-end">
-                      <div className="text-xs text-red-200/80">Total Win</div>
-                      <div className="text-lg font-mono text-red-300">
-                        {formatCurrency(stats?.total_win_amount)}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col justify-end">
-                      <div className="text-xs text-emerald-200/80">Normal Win</div>
-                      <div className="text-lg font-mono text-emerald-300">
-                        {activityRtpReady ? formatJackpotCurrency(globalNormalWin) : '—'}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div
-              className={`rounded-xl border border-fuchsia-700/40 bg-fuchsia-900/20 p-4 ${
-                showAllMobileStatCards ? 'block' : 'hidden md:block'
-              }`}
-            >
-              <div className="mb-2 flex items-start justify-between gap-3">
-                <div className="text-lg font-semibold text-fuchsia-200">Performance</div>
-                <button
-                  type="button"
-                  onClick={() => toggleStatCard('performance')}
-                  className="text-lgs font-mono text-fuchsia-200/70 transition hover:text-fuchsia-100"
-                >
-                  {expandedStatCards.performance ? '▴' : '▾'}
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <div className="text-xs text-fuchsia-200/80">RTP</div>
-                  <div className="text-3xl font-bold font-mono text-fuchsia-300">
-                    {activityRtpReady ? formatPercent(globalBaseRtp) : '—'}
-                  </div>
-                  <div className="text-xs text-fuchsia-200/80">
-                    Target {formatPercent(ENGINE_SIM_TOTAL_RTP_PCT)}
-                  </div>
-                </div>
-
-                {expandedStatCards.performance && (
+                <div className="space-y-3">
                   <div>
-                    <div className="text-xs text-orange-200/80">House Take</div>
-                    <div className="text-lg font-mono text-orange-300">
-                      {formatCurrency(globalHouseGross)}
+                    <div className="text-xs text-green-200/80">Total Balance</div>
+                    <div className="text-3xl font-extrabold font-mono text-green-200">
+                      {formatCurrency(stats?.total_balance)}
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
 
-            {/* 🏦 SYSTEM / POOLS */}
-            <div
-              className={`rounded-xl border border-emerald-700/40 bg-emerald-900/20 p-4 ${
-                showAllMobileStatCards ? 'block' : 'hidden md:block'
-              }`}
-            >
-              <div className="mb-2 flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-lg font-semibold text-emerald-200">System</div>
+                  {expandedStatCards.moneyFlow && (
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+                      <div>
+                        <div className="text-xs text-sky-200/80">Coins-In</div>
+                        <div className="text-lg font-mono text-sky-300">
+                          {formatCurrency(stats?.total_coins_in)}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs text-orange-200/80">Coins-Out</div>
+                        <div className="text-lg font-mono text-orange-300">
+                          {formatCurrency(stats?.total_coins_out)}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs text-amber-200/80">Hopper</div>
+                        <div className="text-lg font-mono text-amber-300">
+                          {formatCurrency(stats?.total_hopper)}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs text-rose-200/80">Withdrawals</div>
+                        <div className="text-lg font-mono text-rose-300">
+                          {formatCurrency(stats?.total_withdraw_amount)}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs text-indigo-200/80">Arcade</div>
+                        <div className="text-lg font-mono text-indigo-300">
+                          {formatCurrency(stats?.total_arcade_amount)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="flex gap-2">
-                  <span className="text-lg font-bold font-mono text-emerald-300">
-                    {runtime?.active_mode ?? 'BASE'}
-                  </span>
+              </div>
+
+              <div className="rounded-xl border border-violet-700/40 bg-violet-900/20 p-4">
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <div className="text-lg font-semibold text-violet-200">Game Flow</div>
                   <button
                     type="button"
-                    onClick={() => toggleStatCard('system')}
-                    className="text-lg font-mono text-emerald-200/70  transition hover:text-emerald-100"
+                    onClick={() => toggleStatCard('gameFlow')}
+                    className="text-lg font-mono text-violet-200/70  transition hover:text-violet-100"
                   >
-                    {expandedStatCards.system ? '▴' : '▾'}
+                    {expandedStatCards.gameFlow ? '▴' : '▾'}
                   </button>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-xs text-violet-200/80">Total Bet</div>
+                    <div className="text-3xl font-bold font-mono text-violet-300">
+                      {formatCurrency(stats?.total_bet_amount)}
+                    </div>
+                  </div>
+
+                  <div className="text-xs font-mono text-violet-200/80">
+                    <div>Avg Bet {formatJackpotCurrency(globalAverageBet)}</div>
+                    <div>Total Spins {asNumber(stats?.total_spins).toLocaleString()}</div>
+                  </div>
+
+                  {expandedStatCards.gameFlow && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col justify-end">
+                        <div className="text-xs text-red-200/80">Total Win</div>
+                        <div className="text-lg font-mono text-red-300">
+                          {formatCurrency(stats?.total_win_amount)}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col justify-end">
+                        <div className="text-xs text-emerald-200/80">Normal Win</div>
+                        <div className="text-lg font-mono text-emerald-300">
+                          {activityRtpReady ? formatJackpotCurrency(globalNormalWin) : '—'}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <div className="space-y-1 rounded border border-emerald-800/40 bg-emerald-950/20 p-2">
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/60">
-                    Pools
-                  </div>
-                  <div className="text-xs font-mono text-emerald-200/80">
-                    Happy Pool {formatCurrency(runtime?.prize_pool_balance)}/{' '}
-                    {formatCurrency(runtime?.prize_pool_goal)}
-                  </div>
-
+              <div
+                className={`rounded-xl border border-fuchsia-700/40 bg-fuchsia-900/20 p-4 ${
+                  showAllMobileStatCards ? 'block' : 'hidden md:block'
+                }`}
+              >
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <div className="text-lg font-semibold text-fuchsia-200">Performance</div>
                   <button
                     type="button"
-                    onClick={() => setShowJackpotQueuesModal(true)}
-                    className="block w-full text-left text-xs font-mono text-indigo-200/80 underline decoration-dotted underline-offset-2 transition hover:text-indigo-100"
+                    onClick={() => toggleStatCard('performance')}
+                    className="text-lgs font-mono text-fuchsia-200/70 transition hover:text-fuchsia-100"
                   >
-                    Jackpot Pool {formatCurrency(runtime?.jackpot_pool_balance)}/{' '}
-                    {formatCurrency(runtime?.jackpot_pool_goal)}
+                    {expandedStatCards.performance ? '▴' : '▾'}
                   </button>
                 </div>
 
-                {expandedStatCards.system && (
-                  <>
-                    <div className="space-y-1 rounded border border-slate-700/60 bg-slate-950/20 p-2">
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-300/60">
-                        Queue Totals
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setShowJackpotQueuesModal(true)}
-                        className="block w-full text-left text-xs font-mono text-amber-200/80 underline decoration-dotted underline-offset-2 transition hover:text-amber-100"
-                      >
-                        Armed Jackpot {formatJackpotCurrency(armedJackpotTotals.target)} /{' '}
-                        {formatJackpotCurrency(armedJackpotTotals.remaining)} (
-                        {jackpotQueueGroups.activeQueues.length})
-                      </button>
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-xs text-fuchsia-200/80">RTP</div>
+                    <div className="text-3xl font-bold font-mono text-fuchsia-300">
+                      {activityRtpReady ? formatPercent(globalBaseRtp) : '—'}
+                    </div>
+                    <div className="text-xs text-fuchsia-200/80">
+                      Target {formatPercent(ENGINE_SIM_TOTAL_RTP_PCT)}
+                    </div>
+                  </div>
 
-                      <button
-                        type="button"
-                        onClick={() => setShowJackpotQueuesModal(true)}
-                        className="block w-full text-left text-xs font-mono text-sky-200/80 underline decoration-dotted underline-offset-2 transition hover:text-sky-100"
-                      >
-                        Pending Jackpot {formatJackpotCurrency(pendingJackpotTotals.total)} /{' '}
-                        {formatJackpotCurrency(pendingJackpotTotals.remaining)} (
-                        {jackpotQueueGroups.unassignedPendingPots.length})
-                      </button>
+                  {expandedStatCards.performance && (
+                    <div>
+                      <div className="text-xs text-orange-200/80">House Take</div>
+                      <div className="text-lg font-mono text-orange-300">
+                        {formatCurrency(globalHouseGross)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 🏦 SYSTEM / POOLS */}
+              <div
+                className={`rounded-xl border border-emerald-700/40 bg-emerald-900/20 p-4 ${
+                  showAllMobileStatCards ? 'block' : 'hidden md:block'
+                }`}
+              >
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-lg font-semibold text-emerald-200">System</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-lg font-bold font-mono text-emerald-300">
+                      {runtime?.active_mode ?? 'BASE'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => toggleStatCard('system')}
+                      className="text-lg font-mono text-emerald-200/70  transition hover:text-emerald-100"
+                    >
+                      {expandedStatCards.system ? '▴' : '▾'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="space-y-1 rounded border border-emerald-800/40 bg-emerald-950/20 p-2">
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/60">
+                      Pools
+                    </div>
+                    <div className="text-xs font-mono text-emerald-200/80">
+                      Happy Pool {formatCurrency(runtime?.prize_pool_balance)}/{' '}
+                      {formatCurrency(runtime?.prize_pool_goal)}
                     </div>
 
-                    <div className="space-y-1 rounded border border-slate-700/60 bg-orange-950/20 p-2">
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-orange-300/60">
-                        Override Totals
+                    <button
+                      type="button"
+                      onClick={() => setShowJackpotQueuesModal(true)}
+                      className="block w-full text-left text-xs font-mono text-indigo-200/80 underline decoration-dotted underline-offset-2 transition hover:text-indigo-100"
+                    >
+                      Jackpot Pool {formatCurrency(runtime?.jackpot_pool_balance)}/{' '}
+                      {formatCurrency(runtime?.jackpot_pool_goal)}
+                    </button>
+                  </div>
+
+                  {expandedStatCards.system && (
+                    <>
+                      <div className="space-y-1 rounded border border-slate-700/60 bg-slate-950/20 p-2">
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-300/60">
+                          Queue Totals
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowJackpotQueuesModal(true)}
+                          className="block w-full text-left text-xs font-mono text-amber-200/80 underline decoration-dotted underline-offset-2 transition hover:text-amber-100"
+                        >
+                          Armed Jackpot {formatJackpotCurrency(armedJackpotTotals.target)} /{' '}
+                          {formatJackpotCurrency(armedJackpotTotals.remaining)} (
+                          {jackpotQueueGroups.activeQueues.length})
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setShowJackpotQueuesModal(true)}
+                          className="block w-full text-left text-xs font-mono text-sky-200/80 underline decoration-dotted underline-offset-2 transition hover:text-sky-100"
+                        >
+                          Pending Jackpot {formatJackpotCurrency(pendingJackpotTotals.total)} /{' '}
+                          {formatJackpotCurrency(pendingJackpotTotals.remaining)} (
+                          {jackpotQueueGroups.unassignedPendingPots.length})
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setShowManualJackpotOverridesModal(true)}
-                        className="block text-left text-xs font-mono text-orange-300 underline decoration-dotted underline-offset-2 transition hover:text-orange-200"
-                      >
-                        Override Jackpot Total{' '}
-                        {formatJackpotCurrency(runtime?.manual_jackpot_override_total)}
-                      </button>
-                    </div>
-                  </>
-                )}
+
+                      <div className="space-y-1 rounded border border-slate-700/60 bg-orange-950/20 p-2">
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-orange-300/60">
+                          Override Totals
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowManualJackpotOverridesModal(true)}
+                          className="block text-left text-xs font-mono text-orange-300 underline decoration-dotted underline-offset-2 transition hover:text-orange-200"
+                        >
+                          Override Jackpot Total{' '}
+                          {formatJackpotCurrency(runtime?.manual_jackpot_override_total)}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        </section>}
+          </section>
+        )}
 
         <section>
           <div className="mb-3 flex flex-col gap-3">
@@ -1106,7 +1111,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                         ? 'border-amber-300/70 bg-gradient-to-br from-amber-900/30 via-slate-900/80 to-slate-900/90 shadow-[0_0_20px_rgba(251,191,36,0.18)]'
                         : d.happy_override_selected
                           ? 'border-pink-300/70 bg-gradient-to-br from-pink-900/30 via-slate-900/80 to-slate-900/90 shadow-[0_0_20px_rgba(236,72,153,0.16)]'
-                        : 'border-slate-700 bg-slate-800'
+                          : 'border-slate-700 bg-slate-800'
                     }`}
                   >
                     <div className="flex items-start gap-2">
@@ -1426,7 +1431,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                                 ? 'bg-amber-950/25 hover:bg-amber-900/30 ring-1 ring-inset ring-amber-400/40'
                                 : !isStaffView && d.happy_override_selected
                                   ? 'bg-pink-950/25 hover:bg-pink-900/30 ring-1 ring-inset ring-pink-400/40'
-                                : 'hover:bg-slate-900/50'
+                                  : 'hover:bg-slate-900/50'
                       }`}
                       onClick={() =>
                         setSelectedDevice({
@@ -1648,9 +1653,9 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
         </section>
       </div>
 
-      {selectedDevice && (
+      {selectedLiveDevice && (
         <DeviceModal
-          device={{ ...selectedDevice, hopper_alert_threshold: hopperAlertThreshold }}
+          device={{ ...selectedLiveDevice, hopper_alert_threshold: hopperAlertThreshold }}
           hopperAlertsEnabled={hopperAlertsEnabled}
           role={role}
           onClose={() => setSelectedDevice(null)}

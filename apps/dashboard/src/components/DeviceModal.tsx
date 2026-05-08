@@ -36,6 +36,7 @@ export function DeviceModal({
   const [closeAccountsBusy, setCloseAccountsBusy] = useState(false)
   const [nameBusy, setNameBusy] = useState(false)
   const [deviceName, setDeviceName] = useState(String(device.name ?? ''))
+  const [presenceNow, setPresenceNow] = useState(() => Date.now())
   const normalizeDeploymentMode = (value: unknown): 'online' | 'standby' | 'maintenance' => {
     const mode = String(value ?? 'online').trim().toLowerCase()
     if (mode === 'standby') return 'standby'
@@ -137,13 +138,23 @@ export function DeviceModal({
   const highRtp = deviceRtp > HIGH_RTP_THRESHOLD
 
   const lastHeartbeat = new Date((device as any)?.session_last_heartbeat ?? 0).getTime()
-  const now = Date.now()
+  const lastSeenAt = new Date((device as any)?.last_seen_at ?? 0).getTime()
   const STUCK_THRESHOLD_MS = 1000 * 60 * 2
+  const OFFLINE_STALE_MS = 1000 * 90
+  const hasRecentPresence =
+    Number.isFinite(lastSeenAt) && presenceNow - lastSeenAt <= OFFLINE_STALE_MS
+  const presenceStatus: 'idle' | 'playing' | 'offline' =
+    device.device_status === 'offline' || !hasRecentPresence
+      ? 'offline'
+      : device.device_status === 'playing'
+        ? 'playing'
+        : 'idle'
   const stuckSession =
-    device.device_status === 'playing' && now - lastHeartbeat > STUCK_THRESHOLD_MS
+    device.device_status === 'playing' && presenceNow - lastHeartbeat > STUCK_THRESHOLD_MS
+  const offline = presenceStatus === 'offline'
   const closeAccountsBlocked =
-    device.device_status === 'playing' ||
-    Boolean(device.active_session_id) ||
+    presenceStatus === 'playing' ||
+    (Boolean(device.active_session_id) && !offline) ||
     Boolean(device.is_free_game) ||
     asNumber(device.free_spins_left) > 0 ||
     asNumber(device.pending_free_spins) > 0 ||
@@ -152,7 +163,6 @@ export function DeviceModal({
     ? 'Close accounts is available only when this device is idle with no active session or free-spin flow.'
     : null
 
-  const offline = device.device_status === 'offline'
   const gameTypeRaw = String(device.game_type ?? (device.session_metadata as any)?.gameType ?? '')
     .trim()
     .toLowerCase()
@@ -218,6 +228,14 @@ export function DeviceModal({
     const t = setTimeout(() => setErrorMessage(null), 4000)
     return () => clearTimeout(t)
   }, [errorMessage])
+
+  useEffect(() => {
+    const t = window.setInterval(() => {
+      setPresenceNow(Date.now())
+    }, 10000)
+
+    return () => window.clearInterval(t)
+  }, [])
 
   useEffect(() => {
     setActiveTab('overview')
@@ -681,14 +699,14 @@ export function DeviceModal({
                     </h3>
                     <span
                       className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
-                        device.device_status === 'playing'
+                        presenceStatus === 'playing'
                           ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50'
-                          : device.device_status === 'offline'
+                          : presenceStatus === 'offline'
                             ? 'bg-slate-800 text-slate-400 border border-slate-700'
                             : 'bg-amber-900/40 text-amber-300 border border-amber-700/50'
                       }`}
                     >
-                      {(device.device_status ?? 'idle').toUpperCase()}
+                      {presenceStatus.toUpperCase()}
                     </span>
                   </div>
 
