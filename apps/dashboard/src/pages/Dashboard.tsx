@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { DeviceRow } from '../hooks/useDevices'
 import { useDevices } from '../hooks/useDevices'
 import { DeviceModal } from '../components/DeviceModal'
@@ -8,12 +8,11 @@ import { useGames } from '../hooks/useGames'
 import type { DashboardRole } from '../hooks/useDashboardAuth'
 import moment from 'moment'
 import { supabase } from '../lib/supabase'
+import { isPollingVisible } from '../lib/polling'
 
-const DASHBOARD_POTS_POLL_MS = 2500
-const DASHBOARD_JACKPOT_QUEUE_POLL_MS = 2500
-const DASHBOARD_MANUAL_OVERRIDE_POLL_MS = 5000
-const DASHBOARD_ACTIVITY_RTP_POLL_MS = 2500
-const DASHBOARD_ACTIVITY_RTP_PAGE_SIZE = 1000
+const DASHBOARD_POOL_SUMMARY_POLL_MS = 30000
+const DASHBOARD_MODAL_DATA_POLL_MS = 30000
+const DASHBOARD_ADMIN_RTP_POLL_MS = 30000
 
 type SortField =
   | 'name'
@@ -38,8 +37,9 @@ type DeploymentFilter =
   | 'playing_online'
   | 'playing_standby'
   | 'playing_maintenance'
+type OverrideModalView = 'manual_jackpot' | 'happy'
 
-type ActivityRtpTotals = {
+type AdminRtpTotals = {
   bet: number
   win: number
 }
@@ -109,6 +109,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
   const [showJackpotPotsModal, setShowJackpotPotsModal] = useState(false)
   const [showJackpotQueuesModal, setShowJackpotQueuesModal] = useState(false)
   const [showManualJackpotOverridesModal, setShowManualJackpotOverridesModal] = useState(false)
+  const [overrideModalView, setOverrideModalView] = useState<OverrideModalView>('manual_jackpot')
   const [expandedStatCards, setExpandedStatCards] = useState({
     moneyFlow: false,
     gameFlow: false,
@@ -122,14 +123,8 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
   const [jackpotPots, setJackpotPots] = useState<any[]>([])
   const [jackpotQueues, setJackpotQueues] = useState<any[]>([])
   const [manualJackpotOverrides, setManualJackpotOverrides] = useState<any[]>([])
-  const [activityRtpByDevice, setActivityRtpByDevice] = useState<Record<string, ActivityRtpTotals>>(
-    {},
-  )
-  const [activityGlobalRtpTotals, setActivityGlobalRtpTotals] = useState<ActivityRtpTotals>({
-    bet: 0,
-    win: 0,
-  })
-  const [activityRtpReady, setActivityRtpReady] = useState(false)
+  const [adminRtpByDevice, setAdminRtpByDevice] = useState<Record<string, AdminRtpTotals>>({})
+  const [adminRtpReady, setAdminRtpReady] = useState(false)
   const [hopperAlertsEnabled] = useState(() => {
     try {
       return localStorage.getItem('hopperAlertsEnabled') === 'true'
@@ -138,9 +133,6 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
     }
   })
   const [currentPage, setCurrentPage] = useState(1)
-  const activityRtpByDeviceRef = useRef<Record<string, ActivityRtpTotals>>({})
-  const activityGlobalRtpTotalsRef = useRef<ActivityRtpTotals>({ bet: 0, win: 0 })
-  const lastActivityMetricIdRef = useRef(0)
   const pageSize = 10
   const isStaffView = role === 'staff'
 
@@ -151,54 +143,117 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
   }, [errorMessage])
 
   useEffect(() => {
-    async function fetchPots() {
-      const [{ data: happyData }, { data: jackpotData }] = await Promise.all([
-        supabase.from('happy_hour_pots').select('*').order('id', { ascending: false }).limit(50),
-        supabase.from('jackpot_pots').select('*').order('id', { ascending: false }).limit(50),
+    async function fetchAdminRtpTotals() {
+      if (!isPollingVisible()) return
+      const { data, error } = await supabase.rpc('dashboard_admin_rtp_totals')
+      if (error) return
+
+      const nextByDevice: Record<string, AdminRtpTotals> = {}
+      for (const row of (data ?? []) as any[]) {
+        const deviceId = String(row?.device_id ?? '').trim()
+        if (!deviceId) continue
+        nextByDevice[deviceId] = {
+          bet: Number(row?.bet ?? 0),
+          win: Number(row?.win ?? 0),
+        }
+      }
+
+      setAdminRtpByDevice(nextByDevice)
+      setAdminRtpReady(true)
+    }
+
+    void fetchAdminRtpTotals()
+
+    const poll = window.setInterval(() => {
+      void fetchAdminRtpTotals()
+    }, DASHBOARD_ADMIN_RTP_POLL_MS)
+    const onVisibilityChange = () => {
+      if (isPollingVisible()) void fetchAdminRtpTotals()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      window.clearInterval(poll)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [])
+
+  useEffect(() => {
+    async function fetchPoolSummary() {
+      if (!isPollingVisible()) return
+      const [{ data: jackpotData }, { data: queueData }] = await Promise.all([
+        supabase
+          .from('jackpot_pots')
+          .select('id,campaign_id,status,amount_total,amount_remaining,goal_mode,goal_snapshot,created_at')
+          .order('id', { ascending: false })
+          .limit(50),
+        supabase
+          .from('jackpot_payout_queue')
+          .select(
+            'id,campaign_id,device_id,target_amount,remaining_amount,spins_until_start,payouts_left,created_at,payout_ready_at,completed_at',
+          )
+          .order('completed_at', { ascending: true, nullsFirst: true })
+          .order('created_at', { ascending: false })
+          .limit(100),
       ])
-      setHappyPots(happyData ?? [])
       setJackpotPots(jackpotData ?? [])
+      setJackpotQueues(queueData ?? [])
     }
 
-    void fetchPots()
+    void fetchPoolSummary()
 
     const poll = window.setInterval(() => {
-      void fetchPots()
-    }, DASHBOARD_POTS_POLL_MS)
+      void fetchPoolSummary()
+    }, DASHBOARD_POOL_SUMMARY_POLL_MS)
+    const onVisibilityChange = () => {
+      if (isPollingVisible()) void fetchPoolSummary()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     return () => {
       window.clearInterval(poll)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }, [])
 
   useEffect(() => {
-    async function fetchJackpotQueues() {
+    if (!showHappyPotsModal) return
+
+    async function fetchHappyPots() {
+      if (!isPollingVisible()) return
       const { data } = await supabase
-        .from('jackpot_payout_queue')
-        .select('*')
-        .order('completed_at', { ascending: true, nullsFirst: true })
-        .order('created_at', { ascending: false })
-        .limit(100)
+        .from('happy_hour_pots')
+        .select('id,status,amount_total,amount_remaining,goal_mode')
+        .order('id', { ascending: false })
+        .limit(50)
 
-      setJackpotQueues(data ?? [])
+      setHappyPots(data ?? [])
     }
 
-    void fetchJackpotQueues()
+    void fetchHappyPots()
 
     const poll = window.setInterval(() => {
-      void fetchJackpotQueues()
-    }, DASHBOARD_JACKPOT_QUEUE_POLL_MS)
+      void fetchHappyPots()
+    }, DASHBOARD_MODAL_DATA_POLL_MS)
+    const onVisibilityChange = () => {
+      if (isPollingVisible()) void fetchHappyPots()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     return () => {
       window.clearInterval(poll)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [])
+  }, [showHappyPotsModal])
 
   useEffect(() => {
+    if (!showManualJackpotOverridesModal) return
+
     async function fetchManualJackpotOverrides() {
+      if (!isPollingVisible()) return
       const { data } = await supabase
         .from('jackpot_pots')
-        .select('*')
+        .select('id,status,amount_total,amount_remaining,goal_snapshot,created_at,completed_at')
         .contains('goal_snapshot', { source: 'dashboard_device_override' })
         .neq('status', 'processing')
         .order('created_at', { ascending: false })
@@ -211,164 +266,17 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
 
     const poll = window.setInterval(() => {
       void fetchManualJackpotOverrides()
-    }, DASHBOARD_MANUAL_OVERRIDE_POLL_MS)
+    }, DASHBOARD_MODAL_DATA_POLL_MS)
+    const onVisibilityChange = () => {
+      if (isPollingVisible()) void fetchManualJackpotOverrides()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     return () => {
       window.clearInterval(poll)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [])
-
-  useEffect(() => {
-    function getActivityFundingSource(row: any) {
-      return String(row?.metadata?.winFundingSource ?? '')
-        .trim()
-        .toLowerCase()
-    }
-
-    function getActivityRtpAmount(row: any, eventType: 'spin' | 'win') {
-      const fundingSource = getActivityFundingSource(row)
-      if (fundingSource === 'happy_prize_pool') return 0
-      if (fundingSource === 'device_happy_override') return 0
-      if (
-        String(row?.metadata?.triggerType ?? '')
-          .trim()
-          .toLowerCase() === 'buy'
-      )
-        return 0
-      if (row?.metadata?.isFreeGame) return 0
-      if (row?.metadata?.jackpotCampaignPayout) return 0
-      if (Number(row?.metadata?.jackpotPayout ?? row?.metadata?.jackpot_payout ?? 0) > 0) return 0
-
-      if (eventType === 'spin') {
-        const spinAmount = Number(row?.amount ?? 0)
-        return Number.isFinite(spinAmount) && spinAmount > 0 ? spinAmount : 0
-      }
-
-      const acceptedWin = Number(
-        row?.metadata?.acceptedWin ?? row?.metadata?.accepted_win ?? row?.amount ?? 0,
-      )
-      return Number.isFinite(acceptedWin) && acceptedWin > 0 ? acceptedWin : 0
-    }
-
-    function accumulateActivityRtpRows(
-      rows: any[],
-      byDevice: Record<string, ActivityRtpTotals>,
-      global: ActivityRtpTotals,
-    ) {
-      if (!rows.length) return
-
-      for (const row of rows) {
-        const id = Number(row?.id ?? 0)
-        if (id > lastActivityMetricIdRef.current) {
-          lastActivityMetricIdRef.current = id
-        }
-
-        if (!row?.counts_toward_global) continue
-
-        const eventType = String(row?.event_type ?? '')
-          .trim()
-          .toLowerCase()
-        if (eventType !== 'spin' && eventType !== 'win') continue
-
-        const deviceId = String(row?.device_id ?? '').trim()
-        if (!deviceId) continue
-
-        const amount = getActivityRtpAmount(row, eventType as 'spin' | 'win')
-        if (amount <= 0) continue
-
-        const current = byDevice[deviceId] ?? { bet: 0, win: 0 }
-        byDevice[deviceId] =
-          eventType === 'spin'
-            ? { bet: current.bet + amount, win: current.win }
-            : { bet: current.bet, win: current.win + amount }
-
-        if (eventType === 'spin') {
-          global.bet += amount
-        } else {
-          global.win += amount
-        }
-      }
-    }
-
-    function applyActivityRtpRows(rows: any[]) {
-      if (!rows.length) return
-
-      const nextByDevice = { ...activityRtpByDeviceRef.current }
-      const nextGlobal = { ...activityGlobalRtpTotalsRef.current }
-      accumulateActivityRtpRows(rows, nextByDevice, nextGlobal)
-
-      activityRtpByDeviceRef.current = nextByDevice
-      activityGlobalRtpTotalsRef.current = nextGlobal
-      setActivityRtpByDevice(nextByDevice)
-      setActivityGlobalRtpTotals(nextGlobal)
-    }
-
-    async function fetchActivityRtpInitial() {
-      setActivityRtpReady(false)
-      activityRtpByDeviceRef.current = {}
-      activityGlobalRtpTotalsRef.current = { bet: 0, win: 0 }
-      lastActivityMetricIdRef.current = 0
-      const nextByDevice: Record<string, ActivityRtpTotals> = {}
-      const nextGlobal: ActivityRtpTotals = { bet: 0, win: 0 }
-
-      let from = 0
-
-      for (;;) {
-        const to = from + DASHBOARD_ACTIVITY_RTP_PAGE_SIZE - 1
-        const { data } = await supabase
-          .from('device_metric_events')
-          .select('id,device_id,event_type,amount,metadata,counts_toward_global')
-          .in('event_type', ['spin', 'win'])
-          .order('id', { ascending: true })
-          .range(from, to)
-
-        const rows = data ?? []
-        accumulateActivityRtpRows(rows, nextByDevice, nextGlobal)
-
-        if (rows.length < DASHBOARD_ACTIVITY_RTP_PAGE_SIZE) break
-        from += DASHBOARD_ACTIVITY_RTP_PAGE_SIZE
-      }
-
-      activityRtpByDeviceRef.current = nextByDevice
-      activityGlobalRtpTotalsRef.current = nextGlobal
-      setActivityRtpByDevice(nextByDevice)
-      setActivityGlobalRtpTotals(nextGlobal)
-      setActivityRtpReady(true)
-    }
-
-    async function fetchActivityRtpIncremental() {
-      let fromId = lastActivityMetricIdRef.current
-
-      for (;;) {
-        const { data } = await supabase
-          .from('device_metric_events')
-          .select('id,device_id,event_type,amount,metadata,counts_toward_global')
-          .in('event_type', ['spin', 'win'])
-          .gt('id', fromId)
-          .order('id', { ascending: true })
-          .limit(DASHBOARD_ACTIVITY_RTP_PAGE_SIZE)
-
-        const rows = data ?? []
-        if (!rows.length) break
-
-        applyActivityRtpRows(rows)
-        setActivityRtpReady(true)
-        fromId = lastActivityMetricIdRef.current
-
-        if (rows.length < DASHBOARD_ACTIVITY_RTP_PAGE_SIZE) break
-      }
-    }
-
-    void fetchActivityRtpInitial()
-
-    const poll = window.setInterval(() => {
-      void fetchActivityRtpIncremental()
-    }, DASHBOARD_ACTIVITY_RTP_POLL_MS)
-
-    return () => {
-      window.clearInterval(poll)
-    }
-  }, [])
+  }, [showManualJackpotOverridesModal])
 
   const asNumber = (v: number | string | null | undefined) => Number(v ?? 0)
   const formatCurrency = (v: number | string | null | undefined) =>
@@ -379,10 +287,27 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
       maximumFractionDigits: 2,
     })}`
   const formatPercent = (v: number | string | null | undefined) => `${asNumber(v).toFixed(2)}%`
-  const getDeviceRtp = (deviceId: string | null | undefined) => {
-    const totals = activityRtpByDevice[String(deviceId ?? '').trim()]
-    return totals?.bet ? (totals.win / totals.bet) * 100 : 0
+  const getDeviceRtpTotals = (
+    device: Pick<DeviceRow, 'device_id' | 'eligible_bet_total' | 'eligible_win_total' | 'bet_total' | 'win_total'>,
+  ) => {
+    const raw = adminRtpByDevice[String(device.device_id ?? '').trim()] ?? { bet: 0, win: 0 }
+    const currentBet = asNumber(device.eligible_bet_total ?? device.bet_total)
+    const currentWin = asNumber(device.eligible_win_total ?? device.win_total)
+    return {
+      bet: Math.min(asNumber(raw.bet), Math.max(currentBet, 0)),
+      win: Math.min(asNumber(raw.win), Math.max(currentWin, 0)),
+    }
   }
+  const getDeviceRtp = (
+    device: Pick<DeviceRow, 'device_id' | 'eligible_bet_total' | 'eligible_win_total' | 'bet_total' | 'win_total'>,
+  ) => {
+    const totals = getDeviceRtpTotals(device)
+    return totals.bet > 0 ? (totals.win / totals.bet) * 100 : 0
+  }
+  const getDeviceHouseWin = (
+    device: Pick<DeviceRow, 'house_take_total' | 'bet_total' | 'win_total'>,
+  ) => asNumber(device.house_take_total ?? asNumber(device.bet_total) - asNumber(device.win_total))
+  const shouldShowDeviceRtp = () => adminRtpReady
 
   const getDeviceAverageBet = (
     row: Pick<DeviceRow, 'bet_total' | 'spins_total' | 'avg_bet_amount' | 'last_bet_amount'>,
@@ -397,16 +322,30 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
     return Math.round(betTotal / spinsTotal)
   }
 
+  const dashboardRtpTotals = useMemo(
+    () =>
+      devices.reduce(
+        (totals, device) => {
+          const rtpTotals = getDeviceRtpTotals(device)
+          return {
+            bet: totals.bet + rtpTotals.bet,
+            win: totals.win + rtpTotals.win,
+          }
+        },
+        { bet: 0, win: 0 },
+      ),
+    [adminRtpByDevice, devices],
+  )
   const globalBet = asNumber(stats?.total_bet_amount)
   const globalWin = asNumber(stats?.total_win_amount)
-  const globalNormalWin = activityGlobalRtpTotals.win
+  const globalNormalWin = Math.min(dashboardRtpTotals.win, Math.max(globalWin, 0))
   const globalBaseRtp =
-    activityGlobalRtpTotals.bet > 0
-      ? (activityGlobalRtpTotals.win / activityGlobalRtpTotals.bet) * 100
-      : 0
+    dashboardRtpTotals.bet > 0
+      ? (globalNormalWin / dashboardRtpTotals.bet) * 100
+      : (stats?.global_rtp_percent ?? (globalBet > 0 ? (globalWin / globalBet) * 100 : 0))
   const globalAverageBet =
     asNumber(stats?.total_spins) > 0 ? globalBet / asNumber(stats?.total_spins) : 0
-  const globalHouseGross = asNumber(stats?.total_house_take ?? globalBet - globalWin)
+  const globalHouseGross = asNumber(stats?.total_house_take)
   const hopperAlertThreshold = asNumber(runtime?.hopper_alert_threshold ?? 500)
   const activeProfileId =
     runtime?.active_mode === 'HAPPY' ? runtime?.happy_profile_id : runtime?.base_profile_id
@@ -469,6 +408,54 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
       ),
     [jackpotQueueGroups.unassignedPendingPots],
   )
+  const overrideTotals = useMemo(() => {
+    const manualJackpots = jackpotPots.filter(pot => {
+      const snapshot = (pot?.goal_snapshot as Record<string, unknown> | null) ?? null
+      const status = String(pot?.status ?? '').toLowerCase()
+      return snapshot?.source === 'dashboard_device_override' && status !== 'completed'
+    })
+    const happyOverrides = devices.filter(
+      device =>
+        Boolean(device.happy_override_selected) &&
+        asNumber(device.happy_override_remaining_amount) > 0,
+    )
+
+    return {
+      manualJackpotTotal: manualJackpots.reduce(
+        (sum, pot) => sum + asNumber(pot?.amount_total),
+        0,
+      ),
+      manualJackpotRemaining: manualJackpots.reduce(
+        (sum, pot) => sum + asNumber(pot?.amount_remaining),
+        0,
+      ),
+      manualJackpotCount: manualJackpots.length,
+      happyOverrideTotal: happyOverrides.reduce(
+        (sum, device) => sum + asNumber(device.happy_override_target_amount),
+        0,
+      ),
+      happyOverrideRemaining: happyOverrides.reduce(
+        (sum, device) => sum + asNumber(device.happy_override_remaining_amount),
+        0,
+      ),
+      happyOverrideCount: happyOverrides.length,
+    }
+  }, [devices, jackpotPots])
+  const activeHappyOverrides = useMemo(
+    () =>
+      devices
+        .filter(
+          device =>
+            Boolean(device.happy_override_selected) &&
+            asNumber(device.happy_override_remaining_amount) > 0,
+        )
+        .sort((a, b) => {
+          const left = String(a.name ?? a.device_id ?? '')
+          const right = String(b.name ?? b.device_id ?? '')
+          return left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' })
+        }),
+    [devices],
+  )
   const deviceSummaryCounts = useMemo(
     () => ({
       online: devices.filter(d => (d.deployment_mode ?? 'online') === 'online').length,
@@ -483,9 +470,10 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
             return asNumber(d.hopper_balance) <= threshold
           }).length
         : 0,
-      highRtp: devices.filter(d => getDeviceRtp(d.device_id) > 110).length,
+      highRtp: devices.filter(d => d.device_status === 'playing' && getDeviceRtp(d) > 110)
+        .length,
     }),
-    [devices, hopperAlertsEnabled],
+    [adminRtpByDevice, devices, hopperAlertsEnabled],
   )
 
   useEffect(() => {
@@ -563,11 +551,8 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
     if (field === 'name') return (device.name ?? '').toLowerCase()
     if (field === 'last_bet_at')
       return device.last_bet_at ? moment(device.last_bet_at).valueOf() : 0
-    if (field === 'house_win')
-      return asNumber(
-        device.house_take_total ?? asNumber(device.bet_total) - asNumber(device.win_total),
-      )
-    if (field === 'rtp') return getDeviceRtp(device.device_id)
+    if (field === 'house_win') return getDeviceHouseWin(device)
+    if (field === 'rtp') return device.device_status === 'playing' ? getDeviceRtp(device) : -1
     return asNumber(device[field as keyof DeviceRow] as number | string | null | undefined)
   }
 
@@ -633,7 +618,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
     })
 
     return deploymentFiltered
-  }, [deploymentFilter, devices, searchTerm, sortField, sortDirection])
+  }, [adminRtpByDevice, deploymentFilter, devices, searchTerm, sortField, sortDirection])
 
   const onSort = (field: SortField) => {
     if (field === sortField) {
@@ -749,13 +734,6 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                       </div>
 
                       <div>
-                        <div className="text-xs text-orange-200/80">Coins-Out</div>
-                        <div className="text-lg font-mono text-orange-300">
-                          {formatCurrency(stats?.total_coins_out)}
-                        </div>
-                      </div>
-
-                      <div>
                         <div className="text-xs text-amber-200/80">Hopper</div>
                         <div className="text-lg font-mono text-amber-300">
                           {formatCurrency(stats?.total_hopper)}
@@ -817,7 +795,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                       <div className="flex flex-col justify-end">
                         <div className="text-xs text-emerald-200/80">Normal Win</div>
                         <div className="text-lg font-mono text-emerald-300">
-                          {activityRtpReady ? formatJackpotCurrency(globalNormalWin) : '—'}
+                          {adminRtpReady ? formatJackpotCurrency(globalNormalWin) : '—'}
                         </div>
                       </div>
                     </div>
@@ -845,7 +823,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                   <div>
                     <div className="text-xs text-fuchsia-200/80">RTP</div>
                     <div className="text-3xl font-bold font-mono text-fuchsia-300">
-                      {activityRtpReady ? formatPercent(globalBaseRtp) : '—'}
+                      {adminRtpReady ? formatPercent(globalBaseRtp) : '—'}
                     </div>
                     <div className="text-xs text-fuchsia-200/80">
                       Target {formatPercent(ENGINE_SIM_TOTAL_RTP_PCT)}
@@ -854,7 +832,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
 
                   {expandedStatCards.performance && (
                     <div>
-                      <div className="text-xs text-orange-200/80">House Take</div>
+                      <div className="text-xs text-orange-200/80">House Win</div>
                       <div className="text-lg font-mono text-orange-300">
                         {formatCurrency(globalHouseGross)}
                       </div>
@@ -940,11 +918,29 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                         </div>
                         <button
                           type="button"
-                          onClick={() => setShowManualJackpotOverridesModal(true)}
+                          onClick={() => {
+                            setOverrideModalView('manual_jackpot')
+                            setShowManualJackpotOverridesModal(true)
+                          }}
                           className="block text-left text-xs font-mono text-orange-300 underline decoration-dotted underline-offset-2 transition hover:text-orange-200"
                         >
-                          Override Jackpot Total{' '}
-                          {formatJackpotCurrency(runtime?.manual_jackpot_override_total)}
+                          Override Jackpot {formatJackpotCurrency(overrideTotals.manualJackpotTotal)}
+                          {' / '}
+                          {formatJackpotCurrency(overrideTotals.manualJackpotRemaining)} (
+                          {overrideTotals.manualJackpotCount})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOverrideModalView('happy')
+                            setShowManualJackpotOverridesModal(true)
+                          }}
+                          className="block text-left text-xs font-mono text-pink-300 underline decoration-dotted underline-offset-2 transition hover:text-pink-200"
+                        >
+                          Happy Override {formatJackpotCurrency(overrideTotals.happyOverrideTotal)}
+                          {' / '}
+                          {formatJackpotCurrency(overrideTotals.happyOverrideRemaining)} (
+                          {overrideTotals.happyOverrideCount})
                         </button>
                       </div>
                     </>
@@ -1087,17 +1083,15 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
             </div>
             <div className="space-y-2 p-2">
               {paginatedDevices.map(d => {
-                const deviceRtp = getDeviceRtp(d.device_id)
+                const deviceRtp = getDeviceRtp(d)
                 const deviceAverageBet = getDeviceAverageBet(d)
-
-                const deviceHouseWin = asNumber(
-                  d.house_take_total ?? asNumber(d.bet_total) - asNumber(d.win_total),
-                )
+                const deviceHouseWin = getDeviceHouseWin(d)
                 const threshold = asNumber((d as any)?.hopper_alert_threshold ?? 500)
                 const hopperLow = hopperAlertsEnabled && asNumber(d.hopper_balance) <= threshold
                 // --- Alert Computations ---
                 const HIGH_RTP_THRESHOLD = 110
-                const highRtp = deviceRtp > HIGH_RTP_THRESHOLD
+                const showDeviceRtp = shouldShowDeviceRtp()
+                const highRtp = d.device_status === 'playing' && deviceRtp > HIGH_RTP_THRESHOLD
                 const gameType = getDeviceGameType(d)
                 const telemetryLabel = getDeviceTelemetryLabel(d)
                 const jackpotStatus = getDeviceJackpotStatus(d)
@@ -1291,7 +1285,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                                   <div>
                                     <div className="text-[10px] text-slate-500">RTP</div>
                                     <div className="font-mono text-sm text-fuchsia-300">
-                                      {activityRtpReady ? formatPercent(deviceRtp) : '—'}
+                                      {showDeviceRtp ? formatPercent(deviceRtp) : '—'}
                                     </div>
                                   </div>
                                 </>
@@ -1400,16 +1394,15 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
               </thead>
               <tbody className="divide-y divide-slate-800">
                 {paginatedDevices.map(d => {
-                  const deviceRtp = getDeviceRtp(d.device_id)
+                  const deviceRtp = getDeviceRtp(d)
                   const deviceAverageBet = getDeviceAverageBet(d)
-                  const deviceHouseWin = asNumber(
-                    d.house_take_total ?? asNumber(d.bet_total) - asNumber(d.win_total),
-                  )
+                  const deviceHouseWin = getDeviceHouseWin(d)
                   const threshold = asNumber((d as any)?.hopper_alert_threshold ?? 500)
                   const hopperLow = hopperAlertsEnabled && asNumber(d.hopper_balance) <= threshold
                   // --- Alert Computations ---
                   const HIGH_RTP_THRESHOLD = 110
-                  const highRtp = deviceRtp > HIGH_RTP_THRESHOLD
+                  const showDeviceRtp = shouldShowDeviceRtp()
+                  const highRtp = d.device_status === 'playing' && deviceRtp > HIGH_RTP_THRESHOLD
                   const offline = d.device_status === 'offline'
                   const telemetryLabel = getDeviceTelemetryLabel(d)
                   const jackpotStatus = getDeviceJackpotStatus(d)
@@ -1582,7 +1575,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                           <div className="flex gap-2 justify-end  font-mono text-xs text-fuchsia-300">
                             RTP:
                             <span className="font-thin">
-                              {activityRtpReady ? formatPercent(deviceRtp) : '—'}
+                              {showDeviceRtp ? formatPercent(deviceRtp) : '—'}
                             </span>
                           </div>
                         </td>
@@ -1943,9 +1936,13 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
           <div className="mx-auto max-w-4xl rounded-lg border border-slate-700 bg-slate-950 p-5 sm:p-6">
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold">Manual Jackpot Overrides</h3>
+                <h3 className="text-lg font-semibold">
+                  {overrideModalView === 'happy' ? 'Happy Overrides' : 'Manual Jackpot Overrides'}
+                </h3>
                 <div className="mt-1 text-xs text-slate-400">
-                  Latest entries first. Shows all dashboard-triggered per-device jackpot overrides.
+                  {overrideModalView === 'happy'
+                    ? 'Active per-device happy overrides.'
+                    : 'Latest entries first. Shows all dashboard-triggered per-device jackpot overrides.'}
                 </div>
               </div>
               <button
@@ -1956,12 +1953,12 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
               </button>
             </div>
             <div className="max-h-[70vh] overflow-auto space-y-2">
-              {manualJackpotOverrides.length === 0 && (
+              {overrideModalView === 'manual_jackpot' && manualJackpotOverrides.length === 0 && (
                 <div className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm text-slate-400">
                   No manual jackpot overrides found.
                 </div>
               )}
-              {manualJackpotOverrides.map(override => {
+              {overrideModalView === 'manual_jackpot' && manualJackpotOverrides.map(override => {
                 const snapshot = (override.goal_snapshot as Record<string, unknown> | null) ?? null
                 const deviceId = String(snapshot?.deviceId ?? '').trim()
                 const snapshotDeviceName = String(snapshot?.deviceName ?? '').trim()
@@ -2014,6 +2011,55 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                   </div>
                 )
               })}
+              {overrideModalView === 'happy' && activeHappyOverrides.length === 0 && (
+                <div className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm text-slate-400">
+                  No active happy overrides found.
+                </div>
+              )}
+              {overrideModalView === 'happy' &&
+                activeHappyOverrides.map(device => (
+                  <div
+                    key={device.device_id}
+                    className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm"
+                  >
+                    <div className="flex flex-wrap items-center gap-2 font-mono">
+                      <span className="rounded border border-pink-700 bg-pink-950/60 px-2 py-0.5 text-[10px] font-semibold text-pink-300">
+                        ACTIVE
+                      </span>
+                      <span className="text-slate-300">
+                        {String(device.name ?? '').trim() || device.device_id}
+                      </span>
+                      <span className="text-slate-500">{device.device_id}</span>
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-300 sm:grid-cols-4">
+                      <div>
+                        <div className="text-slate-500">Target</div>
+                        <div className="font-mono">
+                          {formatJackpotCurrency(device.happy_override_target_amount)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500">Remaining</div>
+                        <div className="font-mono">
+                          {formatJackpotCurrency(device.happy_override_remaining_amount)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500">Area</div>
+                        <div className="font-mono">
+                          {[device.area_name, device.station_name].filter(Boolean).join(' / ') ||
+                            '—'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500">Status</div>
+                        <div className="font-mono">
+                          {String(device.device_status ?? 'idle').toUpperCase()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
             </div>
           </div>
         </div>

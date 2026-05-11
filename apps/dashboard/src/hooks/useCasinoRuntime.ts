@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { isPollingVisible } from '../lib/polling'
 
-const RUNTIME_POLL_MS = 2500
-const RTP_PROFILES_POLL_MS = 3000
+const RUNTIME_POLL_MS = 10000
+const RTP_PROFILES_POLL_MS = 30000
 
 export type RuntimeMode = 'BASE' | 'HAPPY'
 export type JackpotDeliveryMode = 'TARGET_FIRST' | 'AUTHENTIC_PAYTABLE'
@@ -69,41 +70,25 @@ export type CasinoRuntime = {
   hopper_alert_threshold: number
   updated_at: string
   active_target_rtp_pct?: number
-  manual_jackpot_override_total?: number
 }
 
 export function useCasinoRuntime() {
   const [runtime, setRuntime] = useState<CasinoRuntime | null>(null)
   const [profiles, setProfiles] = useState<RtpProfile[]>([])
 
-  async function fetchManualJackpotOverrideTotal() {
-    const { data, error } = await supabase
-      .from('jackpot_pots')
-      .select('amount_total')
-      .contains('goal_snapshot', { source: 'dashboard_device_override' })
-      .neq('status', 'processing')
-      .order('id', { ascending: true })
-
-    if (error) return null
-
-    return (data ?? []).reduce((sum, row) => sum + Number(row.amount_total ?? 0), 0)
-  }
-
   async function fetchRuntime() {
-    const [{ data, error }, manualJackpotOverrideTotal] = await Promise.all([
-      supabase.from('casino_runtime_live').select('*').eq('id', true).single(),
-      fetchManualJackpotOverrideTotal(),
-    ])
+    if (!isPollingVisible()) return
+
+    const { data, error } = await supabase.from('casino_runtime_live').select('*').eq('id', true).single()
 
     if (!error) {
-      setRuntime({
-        ...(data as CasinoRuntime),
-        manual_jackpot_override_total: manualJackpotOverrideTotal ?? undefined,
-      })
+      setRuntime(data as CasinoRuntime)
     }
   }
 
   async function fetchProfiles() {
+    if (!isPollingVisible()) return
+
     const { data, error } = await supabase
       .from('rtp_profiles')
       .select('*')
@@ -123,10 +108,17 @@ export function useCasinoRuntime() {
     const profilesPoll = window.setInterval(() => {
       void fetchProfiles()
     }, RTP_PROFILES_POLL_MS)
+    const onVisibilityChange = () => {
+      if (!isPollingVisible()) return
+      void fetchRuntime()
+      void fetchProfiles()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     return () => {
       window.clearInterval(runtimePoll)
       window.clearInterval(profilesPoll)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }, [])
 

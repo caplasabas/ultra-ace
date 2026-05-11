@@ -1,8 +1,9 @@
 // src/hooks/useDevices.ts
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { isPollingVisible } from '../lib/polling'
 
-const DEVICES_POLL_MS = 2500
+const DEVICES_POLL_MS = 5000
 
 export type DeviceRow = {
   device_id: string
@@ -107,6 +108,7 @@ export function useDevices() {
   const fetchTimeoutRef = useRef<any>(null)
 
   async function fetchAll() {
+    if (!isPollingVisible()) return
     if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current)
 
     fetchTimeoutRef.current = setTimeout(async () => {
@@ -124,6 +126,10 @@ export function useDevices() {
     const poll = window.setInterval(() => {
       void fetchAll()
     }, DEVICES_POLL_MS)
+    const onVisibilityChange = () => {
+      if (isPollingVisible()) void fetchAll()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     return () => {
       if (fetchTimeoutRef.current) {
@@ -131,6 +137,7 @@ export function useDevices() {
         fetchTimeoutRef.current = null
       }
       window.clearInterval(poll)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }, [])
 

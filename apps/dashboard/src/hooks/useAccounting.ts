@@ -29,6 +29,8 @@ export type AccountingClosingRow = {
   win: number
   house_take: number
   jackpot: number
+  manual_jackpot_override: number
+  happy_override: number
   spins: number
   rtp_percent: number
   house_edge_percent: number
@@ -46,6 +48,8 @@ export type AccountingDailyRow = {
   total_spins: number
   total_house_take: number
   total_jackpot: number
+  total_manual_jackpot_override: number
+  total_happy_override: number
   rtp_percent: number
   house_edge_percent: number
   closings: AccountingClosingRow[]
@@ -64,6 +68,8 @@ export type AccountingDeviceRow = {
   spins_total: number
   house_take_total: number
   jackpot_total: number
+  manual_jackpot_override_total: number
+  happy_override_total: number
   rtp_percent: number
   house_edge_percent: number
   closings: AccountingClosingRow[]
@@ -80,6 +86,8 @@ type Summary = {
   spins: number
   houseTake: number
   jackpot: number
+  manualJackpotOverride: number
+  happyOverride: number
 }
 
 function asNumber(value: number | string | null | undefined) {
@@ -125,6 +133,14 @@ function closingFromRow(row: RevenueClosingRow): AccountingClosingRow {
   const metadata = row.metadata ?? {}
   const deviceName = String(metadata.deviceName ?? '').trim() || null
   const deploymentMode = String(metadata.deploymentMode ?? '').trim() || null
+  const manualJackpotOverride = Math.max(
+    asNumber(metadata.manualJackpotOverride as number | string | null | undefined),
+    0,
+  )
+  const happyOverride = Math.max(
+    asNumber(metadata.happyOverride as number | string | null | undefined),
+    0,
+  )
 
   return {
     id: String(row.id),
@@ -140,6 +156,8 @@ function closingFromRow(row: RevenueClosingRow): AccountingClosingRow {
     win,
     house_take: houseTake,
     jackpot,
+    manual_jackpot_override: manualJackpotOverride,
+    happy_override: happyOverride,
     spins,
     rtp_percent: bet > 0 ? (win / bet) * 100 : 0,
     house_edge_percent: bet > 0 ? (houseTake / bet) * 100 : 0,
@@ -157,6 +175,8 @@ function summarizeClosings(closings: AccountingClosingRow[]) {
       acc.spins += row.spins
       acc.houseTake += row.house_take
       acc.jackpot += row.jackpot
+      acc.manualJackpotOverride += row.manual_jackpot_override
+      acc.happyOverride += row.happy_override
       return acc
     },
     {
@@ -168,6 +188,8 @@ function summarizeClosings(closings: AccountingClosingRow[]) {
       spins: 0,
       houseTake: 0,
       jackpot: 0,
+      manualJackpotOverride: 0,
+      happyOverride: 0,
     },
   )
 }
@@ -237,6 +259,8 @@ export function useAccounting(dateFrom: string, dateTo: string) {
             total_spins: totals.spins,
             total_house_take: totals.houseTake,
             total_jackpot: totals.jackpot,
+            total_manual_jackpot_override: totals.manualJackpotOverride,
+            total_happy_override: totals.happyOverride,
             rtp_percent: totals.bet > 0 ? (totals.win / totals.bet) * 100 : 0,
             house_edge_percent: totals.bet > 0 ? (totals.houseTake / totals.bet) * 100 : 0,
             closings: rows,
@@ -261,6 +285,8 @@ export function useAccounting(dateFrom: string, dateTo: string) {
             spins_total: totals.spins,
             house_take_total: totals.houseTake,
             jackpot_total: totals.jackpot,
+            manual_jackpot_override_total: totals.manualJackpotOverride,
+            happy_override_total: totals.happyOverride,
             rtp_percent: totals.bet > 0 ? (totals.win / totals.bet) * 100 : 0,
             house_edge_percent: totals.bet > 0 ? (totals.houseTake / totals.bet) * 100 : 0,
             closings: rows,
@@ -296,6 +322,8 @@ export function useAccounting(dateFrom: string, dateTo: string) {
       spins: totals.spins,
       houseTake: totals.houseTake,
       jackpot: totals.jackpot,
+      manualJackpotOverride: totals.manualJackpotOverride,
+      happyOverride: totals.happyOverride,
     }
   }, [deviceRows])
 

@@ -67,6 +67,8 @@ function ClosingDetailRows({
                 <th className="px-3 py-2 text-right">Win</th>
                 <th className="px-3 py-2 text-right">House Take</th>
                 <th className="px-3 py-2 text-right">Jackpot</th>
+                <th className="px-3 py-2 text-right">Manual Ovr</th>
+                <th className="px-3 py-2 text-right">Happy Ovr</th>
                 <th className="px-3 py-2 text-right">Spins</th>
               </tr>
             </thead>
@@ -100,6 +102,12 @@ function ClosingDetailRows({
                   </td>
                   <td className="px-3 py-2 text-right font-mono text-amber-300">
                     {formatCurrency(closing.jackpot)}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-orange-300">
+                    {formatCurrency(closing.manual_jackpot_override)}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-pink-300">
+                    {formatCurrency(closing.happy_override)}
                   </td>
                   <td className="px-3 py-2 text-right font-mono text-cyan-300">
                     {asNumber(closing.spins).toLocaleString()}
@@ -271,6 +279,18 @@ export default function Accounting() {
             {formatCurrency(summary.jackpot)}
           </div>
         </div>
+        <div className="rounded-lg border border-orange-700/40 bg-slate-800 p-4">
+          <div className="text-xs text-orange-300/80 mb-1">Manual Jackpot Override</div>
+          <div className="text-2xl font-bold font-mono text-orange-300">
+            {formatCurrency(summary.manualJackpotOverride)}
+          </div>
+        </div>
+        <div className="rounded-lg border border-pink-700/40 bg-slate-800 p-4">
+          <div className="text-xs text-pink-300/80 mb-1">Happy Override</div>
+          <div className="text-2xl font-bold font-mono text-pink-300">
+            {formatCurrency(summary.happyOverride)}
+          </div>
+        </div>
         <div className="rounded-lg border border-slate-700 bg-slate-800 p-4">
           <div className="text-xs text-slate-400 mb-1">Closings</div>
           <div className="text-xl font-mono">{summary.closingCount.toLocaleString()}</div>
@@ -310,6 +330,8 @@ export default function Accounting() {
                 <th className="px-4 py-2 text-right">Win</th>
                 <th className="px-4 py-2 text-right">House Take</th>
                 <th className="px-4 py-2 text-right">Jackpot</th>
+                <th className="px-4 py-2 text-right">Manual Ovr</th>
+                <th className="px-4 py-2 text-right">Happy Ovr</th>
                 <th className="px-4 py-2 text-right">Spins</th>
                 <th className="px-4 py-2 text-right">RTP</th>
                 <th className="px-4 py-2 text-right">House Edge</th>
@@ -355,6 +377,12 @@ export default function Accounting() {
                     <td className="px-4 py-2 text-right font-mono text-amber-300">
                       {formatCurrency(row.total_jackpot)}
                     </td>
+                    <td className="px-4 py-2 text-right font-mono text-orange-300">
+                      {formatCurrency(row.total_manual_jackpot_override)}
+                    </td>
+                    <td className="px-4 py-2 text-right font-mono text-pink-300">
+                      {formatCurrency(row.total_happy_override)}
+                    </td>
                     <td className="px-4 py-2 text-right font-mono text-cyan-300">
                       {asNumber(row.total_spins).toLocaleString()}
                     </td>
@@ -366,14 +394,14 @@ export default function Accounting() {
                     </td>
                   </tr>
                   {expandedDates.has(date) && (
-                    <ClosingDetailRows closings={row.closings} colSpan={14} showDevice />
+                    <ClosingDetailRows closings={row.closings} colSpan={16} showDevice />
                   )}
                 </Fragment>
               ))}
 
               {!loading && byDate.length === 0 && (
                 <tr>
-                  <td className="px-4 py-8 text-center text-slate-400" colSpan={14}>
+                  <td className="px-4 py-8 text-center text-slate-400" colSpan={16}>
                     No closings in this date range.
                   </td>
                 </tr>
@@ -399,6 +427,8 @@ export default function Accounting() {
                 <th className="px-4 py-2 text-right">Win</th>
                 <th className="px-4 py-2 text-right">House Take</th>
                 <th className="px-4 py-2 text-right">Jackpot</th>
+                <th className="px-4 py-2 text-right">Manual Ovr</th>
+                <th className="px-4 py-2 text-right">Happy Ovr</th>
                 <th className="px-4 py-2 text-right">Spins</th>
                 <th className="px-4 py-2 text-right">RTP</th>
                 <th className="px-4 py-2 text-right">House Edge</th>
@@ -444,6 +474,12 @@ export default function Accounting() {
                     <td className="px-4 py-2 text-right font-mono text-amber-300">
                       {formatCurrency(row.jackpot_total)}
                     </td>
+                    <td className="px-4 py-2 text-right font-mono text-orange-300">
+                      {formatCurrency(row.manual_jackpot_override_total)}
+                    </td>
+                    <td className="px-4 py-2 text-right font-mono text-pink-300">
+                      {formatCurrency(row.happy_override_total)}
+                    </td>
                     <td className="px-4 py-2 text-right font-mono text-cyan-300">
                       {asNumber(row.spins_total).toLocaleString()}
                     </td>
@@ -455,14 +491,14 @@ export default function Accounting() {
                     </td>
                   </tr>
                   {expandedDevices.has(row.device_id) && (
-                    <ClosingDetailRows closings={row.closings} colSpan={13} showDevice={false} />
+                    <ClosingDetailRows closings={row.closings} colSpan={15} showDevice={false} />
                   )}
                 </Fragment>
               ))}
 
               {!loading && deviceRows.length === 0 && (
                 <tr>
-                  <td className="px-4 py-8 text-center text-slate-400" colSpan={13}>
+                  <td className="px-4 py-8 text-center text-slate-400" colSpan={15}>
                     No device closings in this date range.
                   </td>
                 </tr>

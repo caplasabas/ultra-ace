@@ -1,13 +1,16 @@
 // src/hooks/useGames.ts
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { isPollingVisible } from '../lib/polling'
 
-const GAMES_POLL_MS = 3000
+const GAMES_POLL_MS = 30000
 
 export function useGames(type?: 'arcade' | 'casino') {
   const [rows, setRows] = useState<any[]>([])
 
   async function fetchGames() {
+    if (!isPollingVisible()) return
+
     let query = supabase.from('games').select('*').order('name')
 
     if (type) query = query.eq('type', type)
@@ -22,9 +25,14 @@ export function useGames(type?: 'arcade' | 'casino') {
     const poll = window.setInterval(() => {
       void fetchGames()
     }, GAMES_POLL_MS)
+    const onVisibilityChange = () => {
+      if (isPollingVisible()) void fetchGames()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     return () => {
       window.clearInterval(poll)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }, [type])
 

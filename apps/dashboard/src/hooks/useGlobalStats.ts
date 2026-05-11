@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { isPollingVisible } from '../lib/polling'
 
-const GLOBAL_STATS_POLL_MS = 2500
+const GLOBAL_STATS_POLL_MS = 5000
 const GLOBAL_COINS_OUT_POLL_MS = 30000
 const COINS_OUT_PAGE_SIZE = 1000
 
@@ -28,8 +29,11 @@ export type GlobalStatsRow = {
 
 export function useGlobalStats() {
   const [stats, setStats] = useState<GlobalStatsRow | null>(null)
+  const totalCoinsOutRef = useRef<number | undefined>(undefined)
 
   async function fetchTotalCoinsOut() {
+    if (!isPollingVisible()) return null
+
     let totalCoinsOut = 0
     let from = 0
 
@@ -59,44 +63,56 @@ export function useGlobalStats() {
   }
 
   async function fetchStats() {
-    const [{ data, error }, totalCoinsOut] = await Promise.all([
-      supabase.from('global_stats_live').select('*').single(),
-      fetchTotalCoinsOut(),
-    ])
+    if (!isPollingVisible()) return
+
+    const { data, error } = await supabase.from('global_stats_live').select('*').single()
 
     if (!error) {
-      setStats({
+      setStats(current => ({
         ...(data as GlobalStatsRow),
-        total_coins_out: totalCoinsOut ?? undefined,
-      })
+        total_coins_out: totalCoinsOutRef.current ?? current?.total_coins_out,
+      }))
     }
+  }
+
+  async function refreshTotalCoinsOut() {
+    const totalCoinsOut = await fetchTotalCoinsOut()
+    if (totalCoinsOut === null) return
+
+    totalCoinsOutRef.current = totalCoinsOut
+    setStats(current =>
+      current
+        ? {
+            ...current,
+            total_coins_out: totalCoinsOut,
+          }
+        : current,
+    )
   }
 
   useEffect(() => {
     void fetchStats()
+    void refreshTotalCoinsOut()
 
     const poll = window.setInterval(() => {
       void fetchStats()
     }, GLOBAL_STATS_POLL_MS)
+    const onVisibilityChange = () => {
+      if (!isPollingVisible()) return
+      void fetchStats()
+      void refreshTotalCoinsOut()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     return () => {
       window.clearInterval(poll)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }, [])
 
   useEffect(() => {
     const poll = window.setInterval(() => {
-      void fetchTotalCoinsOut().then(totalCoinsOut => {
-        if (totalCoinsOut === null) return
-        setStats(current =>
-          current
-            ? {
-                ...current,
-                total_coins_out: totalCoinsOut,
-              }
-            : current,
-        )
-      })
+      void refreshTotalCoinsOut()
     }, GLOBAL_COINS_OUT_POLL_MS)
 
     return () => {
