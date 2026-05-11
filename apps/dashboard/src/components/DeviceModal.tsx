@@ -10,6 +10,7 @@ type ActivityRow = {
   activity_name: string
   amount: number | null
   activity_at: string
+  metadata?: Record<string, any> | null
 }
 
 export function DeviceModal({
@@ -118,6 +119,18 @@ export function DeviceModal({
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     })}`
+  const formatActivityName = (row: ActivityRow) => {
+    const activityName = String(row.activity_name ?? '')
+    const metadata = row.metadata ?? {}
+
+    if (activityName === 'spin' && metadata.isFreeGame === true) {
+      const source = String(metadata.triggerType ?? '').trim().toLowerCase()
+      if (source === 'buy') return 'FREE SPIN (BUY)'
+      return 'FREE SPIN'
+    }
+
+    return activityName.replaceAll('_', ' ').toUpperCase()
+  }
   const statsBasisLabel =
     device.deployment_mode === 'maintenance' ? 'All Activity' : 'Eligible Activity'
   const baseWinAmount =
@@ -286,7 +299,7 @@ export function DeviceModal({
       const to = from + activityPageSize
       const { data, error, count } = await supabase
         .from('device_activity_feed')
-        .select('activity_id,activity_name,amount,activity_at', { count: 'exact' })
+        .select('activity_id,activity_name,amount,activity_at,metadata', { count: 'exact' })
         .eq('device_id', device.device_id)
         .order('activity_at', { ascending: false })
         .order('activity_id', { ascending: false })
@@ -947,9 +960,7 @@ export function DeviceModal({
                       {activityRows.map(row => (
                         <tr key={row.activity_id}>
                           <td className="px-3 py-2 text-slate-200">
-                            {String(row.activity_name ?? '')
-                              .replaceAll('_', ' ')
-                              .toUpperCase()}
+                            {formatActivityName(row)}
                           </td>
                           <td className="px-3 py-2 text-right font-mono text-slate-300">
                             {row.amount == null ? '—' : formatCurrency(row.amount)}

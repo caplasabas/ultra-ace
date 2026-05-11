@@ -45,6 +45,7 @@ const BIG_WIN_MIN_AMOUNT = 20
 const BOOT_SPLASH_GAMEPLAY_GUARD_MS = 1200
 const WITHDRAW_INPUT_DEBOUNCE_MS = 300
 const WITHDRAW_STALL_RESET_MS = 15000
+const WITHDRAW_FALLBACK_COOLDOWN_MS = 60 * 1000
 const MARQUEE_HIDE_ANIMATION_MS = 280
 
 const VOICE_BY_SYMBOL: Record<string, string> = {
@@ -77,6 +78,12 @@ type RedWildPropagationPath = {
 }
 
 const makePlaceholder = (kind: string) => Array.from({ length: 4 }, () => ({ kind }))
+
+function parseTimestampMs(value: unknown) {
+  if (!value) return 0
+  const parsed = Date.parse(String(value))
+  return Number.isFinite(parsed) ? parsed : 0
+}
 
 type MarqueeRepeatMode = 'none' | 'daily' | 'weekly'
 
@@ -204,7 +211,11 @@ function isMarqueeActive(config: MarqueeConfig, now = new Date()) {
   if (startsAt && Number.isFinite(startsAt) && nowMs < startsAt) return false
   if (endsAt && Number.isFinite(endsAt) && nowMs > endsAt) return false
 
-  if (config.repeat === 'weekly' && config.daysOfWeek && !config.daysOfWeek.includes(now.getDay())) {
+  if (
+    config.repeat === 'weekly' &&
+    config.daysOfWeek &&
+    !config.daysOfWeek.includes(now.getDay())
+  ) {
     return false
   }
 
@@ -629,9 +640,11 @@ export default function App() {
   const [hasPressedStart, setHasPressedStart] = useState(false)
   const [introCountdown, setIntroCountdown] = useState(10)
   const [displayedCascadeWinTotal, setDisplayedCascadeWinTotal] = useState(0)
+  const [withdrawCooldownRemainingMs, setWithdrawCooldownRemainingMs] = useState(0)
 
   const withdrawRequestedAmountRef = useRef(0)
   const withdrawInputLockedUntilRef = useRef(0)
+  const withdrawCooldownUntilRef = useRef(0)
   const withdrawLastActivityAtRef = useRef(0)
   const lastLoggedWinKeyRef = useRef<string>('')
   const lastPlayedWinAudioKeyRef = useRef<string>('')
@@ -1055,6 +1068,7 @@ export default function App() {
 
   const canOpenShellWithdraw =
     internetOnline &&
+    withdrawCooldownRemainingMs <= 0 &&
     isReady &&
     !spinning &&
     !autoSpin &&
@@ -1066,6 +1080,19 @@ export default function App() {
     !showBuySpinModal &&
     !isWithdrawing &&
     getMaxWithdrawSelectable(balance) >= WITHDRAW_MIN
+
+  useEffect(() => {
+    const updateCooldown = () => {
+      setWithdrawCooldownRemainingMs(Math.max(0, withdrawCooldownUntilRef.current - Date.now()))
+    }
+
+    updateCooldown()
+    const interval = window.setInterval(updateCooldown, 1000)
+
+    return () => {
+      window.clearInterval(interval)
+    }
+  }, [])
 
   useEffect(() => {
     if (!internetOnline) return
@@ -1499,13 +1526,19 @@ export default function App() {
         isWithdrawing,
         min: WITHDRAW_MIN,
         step: WITHDRAW_STEP,
+        cooldownRemainingMs: withdrawCooldownRemainingMs,
+        cooldownUntil:
+          withdrawCooldownUntilRef.current > 0
+            ? new Date(withdrawCooldownUntilRef.current).toISOString()
+            : null,
       },
       '*',
     )
-  }, [balance, canOpenShellWithdraw, isWithdrawing])
+  }, [balance, canOpenShellWithdraw, isWithdrawing, withdrawCooldownRemainingMs])
 
   const requestShellWithdrawOpen = () => {
     if (window.parent === window) return
+    if (withdrawCooldownUntilRef.current > Date.now()) return
     if (Date.now() < withdrawInputLockedUntilRef.current) return
     withdrawInputLockedUntilRef.current = Date.now() + WITHDRAW_INPUT_DEBOUNCE_MS
     window.parent.postMessage({ type: 'ULTRAACE_WITHDRAW_REQUEST' }, '*')
@@ -1583,6 +1616,9 @@ export default function App() {
       // --- WITHDRAW COMPLETE ---
       if (payload.type === 'WITHDRAW_STARTED') {
         withdrawRequestedAmountRef.current = Number(payload.requested ?? 20) || 20
+        withdrawCooldownUntilRef.current =
+          parseTimestampMs(payload.cooldownUntil) || Date.now() + WITHDRAW_FALLBACK_COOLDOWN_MS
+        setWithdrawCooldownRemainingMs(Math.max(0, withdrawCooldownUntilRef.current - Date.now()))
         withdrawLastActivityAtRef.current = Date.now()
         setIsWithdrawingRef.current(true)
         return
@@ -1614,6 +1650,11 @@ export default function App() {
 
       if (payload.type === 'WITHDRAW_COMPLETE') {
         withdrawInputLockedUntilRef.current = Date.now() + WITHDRAW_INPUT_DEBOUNCE_MS
+        withdrawCooldownUntilRef.current =
+          parseTimestampMs(payload.cooldownUntil) ||
+          withdrawCooldownUntilRef.current ||
+          Date.now() + WITHDRAW_FALLBACK_COOLDOWN_MS
+        setWithdrawCooldownRemainingMs(Math.max(0, withdrawCooldownUntilRef.current - Date.now()))
         withdrawLastActivityAtRef.current = 0
         setIsWithdrawingRef.current(false)
         setShowWithdrawModalRef.current(false)
@@ -1625,6 +1666,11 @@ export default function App() {
 
       if (payload.type === 'WITHDRAW_ABORTED') {
         withdrawInputLockedUntilRef.current = Date.now() + WITHDRAW_INPUT_DEBOUNCE_MS
+        withdrawCooldownUntilRef.current =
+          parseTimestampMs(payload.cooldownUntil) ||
+          withdrawCooldownUntilRef.current ||
+          Date.now() + WITHDRAW_FALLBACK_COOLDOWN_MS
+        setWithdrawCooldownRemainingMs(Math.max(0, withdrawCooldownUntilRef.current - Date.now()))
         withdrawLastActivityAtRef.current = 0
         setIsWithdrawingRef.current(false)
         setShowWithdrawModalRef.current(false)
@@ -1826,6 +1872,7 @@ export default function App() {
             s.pauseColumn === null &&
             !s.showBuySpinModal &&
             !s.isWithdrawing &&
+            withdrawCooldownUntilRef.current <= Date.now() &&
             getMaxWithdrawSelectable(s.balance) >= WITHDRAW_MIN
 
           if (canOpenFromState) {
@@ -1964,6 +2011,11 @@ export default function App() {
               <button
                 className="withdrawal-btn"
                 disabled={!canOpenShellWithdraw}
+                title={
+                  withdrawCooldownRemainingMs > 0
+                    ? `Withdraw available in ${Math.ceil(withdrawCooldownRemainingMs / 1000)}s`
+                    : 'Withdraw'
+                }
                 onClick={requestShellWithdrawOpen}
               />
 

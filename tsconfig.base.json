@@ -11,7 +11,8 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@ultra-ace/engine": ["packages/engine/src/index.ts"]
+      "@ultra-ace/engine": ["packages/engine/src/index.ts"],
+      "@ultra-ace/pinata-engine": ["packages/pinata-engine/src/index.ts"]
     }
   },
   "include": ["packages/**/*", "apps/**/*"]

@@ -28,6 +28,8 @@ export async function fetchActiveJackpotQueue(deviceId: string): Promise<ActiveJ
     .select('id,campaign_id,spins_until_start,payouts_left,remaining_amount,target_amount')
     .eq('device_id', deviceId)
     .is('completed_at', null)
+    .gt('remaining_amount', 0)
+    .gt('payouts_left', 0)
     .order('created_at', { ascending: true })
     .order('id', { ascending: true })
     .limit(1)
