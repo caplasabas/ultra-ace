@@ -135,6 +135,8 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
   const isStaffView = role === 'staff'
+  const isRunnerView = role === 'runner'
+  const isAdminView = !isStaffView && !isRunnerView
 
   useEffect(() => {
     if (!errorMessage) return
@@ -143,6 +145,8 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
   }, [errorMessage])
 
   useEffect(() => {
+    if (!isAdminView) return
+
     async function fetchAdminRtpTotals() {
       if (!isPollingVisible()) return
       const { data, error } = await supabase.rpc('dashboard_admin_rtp_totals')
@@ -176,9 +180,11 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
       window.clearInterval(poll)
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [])
+  }, [isAdminView])
 
   useEffect(() => {
+    if (!isAdminView) return
+
     async function fetchPoolSummary() {
       if (!isPollingVisible()) return
       const [{ data: jackpotData }, { data: queueData }] = await Promise.all([
@@ -214,7 +220,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
       window.clearInterval(poll)
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [])
+  }, [isAdminView])
 
   useEffect(() => {
     if (!showHappyPotsModal) return
@@ -644,7 +650,11 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
   }
 
   const sortLabel = SORT_OPTIONS.find(option => option.field === sortField)?.label ?? 'Last Bet At'
-  const visibleSortOptions = isStaffView
+  const visibleSortOptions = isRunnerView
+    ? SORT_OPTIONS.filter(option =>
+        ['name', 'balance', 'coins_in_total', 'hopper_balance'].includes(option.field),
+      )
+    : isStaffView
     ? SORT_OPTIONS.filter(option =>
         ['last_bet_at', 'name', 'balance', 'coins_in_total', 'hopper_balance'].includes(
           option.field,
@@ -676,7 +686,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
         <div className="flex justify-between">
           <header>
             <h1 className="text-2xl font-semibold">Dashboard</h1>
-            {!isStaffView && (
+            {isAdminView && (
               <div className="text-xs font-mono text-emerald-200/60">
                 H/J/P {formatPercent(activeHousePct)} / {formatPercent(activeJackpotPct)} /{' '}
                 {formatPercent(activeHappyPct)}
@@ -684,7 +694,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
             )}
           </header>
 
-          {!isStaffView && (
+          {isAdminView && (
             <div className="mb-3 flex justify-end md:hidden">
               <MobileToggleButton
                 expanded={showAllMobileStatCards}
@@ -701,7 +711,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
           </div>
         )}
 
-        {!isStaffView && (
+        {isAdminView && (
           <section>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-xl border border-green-700/40 bg-green-900/20 p-4">
@@ -1009,9 +1019,11 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                 <div className="text-xs text-orange-300">
                   🟠 Low Hopper: {deviceSummaryCounts.lowHopper}
                 </div>
-                <div className="text-xs text-fuchsia-300">
-                  🟣 High RTP: {deviceSummaryCounts.highRtp}
-                </div>
+                {isAdminView && (
+                  <div className="text-xs text-fuchsia-300">
+                    🟣 High RTP: {deviceSummaryCounts.highRtp}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center text-center space-y-2 md:hidden">
@@ -1039,9 +1051,11 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                     <div className="text-xs text-red-300">
                       🔴 Offline: {deviceSummaryCounts.offline}
                     </div>
-                    <div className="text-xs text-fuchsia-300">
-                      🟣 High RTP: {deviceSummaryCounts.highRtp}
-                    </div>
+                    {isAdminView && (
+                      <div className="text-xs text-fuchsia-300">
+                        🟣 High RTP: {deviceSummaryCounts.highRtp}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1084,14 +1098,15 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
             <div className="space-y-2 p-2">
               {paginatedDevices.map(d => {
                 const deviceRtp = getDeviceRtp(d)
-                const deviceAverageBet = getDeviceAverageBet(d)
-                const deviceHouseWin = getDeviceHouseWin(d)
+                const deviceAverageBet = isRunnerView ? 0 : getDeviceAverageBet(d)
+                const deviceHouseWin = isRunnerView ? 0 : getDeviceHouseWin(d)
                 const threshold = asNumber((d as any)?.hopper_alert_threshold ?? 500)
                 const hopperLow = hopperAlertsEnabled && asNumber(d.hopper_balance) <= threshold
                 // --- Alert Computations ---
                 const HIGH_RTP_THRESHOLD = 110
                 const showDeviceRtp = shouldShowDeviceRtp()
-                const highRtp = d.device_status === 'playing' && deviceRtp > HIGH_RTP_THRESHOLD
+                const highRtp =
+                  isAdminView && d.device_status === 'playing' && deviceRtp > HIGH_RTP_THRESHOLD
                 const gameType = getDeviceGameType(d)
                 const telemetryLabel = getDeviceTelemetryLabel(d)
                 const jackpotStatus = getDeviceJackpotStatus(d)
@@ -1144,9 +1159,11 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                                       ? 'AFK'
                                       : (d.device_status ?? 'idle').toUpperCase()}
                                   </span>
-                                  <span className="rounded border border-slate-700 bg-slate-800/60 px-1.5 py-0.5 text-[10px] text-slate-300">
-                                    {gameType.toUpperCase()}
-                                  </span>
+                                  {!isRunnerView && (
+                                    <span className="rounded border border-slate-700 bg-slate-800/60 px-1.5 py-0.5 text-[10px] text-slate-300">
+                                      {gameType.toUpperCase()}
+                                    </span>
+                                  )}
                                   {(d.deployment_mode ?? 'online') === 'standby' && (
                                     <span className="rounded border border-amber-700 bg-amber-900/40 px-1.5 py-0.5 text-[10px] text-amber-200">
                                       STANDBY
@@ -1158,9 +1175,11 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                                     </span>
                                   )}
                                 </div>
-                                <div className="mt-1 text-[10px] text-slate-300">
-                                  {telemetryLabel}
-                                </div>
+                                {!isRunnerView && (
+                                  <div className="mt-1 text-[10px] text-slate-300">
+                                    {telemetryLabel}
+                                  </div>
+                                )}
 
                                 <div className="mt-1 flex flex-wrap gap-1">
                                   {hopperLow && (
@@ -1169,24 +1188,24 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                                     </span>
                                   )}
 
-                                  {!isStaffView && highRtp && (
+                                  {isAdminView && highRtp && (
                                     <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-fuchsia-500 bg-fuchsia-950 text-fuchsia-300">
                                       RTP
                                     </span>
                                   )}
                                 </div>
-                                {!isStaffView && d.jackpot_selected && (
+                                {isAdminView && d.jackpot_selected && (
                                   <div className="mt-1 text-[10px] font-semibold text-amber-200">
                                     JACKPOT TARGET {formatJackpotCurrency(d.jackpot_target_amount)}{' '}
                                     • Remaining {formatJackpotCurrency(d.jackpot_remaining_amount)}
                                   </div>
                                 )}
-                                {!isStaffView && jackpotStatus && (
+                                {isAdminView && jackpotStatus && (
                                   <div className="mt-1 text-[10px] text-amber-300">
                                     {jackpotStatus}
                                   </div>
                                 )}
-                                {!isStaffView && d.happy_override_selected && (
+                                {isAdminView && d.happy_override_selected && (
                                   <div className="mt-1 text-[10px] font-semibold text-pink-200">
                                     HAPPY TARGET{' '}
                                     {formatJackpotCurrency(d.happy_override_target_amount)} •
@@ -1194,7 +1213,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                                     {formatJackpotCurrency(d.happy_override_remaining_amount)}
                                   </div>
                                 )}
-                                {!isStaffView && happyOverrideStatus && (
+                                {isAdminView && happyOverrideStatus && (
                                   <div className="mt-1 text-[10px] text-pink-300">
                                     {happyOverrideStatus}
                                   </div>
@@ -1203,12 +1222,14 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                             )}
                           </div>
 
-                          <div className="mt-0.5 text-right">
-                            <div className="text-[10px] text-slate-500">Last Bet At</div>{' '}
-                            <div className="text-xs text-slate-300">
-                              {d.last_bet_at ? moment(d.last_bet_at).format('MM-DD hh:mm A') : '—'}
+                          {!isRunnerView && (
+                            <div className="mt-0.5 text-right">
+                              <div className="text-[10px] text-slate-500">Last Bet At</div>{' '}
+                              <div className="text-xs text-slate-300">
+                                {d.last_bet_at ? moment(d.last_bet_at).format('MM-DD hh:mm A') : '—'}
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
 
                         <div
@@ -1240,7 +1261,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                               {formatCurrency(d.hopper_balance)}
                             </div>
                           </div>
-                          {mobileExpanded && (
+                          {mobileExpanded && !isRunnerView && (
                             <>
                               <div>
                                 <div className="text-[10px] text-slate-500">Arcade Total</div>
@@ -1260,7 +1281,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                                   {formatCurrency(d.last_bet_amount)}
                                 </div>
                               </div>
-                              {!isStaffView && (
+                              {isAdminView && (
                                 <>
                                   <div>
                                     <div className="text-[10px] text-slate-500">Avg Bet</div>
@@ -1327,7 +1348,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                     </button>
                   </th>
                   <th className="px-4 py-2 text-left">Status</th>
-                  <th className="px-4 py-2 text-left">Game / Mode</th>
+                  {!isRunnerView && <th className="px-4 py-2 text-left">Game / Mode</th>}
                   <th className="px-4 py-2 text-right">
                     <button
                       type="button"
@@ -1337,7 +1358,24 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                       Balance {sortField === 'balance' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
-                  <th className="px-4 py-2 text-right">Money Flow</th>
+                  <th className="px-4 py-2 text-right">
+                    {isRunnerView ? (
+                      <button
+                        type="button"
+                        className="hover:text-white"
+                        onClick={() => onSort('coins_in_total')}
+                      >
+                        Coins-In{' '}
+                        {sortField === 'coins_in_total'
+                          ? sortDirection === 'asc'
+                            ? '↑'
+                            : '↓'
+                          : ''}
+                      </button>
+                    ) : (
+                      'Money Flow'
+                    )}
+                  </th>
                   <th className="px-4 py-2 text-right">
                     <button
                       type="button"
@@ -1348,10 +1386,10 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                       {sortField === 'hopper_balance' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
                   </th>
-                  <th className="px-4 py-2 text-right">Withdraw</th>
-                  {!isStaffView && <th className="px-4 py-2 text-right">Stats</th>}
+                  {!isRunnerView && <th className="px-4 py-2 text-right">Withdraw</th>}
+                  {isAdminView && <th className="px-4 py-2 text-right">Stats</th>}
 
-                  {!isStaffView && (
+                  {isAdminView && (
                     <th className="px-4 py-2 text-right">
                       <button
                         type="button"
@@ -1368,7 +1406,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                     </th>
                   )}
 
-                  {!isStaffView && (
+                  {isAdminView && (
                     <th className="px-4 py-2 text-right">
                       <button
                         type="button"
@@ -1380,7 +1418,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                       </button>
                     </th>
                   )}
-                  <th className="px-4 py-2 text-right">
+                  {!isRunnerView && <th className="px-4 py-2 text-right">
                     <button
                       type="button"
                       className="hover:text-white"
@@ -1389,20 +1427,21 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                       Last Bet At{' '}
                       {sortField === 'last_bet_at' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </button>
-                  </th>
+                  </th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
                 {paginatedDevices.map(d => {
                   const deviceRtp = getDeviceRtp(d)
-                  const deviceAverageBet = getDeviceAverageBet(d)
-                  const deviceHouseWin = getDeviceHouseWin(d)
+                  const deviceAverageBet = isRunnerView ? 0 : getDeviceAverageBet(d)
+                  const deviceHouseWin = isRunnerView ? 0 : getDeviceHouseWin(d)
                   const threshold = asNumber((d as any)?.hopper_alert_threshold ?? 500)
                   const hopperLow = hopperAlertsEnabled && asNumber(d.hopper_balance) <= threshold
                   // --- Alert Computations ---
                   const HIGH_RTP_THRESHOLD = 110
                   const showDeviceRtp = shouldShowDeviceRtp()
-                  const highRtp = d.device_status === 'playing' && deviceRtp > HIGH_RTP_THRESHOLD
+                  const highRtp =
+                    isAdminView && d.device_status === 'playing' && deviceRtp > HIGH_RTP_THRESHOLD
                   const offline = d.device_status === 'offline'
                   const telemetryLabel = getDeviceTelemetryLabel(d)
                   const jackpotStatus = getDeviceJackpotStatus(d)
@@ -1418,11 +1457,11 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                             //   ? 'bg-yellow-950/30 ring-1 ring-yellow-500/40'
                             hopperLow
                             ? 'bg-red-950/30 ring-1 ring-red-500/40'
-                            : !isStaffView && highRtp
+                            : isAdminView && highRtp
                               ? 'bg-fuchsia-950/30 ring-1 ring-fuchsia-500/40'
-                              : !isStaffView && d.jackpot_selected
+                              : isAdminView && d.jackpot_selected
                                 ? 'bg-amber-950/25 hover:bg-amber-900/30 ring-1 ring-inset ring-amber-400/40'
-                                : !isStaffView && d.happy_override_selected
+                                : isAdminView && d.happy_override_selected
                                   ? 'bg-pink-950/25 hover:bg-pink-900/30 ring-1 ring-inset ring-pink-400/40'
                                   : 'hover:bg-slate-900/50'
                       }`}
@@ -1458,7 +1497,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                                 </span>
                               )}
 
-                              {!isStaffView && highRtp && (
+                              {isAdminView && highRtp && (
                                 <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-fuchsia-500 bg-fuchsia-950 text-fuchsia-300">
                                   RTP
                                 </span>
@@ -1478,12 +1517,12 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                             </div>
                           </div>
 
-                          {!isStaffView && d.jackpot_selected && (
+                          {isAdminView && d.jackpot_selected && (
                             <span className="rounded border border-amber-400/70 bg-amber-900/50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200">
                               JACKPOT
                             </span>
                           )}
-                          {!isStaffView && d.happy_override_selected && (
+                          {isAdminView && d.happy_override_selected && (
                             <span className="rounded border border-pink-400/70 bg-pink-900/40 px-1.5 py-0.5 text-[10px] font-semibold text-pink-200">
                               HAPPY OVR
                             </span>
@@ -1515,33 +1554,35 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                             : (d.device_status ?? 'idle').toUpperCase()}
                         </span>
                       </td>
-                      <td className="px-4 py-2 text-xs">
+                      {!isRunnerView && <td className="px-4 py-2 text-xs">
                         <div className="text-slate-200">{telemetryLabel}</div>
-                        {!isStaffView && jackpotStatus && (
+                        {isAdminView && jackpotStatus && (
                           <div className="text-amber-300">{jackpotStatus}</div>
                         )}
-                        {!isStaffView && d.jackpot_selected && (
+                        {isAdminView && d.jackpot_selected && (
                           <div className="text-amber-200/80">
                             Target {formatJackpotCurrency(d.jackpot_target_amount)} • Remaining{' '}
                             {formatJackpotCurrency(d.jackpot_remaining_amount)}
                           </div>
                         )}
-                        {!isStaffView && happyOverrideStatus && (
+                        {isAdminView && happyOverrideStatus && (
                           <div className="text-pink-300">{happyOverrideStatus}</div>
                         )}
-                      </td>
+                      </td>}
                       <td className="px-4 py-2 text-right font-mono font-bold text-green-400">
                         {formatCurrency(d.balance)}
                       </td>
                       <td className="px-4 py-2 text-right">
                         <div className="flex gap-2 justify-end font-mono text-sm text-sky-300">
-                          Coins-In:
+                          {isRunnerView ? '' : 'Coins-In:'}
                           <span className="font-extrabold">{formatCurrency(d.coins_in_total)}</span>
                         </div>
-                        <div className="flex gap-2 justify-end font-mono text-sm text-indigo-300">
-                          Arcade:
-                          <span className="font-extrabold">{formatCurrency(d.arcade_total)}</span>
-                        </div>
+                        {!isRunnerView && (
+                          <div className="flex gap-2 justify-end font-mono text-sm text-indigo-300">
+                            Arcade:
+                            <span className="font-extrabold">{formatCurrency(d.arcade_total)}</span>
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-2 text-right font-mono">
                         <div
@@ -1559,10 +1600,10 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                           <span>{formatCurrency(d.hopper_balance)}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-2 text-right font-mono text-rose-300">
+                      {!isRunnerView && <td className="px-4 py-2 text-right font-mono text-rose-300">
                         {formatCurrency(d.withdraw_total)}
-                      </td>
-                      {!isStaffView && (
+                      </td>}
+                      {isAdminView && (
                         <td className="px-4 py-2 text-right">
                           <div className="flex gap-2 justify-end font-mono text-xs text-slate-300">
                             Bets:
@@ -1581,7 +1622,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                         </td>
                       )}
 
-                      {!isStaffView && (
+                      {isAdminView && (
                         <td className="px-4 py-2 text-right">
                           <div className="flex gap-2 justify-end font-mono text-xs text-slate-300">
                             Last:
@@ -1594,7 +1635,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                         </td>
                       )}
 
-                      {!isStaffView && (
+                      {isAdminView && (
                         <td
                           className={`px-4 py-2 text-right font-mono ${
                             deviceHouseWin < 0 ? 'text-red-300 animate-pulse' : 'text-orange-300'
@@ -1603,9 +1644,9 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                           {formatCurrency(deviceHouseWin)}
                         </td>
                       )}
-                      <td className="px-4 py-2 text-right text-xs text-slate-400">
+                      {!isRunnerView && <td className="px-4 py-2 text-right text-xs text-slate-400">
                         {d.last_bet_at ? moment(d.last_bet_at).format('YYYY-MM-DD hh:mm A') : '—'}
-                      </td>
+                      </td>}
                     </tr>
                   )
                 })}

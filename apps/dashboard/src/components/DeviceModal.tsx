@@ -61,6 +61,8 @@ export function DeviceModal({
   const activityPageSize = 16
   const activityTotalPages = Math.max(1, Math.ceil(activityTotalCount / activityPageSize))
   const isStaffView = role === 'staff'
+  const isRunnerView = role === 'runner'
+  const isAdminView = !isStaffView && !isRunnerView
 
   // Assignment UI/Logic state
   const [agents, setAgents] = useState<any[]>([])
@@ -69,6 +71,8 @@ export function DeviceModal({
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(device.area_id ?? null)
   const [assignmentSaving, setAssignmentSaving] = useState(false)
   useEffect(() => {
+    if (isRunnerView) return
+
     async function loadMeta() {
       const { data: agentData } = await supabase.from('agents').select('*')
       const { data: areaData } = await supabase.from('areas').select('*')
@@ -78,7 +82,7 @@ export function DeviceModal({
     }
 
     loadMeta()
-  }, [])
+  }, [isRunnerView])
 
   const filteredAreas = areas.filter(a => a.agent_id === selectedAgentId)
 
@@ -695,9 +699,9 @@ export function DeviceModal({
       <div className="min-h-full flex items-start md:items-center justify-center p-4">
         <div
           className={`bg-slate-900 w-full max-w-2xl h-[85vh] flex flex-col rounded-xl border ${
-            !isStaffView && device.jackpot_selected
+            isAdminView && device.jackpot_selected
               ? 'border-amber-400/70 shadow-[0_0_28px_rgba(251,191,36,0.2)]'
-              : !isStaffView && device.happy_override_selected
+              : isAdminView && device.happy_override_selected
                 ? 'border-pink-400/70 shadow-[0_0_28px_rgba(236,72,153,0.18)]'
               : 'border-slate-800'
           }`}
@@ -727,16 +731,16 @@ export function DeviceModal({
                     ✕
                   </button>
                 </div>
-                {!isStaffView && device.jackpot_selected && (
+                {isAdminView && device.jackpot_selected && (
                   <div className="mt-1 text-xs font-semibold text-amber-200">
                     JACKPOT TARGET {formatJackpotCurrency(device.jackpot_target_amount)} • Remaining{' '}
                     {formatJackpotCurrency(device.jackpot_remaining_amount)}
                   </div>
                 )}
-                {!isStaffView && jackpotStatusLabel && (
+                {isAdminView && jackpotStatusLabel && (
                   <div className="mt-1 text-xs text-amber-300">{jackpotStatusLabel}</div>
                 )}
-                {!isStaffView && happyOverrideStatusLabel && (
+                {isAdminView && happyOverrideStatusLabel && (
                   <div className="mt-1 text-xs text-pink-300">{happyOverrideStatusLabel}</div>
                 )}
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -746,7 +750,7 @@ export function DeviceModal({
                     </span>
                   )}
 
-                  {!isStaffView && highRtp && (
+                  {isAdminView && highRtp && (
                     <span className="px-2 py-0.5 text-[10px] font-bold rounded border border-fuchsia-500 bg-fuchsia-950 text-fuchsia-300">
                       HIGH RTP
                     </span>
@@ -778,31 +782,32 @@ export function DeviceModal({
               </div>
             )}
 
-            {/* Tabs UI */}
-            <div className="mt-3 flex gap-2 border-b border-slate-800">
-              {[
-                { key: 'overview', label: 'Overview' },
-                ...(!isStaffView ? [{ key: 'activity', label: 'Activity' }] : []),
-                { key: 'controls', label: 'Controls' },
-                { key: 'games', label: 'Games' },
-              ].map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key as any)}
-                  className={`px-3 py-1.5 text-xs font-semibold border-b-2 ${
-                    activeTab === tab.key
-                      ? 'border-blue-400 text-blue-300'
-                      : 'border-transparent text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            {!isRunnerView && (
+              <div className="mt-3 flex gap-2 border-b border-slate-800">
+                {[
+                  { key: 'overview', label: 'Overview' },
+                  ...(!isStaffView ? [{ key: 'activity', label: 'Activity' }] : []),
+                  { key: 'controls', label: 'Controls' },
+                  { key: 'games', label: 'Games' },
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key as any)}
+                    className={`px-3 py-1.5 text-xs font-semibold border-b-2 ${
+                      activeTab === tab.key
+                        ? 'border-blue-400 text-blue-300'
+                        : 'border-transparent text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {activeTab === 'overview' && (
               <div className="mt-3 space-y-3">
-                <div className="grid grid-cols-2">
+                <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
                   <div>
                     <div className="text-[10px] text-slate-400">
                       Device ID: {device.device_id ?? 'Unknown Device'}
@@ -823,15 +828,15 @@ export function DeviceModal({
                     </div>
                   </div>
 
-                  <div>
+                  {!isRunnerView && <div>
                     <div className="text-[10px] text-slate-400">Stats Basis: {statsBasisLabel}</div>
-                  </div>
+                  </div>}
 
-                  <div>
+                  {!isRunnerView && <div>
                     <div className="text-[10px] text-slate-400">
                       Withdrawal: {device.withdraw_enabled ? 'ENABLED' : 'DISABLED'}
                     </div>
-                  </div>
+                  </div>}
 
                   <div>
                     <div className="text-[10px] text-slate-400">
@@ -881,14 +886,14 @@ export function DeviceModal({
                         </div>
                       </div>
 
-                      <div>
+                      {!isRunnerView && <div>
                         <div className="text-[10px] text-slate-400">Last Bet</div>
                         <div className="text-base font-mono font-bold text-violet-300">
                           {formatCurrency(device.last_bet_amount)}
                         </div>
-                      </div>
+                      </div>}
 
-                      {!isStaffView && (
+                      {isAdminView && (
                         <>
                           <div>
                             <div className="text-[10px] text-slate-400">Total Bet</div>
@@ -928,16 +933,18 @@ export function DeviceModal({
                       )}
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-slate-700 text-xs text-slate-400">
-                      <div className="mb-1">Displayed totals: {statsBasisLabel}</div>
-                      {telemetryLabel}
-                    </div>
+                    {!isRunnerView && (
+                      <div className="mt-4 pt-3 border-t border-slate-700 text-xs text-slate-400">
+                        <div className="mb-1">Displayed totals: {statsBasisLabel}</div>
+                        {telemetryLabel}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             )}
 
-            {activeTab === 'activity' && (
+            {!isRunnerView && activeTab === 'activity' && (
               <div className="mt-3 flex min-h-0 flex-1 flex-col">
                 <div className="mb-3 flex items-center justify-between text-xs text-slate-400">
                   <div>Latest activity first</div>
@@ -1012,7 +1019,7 @@ export function DeviceModal({
 
           <div className="flex flex-col flex-1 overflow-hidden">
             {/* Controls Tab */}
-            {activeTab === 'controls' && (
+            {!isRunnerView && activeTab === 'controls' && (
               <>
                 <div className="px-4 overflow-y-auto">
                   <h4 className="text-sm font-semibold mb-2">Device Power Controls</h4>
@@ -1021,7 +1028,7 @@ export function DeviceModal({
                       Sends command to this device only.
                     </div>
                     <div className="flex gap-2 ">
-                      {!isStaffView && (
+                      {isAdminView && (
                         <button
                           type="button"
                           className="rounded border border-sky-600/80 bg-sky-900/30 px-3 py-1.5 text-xs font-semibold text-sky-200 hover:bg-sky-800/40 disabled:opacity-50"
@@ -1067,7 +1074,7 @@ export function DeviceModal({
                     </div>
                   </div>
 
-                  {!isStaffView && role !== 'runner' && (
+                  {isAdminView && (
                     <div className="rounded border border-slate-800 bg-slate-900 p-3 mb-4">
                       <div className="mb-2 text-sm font-semibold text-slate-100">
                         Revenue Closing
@@ -1096,7 +1103,7 @@ export function DeviceModal({
                     </div>
                   )}
 
-                  {!isStaffView && (
+                  {isAdminView && (
                     <>
                       <h4 className="text-sm font-semibold mb-2">Jackpot Override</h4>
                       <div className="rounded border border-amber-700/50 bg-amber-950/20 p-3 mb-4">
@@ -1487,7 +1494,7 @@ export function DeviceModal({
             )}
 
             {/* Games Tab */}
-            {activeTab === 'games' && (
+            {!isRunnerView && activeTab === 'games' && (
               <>
                 <div className="overflow-y-auto  px-4 pb-6">
                   <div className="grid md:grid-cols-4 grid-cols-2 gap-4">
