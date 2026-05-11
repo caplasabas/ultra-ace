@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<title>J card symbol</title>
+<defs>
+  <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+    <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#000" flood-opacity=".42"/>
+  </filter>
+  <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#fff0a6"/><stop offset=".45" stop-color="#ffc53d"/><stop offset="1" stop-color="#b86b00"/>
+  </linearGradient>
+  <linearGradient id="redgrad" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#ff796d"/><stop offset="1" stop-color="#c61f38"/>
+  </linearGradient>
+</defs>
+
+<g transform="translate(256 256) scale(1.48) translate(-256 -256)">
+<g filter="url(#shadow)">
+<rect x="126" y="104" width="260" height="304" rx="34" fill="#50256d" stroke="url(#gold)" stroke-width="12"/>
+<rect x="149" y="127" width="214" height="258" rx="22" fill="#321244" stroke="#30a7e8" stroke-width="7" stroke-dasharray="18 12"/>
+<text x="256" y="312" text-anchor="middle" font-family="Georgia, Times New Roman, serif" font-weight="900" font-size="188" fill="#30a7e8" stroke="#fff3a0" stroke-width="5">J</text>
+</g>
+</g>
+</svg>

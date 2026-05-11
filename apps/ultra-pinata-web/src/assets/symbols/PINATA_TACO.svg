@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<title>Taco symbol</title>
+<defs>
+  <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+    <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#000" flood-opacity=".42"/>
+  </filter>
+  <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#fff0a6"/><stop offset=".45" stop-color="#ffc53d"/><stop offset="1" stop-color="#b86b00"/>
+  </linearGradient>
+  <linearGradient id="redgrad" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#ff796d"/><stop offset="1" stop-color="#c61f38"/>
+  </linearGradient>
+</defs>
+
+<g transform="translate(256 256) scale(1.48) translate(-256 -256)">
+<g filter="url(#shadow)">
+<path d="M105 301c21-98 105-151 177-133 63 16 105 63 125 133z" fill="#f3bf45" stroke="#6c3913" stroke-width="10"/>
+<path d="M127 290c46-42 214-50 258 0" fill="#8a4b22" stroke="#6c3913" stroke-width="8"/>
+<circle cx="183" cy="239" r="22" fill="#d9323e"/><circle cx="258" cy="220" r="23" fill="#d9323e"/><circle cx="332" cy="244" r="22" fill="#d9323e"/>
+<path d="M158 263c25-52 63-61 88-20 28-51 80-49 107 0" fill="none" stroke="#34b857" stroke-width="18" stroke-linecap="round"/>
+<path d="M132 311h248" stroke="#ffd866" stroke-width="20" stroke-linecap="round"/>
+</g>
+</g>
+</svg>

@@ -6,7 +6,8 @@ import { SymbolKind } from './types/symbol.js'
 import { getEngineConfig, getEngineVersion, getReels } from './runtime/engineContext.js'
 
 const FORBIDDEN_GOLD_REELS = new Set([0, 4])
-const HAPPY_GOLD_ELIGIBLE = new Set<SymbolKind>(['A', 'K', 'Q', 'J'])
+const HAPPY_GOLD_ELIGIBLE = new Set<SymbolKind>(['ACE', 'KING', 'QUEEN', 'JACK'])
+const PINATA_FIXED_LINES = 20
 
 function cloneSymbol(s: Symbol): Symbol {
   return { ...s }
@@ -85,15 +86,29 @@ export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
 
   const scatterCount = window.flat().filter(s => s.kind === 'SCATTER').length
 
-  const { totalWin, cascades } = runCascades(
+  const { totalBaseWin, collectedMultiplier, cascades } = runCascades(
     cfg,
     window,
     input.betPerSpin,
     isFreeGame,
     freeSpinSource,
     rng,
-    input.lines,
+    PINATA_FIXED_LINES,
   )
+  const freeSpinGlobalMultiplierBefore = isFreeGame
+    ? Math.max(0, Number(input.freeSpinGlobalMultiplier ?? 0))
+    : undefined
+  const freeSpinGlobalMultiplierAfter = isFreeGame
+    ? (freeSpinGlobalMultiplierBefore ?? 0) + collectedMultiplier
+    : undefined
+  const finalMultiplier =
+    collectedMultiplier > 0
+      ? isFreeGame
+        ? Math.max(1, freeSpinGlobalMultiplierAfter ?? collectedMultiplier)
+        : collectedMultiplier
+      : 1
+  const maxWinByBet = input.betPerSpin * cfg.limits.maxWinMultiplier
+  const totalWin = Math.min(cfg.limits.maxPayout, maxWinByBet, totalBaseWin * finalMultiplier)
 
   let freeSpinsAwarded =
     !isFreeGame && scatterCount >= 3
@@ -107,7 +122,12 @@ export function spin(rng: PRNG, input: SpinInput): SpinOutcome {
 
   return {
     bet: totalBet,
+    baseWin: totalBaseWin,
     win: totalWin,
+    collectedMultiplier,
+    finalMultiplier,
+    freeSpinGlobalMultiplierBefore,
+    freeSpinGlobalMultiplierAfter,
     reelStops: stops,
     cascades,
     scatterCount,

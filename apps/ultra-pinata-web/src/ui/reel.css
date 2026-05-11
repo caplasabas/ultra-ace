@@ -1,0 +1,141 @@
+/*.reel {*/
+/*    position: relative;*/
+/*    width: 100%;*/
+/*    height: calc(4 * 86px + 3 * 5px);*/
+/*    overflow: hidden;*/
+/*}*/
+
+/*.reels {*/
+/*    position: relative;*/
+/*}*/
+
+/*!* =========================*/
+/*   Reel sweep*/
+/*   ========================= *!*/
+
+/*@keyframes reelSweepOut {*/
+/*    to {*/
+/*        transform: translateY(120%);*/
+/*    }*/
+/*}*/
+
+/*@keyframes reelSweepIn {*/
+/*    from {*/
+/*        transform: translateY(-120%);*/
+/*    }*/
+/*    to {*/
+/*        transform: translateY(0);*/
+/*    }*/
+/*}*/
+
+/*.reel.sweep-out {*/
+/*    animation: reelSweepOut 450ms cubic-bezier(0.4, 0, 1, 1);*/
+/*}*/
+
+/*.reel.sweep-in {*/
+/*    animation: reelSweepIn 550ms cubic-bezier(0, 0, 0.2, 1);*/
+/*}*/
+
+/*!* =========================*/
+/*   Cards*/
+/*   ========================= *!*/
+
+/*.card {*/
+/*    position: absolute;*/
+/*    width: 72px;*/
+/*    height: 86px;*/
+/*    background: #e4e8ec;*/
+/*    border-radius: 6px;*/
+/*    display: flex;*/
+/*    align-items: center;*/
+/*    justify-content: center;*/
+/*    font-weight: bold;*/
+/*}*/
+
+/*!* =========================*/
+/*   Highlight (reward)*/
+/*   ========================= *!*/
+
+/*@keyframes highlightPulse {*/
+/*    0% {*/
+/*        transform: scale(1);*/
+/*    }*/
+/*    60% {*/
+/*        transform: scale(1.48);*/
+/*    }*/
+/*    100% {*/
+/*        transform: scale(1.35);*/
+/*    }*/
+/*}*/
+
+/*@keyframes glowIn {*/
+/*    to {*/
+/*        box-shadow: 0 0 22px rgba(255, 216, 77, 0.95);*/
+/*    }*/
+/*}*/
+
+/*.card.highlight {*/
+/*    animation:*/
+/*            highlightPulse 380ms ease-out forwards,*/
+/*            glowIn 420ms ease-out 120ms forwards;*/
+/*}*/
+
+/*!* =========================*/
+/*   Pre-pop + pop*/
+/*   ========================= *!*/
+
+/*@keyframes prePop {*/
+/*    to {*/
+/*        transform: scale(0.88);*/
+/*    }*/
+/*}*/
+
+/*@keyframes popOut {*/
+/*    to {*/
+/*        opacity: 0;*/
+/*        transform: scale(0);*/
+/*    }*/
+/*}*/
+
+/*.card.pop {*/
+/*    animation:*/
+/*            prePop 90ms ease-in forwards,*/
+/*            popOut 180ms ease-in forwards;*/
+/*}*/
+
+/*!* =========================*/
+/*   Dealer refill*/
+/*   ========================= *!*/
+
+/*@keyframes dealIn {*/
+/*    from {*/
+/*        transform: translateY(-220px);*/
+/*    }*/
+/*    to {*/
+/*        transform: translateY(0);*/
+/*    }*/
+/*}*/
+
+/*.card.deal {*/
+/*    animation: dealIn 600ms cubic-bezier(0.22, 1, 0.36, 1);*/
+/*}*/
+
+/*!* =========================*/
+/*   Settle*/
+/*   ========================= *!*/
+
+/*@keyframes settle {*/
+/*    0% {*/
+/*        transform: translateY(0);*/
+/*    }*/
+/*    60% {*/
+/*        transform: translateY(4px);*/
+/*    }*/
+/*    100% {*/
+/*        transform: translateY(0);*/
+/*    }*/
+/*}*/
+
+/*.reel.settle {*/
+/*    animation: settle 140ms ease-out;*/
+/*}*/

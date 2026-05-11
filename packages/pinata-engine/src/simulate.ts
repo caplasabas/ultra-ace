@@ -46,11 +46,12 @@ for (let i = 0; i < spins; i++) {
 
   for (const c of outcome.cascades ?? []) {
     for (const lw of c.lineWins) {
-      baseSymbolRtp[lw.symbol] = (baseSymbolRtp[lw.symbol] || 0) + lw.payout * c.multiplier
+      baseSymbolRtp[lw.symbol] = (baseSymbolRtp[lw.symbol] || 0) + lw.payout
     }
   }
 
   // ── FREE SPINS ──
+  let freeSpinGlobalMultiplier = 0
   while (freeSpins > 0) {
     freeSpins--
 
@@ -58,14 +59,16 @@ for (let i = 0; i < spins; i++) {
       betPerSpin,
       lines,
       isFreeGame: true,
+      freeSpinGlobalMultiplier,
     })
+    freeSpinGlobalMultiplier = fs.freeSpinGlobalMultiplierAfter ?? freeSpinGlobalMultiplier
 
     freeWin += fs.win
     maxWin = Math.max(maxWin, fs.win)
 
     for (const c of fs.cascades ?? []) {
       for (const lw of c.lineWins) {
-        freeSymbolRtp[lw.symbol] = (freeSymbolRtp[lw.symbol] || 0) + lw.payout * c.multiplier
+        freeSymbolRtp[lw.symbol] = (freeSymbolRtp[lw.symbol] || 0) + lw.payout
       }
     }
   }

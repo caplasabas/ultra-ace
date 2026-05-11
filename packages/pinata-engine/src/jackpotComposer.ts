@@ -79,8 +79,14 @@ function excitementScore(outcome: SpinOutcome): number {
   const paidCascades = cascades.filter(step => clampWin(step.win) > 0)
   const cascadeDepth = paidCascades.length
   const maxMultiplier = cascades.reduce(
-    (max, step) => Math.max(max, Number.isFinite(step.multiplier) ? Number(step.multiplier) : 1),
-    1,
+    (max, step) =>
+      Math.max(
+        max,
+        Number.isFinite(step.collectedMultiplier)
+          ? Number(step.collectedMultiplier)
+          : Number(step.goldMultiplier ?? 0),
+      ),
+    Number(outcome.collectedMultiplier ?? 0),
   )
   const maxCascadeWin = cascades.reduce((max, step) => Math.max(max, clampWin(step.win)), 0)
 

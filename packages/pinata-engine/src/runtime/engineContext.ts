@@ -13,12 +13,17 @@ let REELS_CACHE: {
 } = {
   base: [],
   free: [],
-  version: 'V1',
+  version: '',
 }
 
 export function initEngine(config: EngineConfig, version: string) {
   CURRENT_CONFIG = Object.freeze(normalizeEngineConfig(config))
   CONFIG_VERSION = version
+  REELS_CACHE = {
+    version: '',
+    base: [],
+    free: [],
+  }
   INITIALIZED = true
 }
 
@@ -28,6 +33,11 @@ export function updateEngineConfig(config: EngineConfig, version: string) {
   }
   CURRENT_CONFIG = Object.freeze(normalizeEngineConfig(config))
   CONFIG_VERSION = version
+  REELS_CACHE = {
+    version: '',
+    base: [],
+    free: [],
+  }
 }
 
 export function getEngineConfig(): EngineConfig {
@@ -42,7 +52,7 @@ export function getEngineVersion() {
 }
 
 export function getReels(cfg: EngineConfig, version: string, rng: () => number) {
-  if (REELS_CACHE.version !== version) {
+  if (REELS_CACHE.version !== version || REELS_CACHE.base.length === 0 || REELS_CACHE.free.length === 0) {
     REELS_CACHE = {
       version,
       base: Array.from({ length: 5 }, () => buildReel(cfg.reels.initialWeights, rng)),
