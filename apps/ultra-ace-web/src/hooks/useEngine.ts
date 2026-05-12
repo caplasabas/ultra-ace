@@ -99,6 +99,10 @@ const NORMAL_WIN_CAP_REROLL_ATTEMPTS = Math.max(
   1,
   Math.floor(Number(import.meta.env.VITE_NORMAL_WIN_CAP_REROLL_ATTEMPTS ?? 64)),
 )
+const STARTUP_WIN_ASSIST_POOL_BET_MULTIPLIER = Math.max(
+  0,
+  Number(import.meta.env.VITE_STARTUP_WIN_ASSIST_POOL_BET_MULTIPLIER ?? 3),
+)
 
 const SCATTER_BANNER_DURATION = 5000
 const FREE_SPIN_SNAPSHOT_PREFIX = 'ultraace.free-spin-state'
@@ -1042,11 +1046,13 @@ export function useEngine() {
   function selectNormalOutcomeWithinCap({
     initialOutcome,
     winCap,
+    preferPositiveWin = false,
     rng,
     spinInput,
   }: {
     initialOutcome: SpinOutcome
     winCap: number | null
+    preferPositiveWin?: boolean
     rng: ReturnType<typeof createRNG>
     spinInput: Parameters<typeof spin>[1]
   }): { outcome: SpinOutcome; rerolled: boolean; attemptCount: number } {
@@ -1060,7 +1066,7 @@ export function useEngine() {
     const scoreOutcome = (outcome: SpinOutcome) =>
       normalizeWin(outcome) * 1000 + getOutcomeExcitement(outcome)
 
-    if (isWithinCap(initialOutcome)) {
+    if (isWithinCap(initialOutcome) && (!preferPositiveWin || normalizeWin(initialOutcome) > 0.0001)) {
       return { outcome: initialOutcome, rerolled: false, attemptCount: 1 }
     }
 
@@ -1073,6 +1079,10 @@ export function useEngine() {
       attemptCount += 1
 
       if (!isWithinCap(candidate)) {
+        continue
+      }
+
+      if (preferPositiveWin && normalizeWin(candidate) <= 0.0001) {
         continue
       }
 
@@ -1937,6 +1947,11 @@ export function useEngine() {
     // collapsed toward zero by passing a zero bet amount into the funding-budget path.
     const shouldApplyFundingCapReroll =
       !isJackpotFreeSpin && !isFreeGame && runtimeSnapshot.mode !== 'HAPPY'
+    const shouldAssistStartupWin =
+      shouldApplyFundingCapReroll &&
+      runtimeSnapshot.globalMode === 'BASE' &&
+      Math.max(0, Number(runtimeSnapshot.prizePoolBalance ?? 0)) <=
+        Math.max(0, Number(spinAmount ?? 0)) * STARTUP_WIN_ASSIST_POOL_BET_MULTIPLIER
     const normalWinCap = shouldApplyFundingCapReroll
       ? getFundableNormalWinCap(runtimeSnapshot, spinAmount)
       : null
@@ -1945,6 +1960,7 @@ export function useEngine() {
         ? selectNormalOutcomeWithinCap({
             initialOutcome: seededOutcome,
             winCap: normalWinCap,
+            preferPositiveWin: shouldAssistStartupWin,
             rng: rngRef.current,
             spinInput,
           })

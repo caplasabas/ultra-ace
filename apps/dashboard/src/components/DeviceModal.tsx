@@ -55,11 +55,13 @@ export function DeviceModal({
   )
   const [activityRows, setActivityRows] = useState<ActivityRow[]>([])
   const [activityBusy, setActivityBusy] = useState(false)
+  const [activitySearchTerm, setActivitySearchTerm] = useState('')
   const [activityPage, setActivityPage] = useState(1)
   const [activityHasMore, setActivityHasMore] = useState(false)
   const [activityTotalCount, setActivityTotalCount] = useState(0)
   const activityPageSize = 16
   const activityTotalPages = Math.max(1, Math.ceil(activityTotalCount / activityPageSize))
+  const activitySearchPattern = activitySearchTerm.trim().toLowerCase().replace(/\s+/g, '_')
   const isStaffView = role === 'staff'
   const isRunnerView = role === 'runner'
   const isAdminView = !isStaffView && !isRunnerView
@@ -257,7 +259,12 @@ export function DeviceModal({
   useEffect(() => {
     setActiveTab('overview')
     setActivityPage(1)
+    setActivitySearchTerm('')
   }, [device.device_id])
+
+  useEffect(() => {
+    setActivityPage(1)
+  }, [activitySearchPattern])
 
   useEffect(() => {
     setBalanceAmount('0')
@@ -301,10 +308,16 @@ export function DeviceModal({
 
       const from = (activityPage - 1) * activityPageSize
       const to = from + activityPageSize
-      const { data, error, count } = await supabase
+      let query = supabase
         .from('device_activity_feed')
         .select('activity_id,activity_name,amount,activity_at,metadata', { count: 'exact' })
         .eq('device_id', device.device_id)
+
+      if (activitySearchPattern) {
+        query = query.ilike('activity_name', `%${activitySearchPattern}%`)
+      }
+
+      const { data, error, count } = await query
         .order('activity_at', { ascending: false })
         .order('activity_id', { ascending: false })
         .range(from, to)
@@ -332,7 +345,7 @@ export function DeviceModal({
     return () => {
       cancelled = true
     }
-  }, [activeTab, activityPage, activityPageSize, device?.device_id])
+  }, [activeTab, activityPage, activityPageSize, activitySearchPattern, device?.device_id])
 
   async function postOverrideEntry(params: {
     target: 'accounting_balance' | 'hopper_balance' | 'coins_in'
@@ -946,11 +959,27 @@ export function DeviceModal({
 
             {!isRunnerView && activeTab === 'activity' && (
               <div className="mt-3 flex min-h-0 flex-1 flex-col">
-                <div className="mb-3 flex items-center justify-between text-xs text-slate-400">
-                  <div>Latest activity first</div>
+                <div className="mb-3 flex flex-col gap-2 text-xs text-slate-400 md:flex-row md:items-center md:justify-between">
                   <div>
-                    Device mode: {(device.deployment_mode ?? 'online').toUpperCase()} • Stats basis:{' '}
-                    {statsBasisLabel}
+                    <div>Latest activity first</div>
+                    <div>
+                      Device mode: {(device.deployment_mode ?? 'online').toUpperCase()} • Stats
+                      basis: {statsBasisLabel}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1 md:items-end">
+                    <input
+                      type="search"
+                      value={activitySearchTerm}
+                      onChange={e => setActivitySearchTerm(e.target.value)}
+                      placeholder="Filter event type"
+                      className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-slate-500 focus:outline-none md:w-64"
+                    />
+                    <div>
+                      {activitySearchPattern
+                        ? `${activityTotalCount.toLocaleString()} matching event${activityTotalCount === 1 ? '' : 's'}`
+                        : `${activityTotalCount.toLocaleString()} total event${activityTotalCount === 1 ? '' : 's'}`}
+                    </div>
                   </div>
                 </div>
 
@@ -982,7 +1011,9 @@ export function DeviceModal({
                       {!activityBusy && activityRows.length === 0 && (
                         <tr>
                           <td colSpan={3} className="px-3 py-6 text-center text-sm text-slate-500">
-                            No activity found.
+                            {activitySearchPattern
+                              ? `No activity found for "${activitySearchTerm.trim()}".`
+                              : 'No activity found.'}
                           </td>
                         </tr>
                       )}
