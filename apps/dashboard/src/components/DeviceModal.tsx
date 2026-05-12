@@ -55,13 +55,13 @@ export function DeviceModal({
   )
   const [activityRows, setActivityRows] = useState<ActivityRow[]>([])
   const [activityBusy, setActivityBusy] = useState(false)
-  const [activitySearchTerm, setActivitySearchTerm] = useState('')
+  const [selectedActivityType, setSelectedActivityType] = useState('')
+  const [activityTypeOptions, setActivityTypeOptions] = useState<string[]>([])
   const [activityPage, setActivityPage] = useState(1)
   const [activityHasMore, setActivityHasMore] = useState(false)
   const [activityTotalCount, setActivityTotalCount] = useState(0)
   const activityPageSize = 16
   const activityTotalPages = Math.max(1, Math.ceil(activityTotalCount / activityPageSize))
-  const activitySearchPattern = activitySearchTerm.trim().toLowerCase().replace(/\s+/g, '_')
   const isStaffView = role === 'staff'
   const isRunnerView = role === 'runner'
   const isAdminView = !isStaffView && !isRunnerView
@@ -137,6 +137,8 @@ export function DeviceModal({
 
     return activityName.replaceAll('_', ' ').toUpperCase()
   }
+  const formatActivityTypeLabel = (activityName: string) =>
+    activityName.replaceAll('_', ' ').toUpperCase()
   const statsBasisLabel =
     device.deployment_mode === 'maintenance' ? 'All Activity' : 'Eligible Activity'
   const baseWinAmount =
@@ -259,24 +261,25 @@ export function DeviceModal({
   useEffect(() => {
     setActiveTab('overview')
     setActivityPage(1)
-    setActivitySearchTerm('')
-  }, [device.device_id])
-
-  useEffect(() => {
-    setActivityPage(1)
-  }, [activitySearchPattern])
-
-  useEffect(() => {
-    setBalanceAmount('0')
-    setHopperAmount('0')
-    setCoinsInAmount('0')
-    setDeviceName(String(device.name ?? ''))
+    setSelectedActivityType('')
+    setActivityTypeOptions([])
     setJackpotOverrideAmount('')
     setHappyOverrideAmount('')
     setJackpotOverrideConfirmOpen(false)
     setJackpotOverridePendingAmount(null)
     setHappyOverrideConfirmOpen(false)
     setHappyOverridePendingAmount(null)
+  }, [device.device_id])
+
+  useEffect(() => {
+    setActivityPage(1)
+  }, [selectedActivityType])
+
+  useEffect(() => {
+    setBalanceAmount('0')
+    setHopperAmount('0')
+    setCoinsInAmount('0')
+    setDeviceName(String(device.name ?? ''))
   }, [device.device_id, device.balance, device.hopper_balance])
 
   useEffect(() => {
@@ -303,6 +306,45 @@ export function DeviceModal({
 
     let cancelled = false
 
+    async function loadActivityTypes() {
+      const { data, error } = await supabase
+        .from('device_activity_feed')
+        .select('activity_name')
+        .eq('device_id', device.device_id)
+        .order('activity_name', { ascending: true })
+        .range(0, 4999)
+
+      if (cancelled) return
+
+      if (error) {
+        setErrorMessage(error.message)
+        setActivityTypeOptions([])
+        return
+      }
+
+      const nextOptions = Array.from(
+        new Set(
+          (data ?? [])
+            .map(row => String((row as { activity_name?: unknown }).activity_name ?? '').trim())
+            .filter(Boolean),
+        ),
+      )
+
+      setActivityTypeOptions(nextOptions)
+    }
+
+    void loadActivityTypes()
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeTab, device?.device_id])
+
+  useEffect(() => {
+    if (activeTab !== 'activity' || !device?.device_id) return
+
+    let cancelled = false
+
     async function loadActivity() {
       setActivityBusy(true)
 
@@ -313,8 +355,8 @@ export function DeviceModal({
         .select('activity_id,activity_name,amount,activity_at,metadata', { count: 'exact' })
         .eq('device_id', device.device_id)
 
-      if (activitySearchPattern) {
-        query = query.ilike('activity_name', `%${activitySearchPattern}%`)
+      if (selectedActivityType) {
+        query = query.eq('activity_name', selectedActivityType)
       }
 
       const { data, error, count } = await query
@@ -345,7 +387,7 @@ export function DeviceModal({
     return () => {
       cancelled = true
     }
-  }, [activeTab, activityPage, activityPageSize, activitySearchPattern, device?.device_id])
+  }, [activeTab, activityPage, activityPageSize, device?.device_id, selectedActivityType])
 
   async function postOverrideEntry(params: {
     target: 'accounting_balance' | 'hopper_balance' | 'coins_in'
@@ -968,15 +1010,20 @@ export function DeviceModal({
                     </div>
                   </div>
                   <div className="flex flex-col gap-1 md:items-end">
-                    <input
-                      type="search"
-                      value={activitySearchTerm}
-                      onChange={e => setActivitySearchTerm(e.target.value)}
-                      placeholder="Filter event type"
-                      className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-slate-500 focus:outline-none md:w-64"
-                    />
+                    <select
+                      value={selectedActivityType}
+                      onChange={e => setSelectedActivityType(e.target.value)}
+                      className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:border-slate-500 focus:outline-none md:w-64"
+                    >
+                      <option value="">All event types</option>
+                      {activityTypeOptions.map(activityType => (
+                        <option key={activityType} value={activityType}>
+                          {formatActivityTypeLabel(activityType)}
+                        </option>
+                      ))}
+                    </select>
                     <div>
-                      {activitySearchPattern
+                      {selectedActivityType
                         ? `${activityTotalCount.toLocaleString()} matching event${activityTotalCount === 1 ? '' : 's'}`
                         : `${activityTotalCount.toLocaleString()} total event${activityTotalCount === 1 ? '' : 's'}`}
                     </div>
@@ -1011,8 +1058,8 @@ export function DeviceModal({
                       {!activityBusy && activityRows.length === 0 && (
                         <tr>
                           <td colSpan={3} className="px-3 py-6 text-center text-sm text-slate-500">
-                            {activitySearchPattern
-                              ? `No activity found for "${activitySearchTerm.trim()}".`
+                            {selectedActivityType
+                              ? `No ${formatActivityTypeLabel(selectedActivityType)} activity found.`
                               : 'No activity found.'}
                           </td>
                         </tr>
