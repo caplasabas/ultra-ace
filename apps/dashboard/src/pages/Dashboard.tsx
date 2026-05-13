@@ -119,6 +119,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
   const [showAllMobileStatCards, setShowAllMobileStatCards] = useState(false)
   const [showAllMobileDeviceCounters, setShowAllMobileDeviceCounters] = useState(false)
   const [expandedMobileDevices, setExpandedMobileDevices] = useState<Record<string, boolean>>({})
+  const [durationNow, setDurationNow] = useState(() => Date.now())
   const [happyPots, setHappyPots] = useState<any[]>([])
   const [jackpotPots, setJackpotPots] = useState<any[]>([])
   const [jackpotQueues, setJackpotQueues] = useState<any[]>([])
@@ -132,6 +133,20 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
       return false
     }
   })
+  const [coinsInAlertsEnabled] = useState(() => {
+    try {
+      return localStorage.getItem('coinsInAlertsEnabled') === 'true'
+    } catch {
+      return false
+    }
+  })
+  const [coinsInAlertThreshold] = useState(() => {
+    try {
+      return Math.max(0, Number(localStorage.getItem('coinsInAlertThreshold') || 1000))
+    } catch {
+      return 1000
+    }
+  })
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
   const isStaffView = role === 'staff'
@@ -143,6 +158,14 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
     const t = setTimeout(() => setErrorMessage(null), 4000)
     return () => clearTimeout(t)
   }, [errorMessage])
+
+  useEffect(() => {
+    const t = window.setInterval(() => {
+      setDurationNow(Date.now())
+    }, 1000)
+
+    return () => window.clearInterval(t)
+  }, [])
 
   useEffect(() => {
     if (!isAdminView) return
@@ -293,6 +316,23 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
       maximumFractionDigits: 2,
     })}`
   const formatPercent = (v: number | string | null | undefined) => `${asNumber(v).toFixed(2)}%`
+  const formatPlayDuration = (startedAt: unknown, nowMs: number) => {
+    const startedMs = new Date(String(startedAt ?? '')).getTime()
+    if (!Number.isFinite(startedMs) || startedMs <= 0 || nowMs < startedMs) return null
+
+    const totalSeconds = Math.floor((nowMs - startedMs) / 1000)
+    const hours = Math.floor(totalSeconds / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    const seconds = totalSeconds % 60
+
+    if (hours > 0) return `${hours}h ${minutes}m`
+    if (minutes > 0) return `${minutes}m ${seconds}s`
+    return `${seconds}s`
+  }
+  const getDevicePlayDuration = (device: DeviceRow) => {
+    if (device.device_status !== 'playing') return null
+    return formatPlayDuration(device.session_started_at ?? device.arcade_session_started_at, durationNow)
+  }
   const getDeviceRtpTotals = (
     device: Pick<DeviceRow, 'device_id' | 'eligible_bet_total' | 'eligible_win_total' | 'bet_total' | 'win_total'>,
   ) => {
@@ -353,6 +393,8 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
     asNumber(stats?.total_spins) > 0 ? globalBet / asNumber(stats?.total_spins) : 0
   const globalHouseGross = asNumber(stats?.total_house_take)
   const hopperAlertThreshold = asNumber(runtime?.hopper_alert_threshold ?? 500)
+  const isCoinsInHigh = (device: Pick<DeviceRow, 'coins_in_total'>) =>
+    coinsInAlertsEnabled && asNumber(device.coins_in_total) >= coinsInAlertThreshold
   const activeProfileId =
     runtime?.active_mode === 'HAPPY' ? runtime?.happy_profile_id : runtime?.base_profile_id
   const activeProfile = profiles.find(p => p.id === activeProfileId)
@@ -476,10 +518,11 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
             return asNumber(d.hopper_balance) <= threshold
           }).length
         : 0,
+      highCoinsIn: devices.filter(d => isCoinsInHigh(d)).length,
       highRtp: devices.filter(d => d.device_status === 'playing' && getDeviceRtp(d) > 110)
         .length,
     }),
-    [adminRtpByDevice, devices, hopperAlertsEnabled],
+    [adminRtpByDevice, coinsInAlertThreshold, coinsInAlertsEnabled, devices, hopperAlertsEnabled],
   )
 
   useEffect(() => {
@@ -1019,6 +1062,9 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                 <div className="text-xs text-orange-300">
                   🟠 Low Hopper: {deviceSummaryCounts.lowHopper}
                 </div>
+                <div className="text-xs text-sky-300">
+                  🔷 High Coins-In: {deviceSummaryCounts.highCoinsIn}
+                </div>
                 {isAdminView && (
                   <div className="text-xs text-fuchsia-300">
                     🟣 High RTP: {deviceSummaryCounts.highRtp}
@@ -1040,6 +1086,9 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                   <div className="text-xs text-yellow-300">🟡 AFK: {deviceSummaryCounts.afk}</div>
                   <div className="text-xs text-orange-300">
                     🟠 Low Hopper: {deviceSummaryCounts.lowHopper}
+                  </div>
+                  <div className="text-xs text-sky-300">
+                    🔷 High Coins-In: {deviceSummaryCounts.highCoinsIn}
                   </div>
                 </div>
 
@@ -1102,6 +1151,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                 const deviceHouseWin = isRunnerView ? 0 : getDeviceHouseWin(d)
                 const threshold = asNumber((d as any)?.hopper_alert_threshold ?? 500)
                 const hopperLow = hopperAlertsEnabled && asNumber(d.hopper_balance) <= threshold
+                const coinsInHigh = isCoinsInHigh(d)
                 // --- Alert Computations ---
                 const HIGH_RTP_THRESHOLD = 110
                 const showDeviceRtp = shouldShowDeviceRtp()
@@ -1112,16 +1162,35 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                 const jackpotStatus = getDeviceJackpotStatus(d)
                 const happyOverrideStatus = getDeviceHappyOverrideStatus(d)
                 const mobileExpanded = Boolean(expandedMobileDevices[d.device_id])
+                const playDuration = getDevicePlayDuration(d)
+                const deviceStatus = d.device_status ?? 'idle'
+                const deviceStatusLabel =
+                  deviceStatus.toUpperCase() === 'IDLE' ? 'AFK' : deviceStatus.toUpperCase()
+                const mobileStatusPillClass =
+                  deviceStatus === 'playing'
+                    ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50'
+                    : deviceStatus === 'offline'
+                      ? 'bg-slate-800 text-slate-300 border border-slate-500/80'
+                      : 'bg-amber-900/40 text-amber-300 border border-amber-700/50'
+                const mobileStatusFrameClass =
+                  deviceStatus === 'playing'
+                    ? 'border-emerald-500/70 bg-emerald-950/20 ring-1 ring-emerald-500/35'
+                    : deviceStatus === 'offline'
+                      ? 'border-slate-500/70 bg-slate-800/80 ring-1 ring-slate-500/40'
+                      : 'border-amber-500/70 bg-amber-950/20 ring-1 ring-amber-500/35'
+                const mobileFeatureFrameClass = d.jackpot_selected
+                  ? 'bg-gradient-to-br from-amber-900/30 via-slate-900/80 to-slate-900/90 shadow-[0_0_20px_rgba(251,191,36,0.18)]'
+                  : d.happy_override_selected
+                    ? 'bg-gradient-to-br from-pink-900/30 via-slate-900/80 to-slate-900/90 shadow-[0_0_20px_rgba(236,72,153,0.16)]'
+                    : ''
                 return (
                   <div
                     key={d.device_id}
                     className={`w-full rounded-lg border p-3 text-left ${
-                      d.jackpot_selected
-                        ? 'border-amber-300/70 bg-gradient-to-br from-amber-900/30 via-slate-900/80 to-slate-900/90 shadow-[0_0_20px_rgba(251,191,36,0.18)]'
-                        : d.happy_override_selected
-                          ? 'border-pink-300/70 bg-gradient-to-br from-pink-900/30 via-slate-900/80 to-slate-900/90 shadow-[0_0_20px_rgba(236,72,153,0.16)]'
-                          : 'border-slate-700 bg-slate-800'
-                    }`}
+                      coinsInHigh
+                        ? 'border-sky-400/80 bg-sky-950/25 ring-1 ring-sky-400/40'
+                        : mobileStatusFrameClass
+                    } ${mobileFeatureFrameClass}`}
                   >
                     <div className="flex items-start gap-2">
                       <button
@@ -1143,22 +1212,36 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                               {[d.area_name, d.station_name].filter(Boolean).join(' • ') ||
                                 'Unassigned'}
                             </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px]">
+                              <span
+                                className={`rounded px-1.5 py-0.5 font-semibold ${mobileStatusPillClass}`}
+                              >
+                                {deviceStatusLabel}
+                              </span>
+                              {playDuration && (
+                                <span className="rounded border border-emerald-700/50 bg-emerald-950/40 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-200">
+                                  {playDuration}
+                                </span>
+                              )}
+                              {coinsInHigh && (
+                                <span className="rounded border border-sky-400/70 bg-sky-950/60 px-1.5 py-0.5 text-[10px] font-semibold text-sky-200">
+                                  COINS
+                                </span>
+                              )}
+                              {isAdminView && d.jackpot_selected && (
+                                <span className="rounded border border-amber-400/70 bg-amber-900/50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200">
+                                  JACKPOT
+                                </span>
+                              )}
+                              {isAdminView && d.happy_override_selected && (
+                                <span className="rounded border border-pink-400/70 bg-pink-900/40 px-1.5 py-0.5 text-[10px] font-semibold text-pink-200">
+                                  HAPPY OVR
+                                </span>
+                              )}
+                            </div>
                             {mobileExpanded && (
                               <>
                                 <div className="mt-1 flex items-center gap-2 text-[10px]">
-                                  <span
-                                    className={`rounded px-1.5 py-0.5 font-semibold ${
-                                      d.device_status === 'playing'
-                                        ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50'
-                                        : d.device_status === 'offline'
-                                          ? 'bg-slate-800 text-slate-400 border border-slate-700'
-                                          : 'bg-amber-900/40 text-amber-300 border border-amber-700/50'
-                                    }`}
-                                  >
-                                    {(d.device_status ?? 'idle').toUpperCase() === 'IDLE'
-                                      ? 'AFK'
-                                      : (d.device_status ?? 'idle').toUpperCase()}
-                                  </span>
                                   {!isRunnerView && (
                                     <span className="rounded border border-slate-700 bg-slate-800/60 px-1.5 py-0.5 text-[10px] text-slate-300">
                                       {gameType.toUpperCase()}
@@ -1185,6 +1268,12 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                                   {hopperLow && (
                                     <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-red-500 bg-red-950 text-red-300">
                                       LOW
+                                    </span>
+                                  )}
+
+                                  {coinsInHigh && (
+                                    <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-sky-500 bg-sky-950 text-sky-300">
+                                      COINS
                                     </span>
                                   )}
 
@@ -1247,7 +1336,11 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                           </div>
                           <div className={mobileExpanded ? undefined : 'min-w-[88px] flex-1'}>
                             <div className="text-[10px] text-slate-500">Coins-In</div>
-                            <div className="font-mono text-sm text-sky-300">
+                            <div
+                              className={`font-mono text-sm ${
+                                coinsInHigh ? 'font-bold text-sky-200 animate-pulse' : 'text-sky-300'
+                              }`}
+                            >
                               {formatCurrency(d.coins_in_total)}
                             </div>
                           </div>
@@ -1437,6 +1530,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                   const deviceHouseWin = isRunnerView ? 0 : getDeviceHouseWin(d)
                   const threshold = asNumber((d as any)?.hopper_alert_threshold ?? 500)
                   const hopperLow = hopperAlertsEnabled && asNumber(d.hopper_balance) <= threshold
+                  const coinsInHigh = isCoinsInHigh(d)
                   // --- Alert Computations ---
                   const HIGH_RTP_THRESHOLD = 110
                   const showDeviceRtp = shouldShowDeviceRtp()
@@ -1447,6 +1541,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                   const jackpotStatus = getDeviceJackpotStatus(d)
                   const happyOverrideStatus = getDeviceHappyOverrideStatus(d)
                   const gameType = getDeviceGameType(d)
+                  const playDuration = getDevicePlayDuration(d)
                   return (
                     <tr
                       key={d.device_id}
@@ -1456,14 +1551,16 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                           : // : stuckSession
                             //   ? 'bg-yellow-950/30 ring-1 ring-yellow-500/40'
                             hopperLow
-                            ? 'bg-red-950/30 ring-1 ring-red-500/40'
-                            : isAdminView && highRtp
-                              ? 'bg-fuchsia-950/30 ring-1 ring-fuchsia-500/40'
-                              : isAdminView && d.jackpot_selected
-                                ? 'bg-amber-950/25 hover:bg-amber-900/30 ring-1 ring-inset ring-amber-400/40'
-                                : isAdminView && d.happy_override_selected
-                                  ? 'bg-pink-950/25 hover:bg-pink-900/30 ring-1 ring-inset ring-pink-400/40'
-                                  : 'hover:bg-slate-900/50'
+                              ? 'bg-red-950/30 ring-1 ring-red-500/40'
+                              : coinsInHigh
+                                ? 'bg-sky-950/30 ring-1 ring-sky-500/40'
+                                : isAdminView && highRtp
+                                  ? 'bg-fuchsia-950/30 ring-1 ring-fuchsia-500/40'
+                                  : isAdminView && d.jackpot_selected
+                                    ? 'bg-amber-950/25 hover:bg-amber-900/30 ring-1 ring-inset ring-amber-400/40'
+                                    : isAdminView && d.happy_override_selected
+                                      ? 'bg-pink-950/25 hover:bg-pink-900/30 ring-1 ring-inset ring-pink-400/40'
+                                      : 'hover:bg-slate-900/50'
                       }`}
                       onClick={() =>
                         setSelectedDevice({
@@ -1494,6 +1591,12 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                               {hopperLow && (
                                 <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-red-500 bg-red-950 text-red-300">
                                   LOW
+                                </span>
+                              )}
+
+                              {coinsInHigh && (
+                                <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-sky-500 bg-sky-950 text-sky-300">
+                                  COINS
                                 </span>
                               )}
 
@@ -1540,19 +1643,26 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                         </div>
                       </td>
                       <td className="px-4 py-2">
-                        <span
-                          className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-                            d.device_status === 'playing'
-                              ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50'
-                              : d.device_status === 'offline'
-                                ? 'bg-slate-800 text-slate-400 border border-slate-700'
-                                : 'bg-amber-900/40 text-amber-300 border border-amber-700/50'
-                          }`}
-                        >
-                          {(d.device_status ?? 'idle').toUpperCase() === 'IDLE'
-                            ? 'AFK'
-                            : (d.device_status ?? 'idle').toUpperCase()}
-                        </span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span
+                            className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                              d.device_status === 'playing'
+                                ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50'
+                                : d.device_status === 'offline'
+                                  ? 'bg-slate-800 text-slate-400 border border-slate-700'
+                                  : 'bg-amber-900/40 text-amber-300 border border-amber-700/50'
+                            }`}
+                          >
+                            {(d.device_status ?? 'idle').toUpperCase() === 'IDLE'
+                              ? 'AFK'
+                              : (d.device_status ?? 'idle').toUpperCase()}
+                          </span>
+                          {playDuration && (
+                            <span className="font-mono text-[10px] font-semibold text-emerald-300">
+                              {playDuration}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       {!isRunnerView && <td className="px-4 py-2 text-xs">
                         <div className="text-slate-200">{telemetryLabel}</div>
@@ -1573,7 +1683,11 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                         {formatCurrency(d.balance)}
                       </td>
                       <td className="px-4 py-2 text-right">
-                        <div className="flex gap-2 justify-end font-mono text-sm text-sky-300">
+                        <div
+                          className={`flex gap-2 justify-end font-mono text-sm ${
+                            coinsInHigh ? 'text-sky-200 animate-pulse' : 'text-sky-300'
+                          }`}
+                        >
                           {isRunnerView ? '' : 'Coins-In:'}
                           <span className="font-extrabold">{formatCurrency(d.coins_in_total)}</span>
                         </div>
@@ -1691,6 +1805,8 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
         <DeviceModal
           device={{ ...selectedLiveDevice, hopper_alert_threshold: hopperAlertThreshold }}
           hopperAlertsEnabled={hopperAlertsEnabled}
+          coinsInAlertsEnabled={coinsInAlertsEnabled}
+          coinsInAlertThreshold={coinsInAlertThreshold}
           role={role}
           onClose={() => setSelectedDevice(null)}
         />

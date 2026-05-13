@@ -320,6 +320,20 @@ export default function Settings() {
       return false
     }
   })
+  const [coinsInAlertsEnabled, setCoinsInAlertsEnabled] = useState(() => {
+    try {
+      return localStorage.getItem('coinsInAlertsEnabled') === 'true'
+    } catch {
+      return false
+    }
+  })
+  const [coinsInAlertThreshold, setCoinsInAlertThreshold] = useState(() => {
+    try {
+      return localStorage.getItem('coinsInAlertThreshold') || '1000'
+    } catch {
+      return '1000'
+    }
+  })
 
   const [baseProfileId, setBaseProfileId] = useState('')
   const [happyProfileId, setHappyProfileId] = useState('')
@@ -400,6 +414,18 @@ export default function Settings() {
       /* empty */
     }
   }, [hopperAlertsEnabled])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('coinsInAlertsEnabled', String(coinsInAlertsEnabled))
+      localStorage.setItem(
+        'coinsInAlertThreshold',
+        String(Math.max(0, Number(coinsInAlertThreshold || 0))),
+      )
+    } catch {
+      /* empty */
+    }
+  }, [coinsInAlertThreshold, coinsInAlertsEnabled])
 
   useEffect(() => {
     let mounted = true
@@ -2161,6 +2187,33 @@ export default function Settings() {
             <option value="on">ON</option>
             <option value="off">OFF</option>
           </select>
+        </div>
+
+        <div className="flex flex-col gap-3 border-t border-slate-700 pt-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-sm text-slate-200">Coins-In Alerts</div>
+            <div className="text-xs text-slate-400">
+              Highlights devices when coins-in reaches the selected amount.
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <input
+              type="number"
+              min={0}
+              value={coinsInAlertThreshold}
+              onChange={e => setCoinsInAlertThreshold(e.target.value)}
+              className="rounded border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200"
+            />
+            <select
+              value={coinsInAlertsEnabled ? 'on' : 'off'}
+              onChange={e => setCoinsInAlertsEnabled(e.target.value === 'on')}
+              className="rounded border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200"
+            >
+              <option value="on">ON</option>
+              <option value="off">OFF</option>
+            </select>
+          </div>
         </div>
       </section>
     </div>

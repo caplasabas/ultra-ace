@@ -13,15 +13,21 @@ type ActivityRow = {
   metadata?: Record<string, any> | null
 }
 
+const REQUIRED_ACTIVITY_TYPES = ['withdrawal']
+
 export function DeviceModal({
   device,
   onClose,
   hopperAlertsEnabled,
+  coinsInAlertsEnabled,
+  coinsInAlertThreshold = 1000,
   role,
 }: {
   device: any
   onClose: () => void
   hopperAlertsEnabled?: boolean
+  coinsInAlertsEnabled?: boolean
+  coinsInAlertThreshold?: number
   role: DashboardRole
 }) {
   const JACKPOT_OVERRIDE_STEP_COUNT = 10
@@ -139,6 +145,19 @@ export function DeviceModal({
   }
   const formatActivityTypeLabel = (activityName: string) =>
     activityName.replaceAll('_', ' ').toUpperCase()
+  const formatPlayDuration = (startedAt: unknown, nowMs: number) => {
+    const startedMs = new Date(String(startedAt ?? '')).getTime()
+    if (!Number.isFinite(startedMs) || startedMs <= 0 || nowMs < startedMs) return null
+
+    const totalSeconds = Math.floor((nowMs - startedMs) / 1000)
+    const hours = Math.floor(totalSeconds / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    const seconds = totalSeconds % 60
+
+    if (hours > 0) return `${hours}h ${minutes}m`
+    if (minutes > 0) return `${minutes}m ${seconds}s`
+    return `${seconds}s`
+  }
   const statsBasisLabel =
     device.deployment_mode === 'maintenance' ? 'All Activity' : 'Eligible Activity'
   const baseWinAmount =
@@ -153,6 +172,9 @@ export function DeviceModal({
   const hopperAlertThreshold = asNumber((device as any)?.hopper_alert_threshold ?? 500)
   const hopperLow =
     (hopperAlertsEnabled ?? true) && asNumber(device.hopper_balance) <= hopperAlertThreshold
+  const coinsInHigh =
+    (coinsInAlertsEnabled ?? false) &&
+    asNumber(device.coins_in_total) >= asNumber(coinsInAlertThreshold)
 
   // --- Alert Computations ---
   const HIGH_RTP_THRESHOLD = 110
@@ -170,6 +192,9 @@ export function DeviceModal({
       : device.device_status === 'playing'
         ? 'playing'
         : 'idle'
+  const playStartedAt = device.session_started_at ?? device.arcade_session_started_at
+  const currentPlayDuration =
+    presenceStatus === 'playing' ? formatPlayDuration(playStartedAt, presenceNow) : null
   const stuckSession =
     device.device_status === 'playing' && presenceNow - lastHeartbeat > STUCK_THRESHOLD_MS
   const offline = presenceStatus === 'offline'
@@ -253,7 +278,7 @@ export function DeviceModal({
   useEffect(() => {
     const t = window.setInterval(() => {
       setPresenceNow(Date.now())
-    }, 10000)
+    }, 1000)
 
     return () => window.clearInterval(t)
   }, [])
@@ -324,11 +349,14 @@ export function DeviceModal({
 
       const nextOptions = Array.from(
         new Set(
-          (data ?? [])
-            .map(row => String((row as { activity_name?: unknown }).activity_name ?? '').trim())
-            .filter(Boolean),
+          [
+            ...(data ?? []).map(row =>
+              String((row as { activity_name?: unknown }).activity_name ?? '').trim(),
+            ),
+            ...REQUIRED_ACTIVITY_TYPES,
+          ].filter(Boolean),
         ),
-      )
+      ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
 
       setActivityTypeOptions(nextOptions)
     }
@@ -780,6 +808,11 @@ export function DeviceModal({
                     >
                       {presenceStatus.toUpperCase()}
                     </span>
+                    {currentPlayDuration && (
+                      <span className="rounded border border-emerald-700/50 bg-emerald-950/40 px-2 py-0.5 text-[10px] font-mono font-semibold text-emerald-200">
+                        {currentPlayDuration}
+                      </span>
+                    )}
                   </div>
 
                   <button onClick={onClose} className="text-slate-400 hover:text-white">
@@ -802,6 +835,12 @@ export function DeviceModal({
                   {hopperLow && (
                     <span className="px-2 py-0.5 text-[10px] font-bold rounded border border-red-500 bg-red-950 text-red-300">
                       LOW HOPPER
+                    </span>
+                  )}
+
+                  {coinsInHigh && (
+                    <span className="px-2 py-0.5 text-[10px] font-bold rounded border border-sky-500 bg-sky-950 text-sky-300">
+                      HIGH COINS-IN
                     </span>
                   )}
 
@@ -932,11 +971,21 @@ export function DeviceModal({
                     </div>
                   </div>
 
-                  <div className="rounded border border-slate-700 bg-slate-800 p-4 mt-5 flex flex-col justify-between">
+                  <div
+                    className={`rounded border p-4 mt-5 flex flex-col justify-between ${
+                      coinsInHigh
+                        ? 'border-sky-500/70 bg-sky-950/30 ring-1 ring-sky-500/40'
+                        : 'border-slate-700 bg-slate-800'
+                    }`}
+                  >
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <div className="text-[10px] text-slate-400">Coins In</div>
-                        <div className="text-base font-mono font-bold text-sky-400">
+                        <div
+                          className={`text-base font-mono font-bold ${
+                            coinsInHigh ? 'text-sky-200 animate-pulse' : 'text-sky-400'
+                          }`}
+                        >
                           {formatCurrency(device.coins_in_total)}
                         </div>
                       </div>
@@ -992,6 +1041,11 @@ export function DeviceModal({
                       <div className="mt-4 pt-3 border-t border-slate-700 text-xs text-slate-400">
                         <div className="mb-1">Displayed totals: {statsBasisLabel}</div>
                         {telemetryLabel}
+                        {currentPlayDuration && (
+                          <div className="mt-1 text-emerald-300">
+                            Playing time: {currentPlayDuration}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
