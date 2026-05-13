@@ -990,6 +990,15 @@ export function DeviceModal({
                         </div>
                       </div>
 
+                      {!isRunnerView && (
+                        <div>
+                          <div className="text-[10px] text-slate-400">Withdrawals</div>
+                          <div className="text-base font-mono font-bold text-rose-300">
+                            {formatCurrency(device.withdraw_total)}
+                          </div>
+                        </div>
+                      )}
+
                       {!isRunnerView && <div>
                         <div className="text-[10px] text-slate-400">Last Bet</div>
                         <div className="text-base font-mono font-bold text-violet-300">

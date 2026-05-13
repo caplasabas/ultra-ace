@@ -1325,47 +1325,49 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                           className={
                             mobileExpanded
                               ? 'mt-3 grid grid-cols-2 gap-x-3 gap-y-2'
-                              : 'mt-3 flex flex-wrap gap-y-2'
+                              : 'mt-3 grid grid-cols-4 gap-x-2 gap-y-2'
                           }
                         >
-                          <div className={mobileExpanded ? undefined : 'min-w-[88px] flex-1'}>
+                          <div className="min-w-0">
                             <div className="text-[10px] text-slate-500">Balance</div>
-                            <div className="font-mono text-sm font-bold text-green-400">
+                            <div className="truncate font-mono text-xs font-bold text-green-400">
                               {formatCurrency(d.balance)}
                             </div>
                           </div>
-                          <div className={mobileExpanded ? undefined : 'min-w-[88px] flex-1'}>
+                          <div className="min-w-0">
                             <div className="text-[10px] text-slate-500">Coins-In</div>
                             <div
-                              className={`font-mono text-sm ${
+                              className={`truncate font-mono text-xs ${
                                 coinsInHigh ? 'font-bold text-sky-200 animate-pulse' : 'text-sky-300'
                               }`}
                             >
                               {formatCurrency(d.coins_in_total)}
                             </div>
                           </div>
-                          <div className={mobileExpanded ? undefined : 'min-w-[88px] flex-1'}>
+                          <div className="min-w-0">
                             <div className="text-[10px] text-slate-500">Hopper</div>
                             <div
-                              className={`font-mono text-sm font-bold ${
+                              className={`truncate font-mono text-xs font-bold ${
                                 hopperLow ? 'text-red-300 animate-pulse' : 'text-amber-300'
                               }`}
                             >
                               {formatCurrency(d.hopper_balance)}
                             </div>
                           </div>
+                          {!isRunnerView && (
+                            <div className="min-w-0">
+                              <div className="text-[10px] text-slate-500">Withdrawals</div>
+                              <div className="truncate font-mono text-xs text-rose-300">
+                                {formatCurrency(d.withdraw_total)}
+                              </div>
+                            </div>
+                          )}
                           {mobileExpanded && !isRunnerView && (
                             <>
                               <div>
                                 <div className="text-[10px] text-slate-500">Arcade Total</div>
                                 <div className="font-mono text-sm text-indigo-300">
                                   {formatCurrency(d.arcade_total)}
-                                </div>
-                              </div>
-                              <div>
-                                <div className="text-[10px] text-slate-500">Withdraw</div>
-                                <div className="font-mono text-sm text-rose-300">
-                                  {formatCurrency(d.withdraw_total)}
                                 </div>
                               </div>
                               <div>
