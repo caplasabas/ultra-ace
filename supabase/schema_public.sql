@@ -1065,6 +1065,7 @@ declare
   v_spin_target bigint := 1000;
   v_time_target integer := 1800;
   v_mode text := 'amount';
+  v_recomputed public.casino_runtime;
 begin
   select * into v_runtime
   from public.casino_runtime
@@ -1162,11 +1163,19 @@ begin
     where id = true;
   end if;
 
+  if v_happy_reached or v_jackpot_reached then
+    v_recomputed := public.recompute_casino_mode();
+  else
+    v_recomputed := v_runtime;
+  end if;
+
   return jsonb_build_object(
     'ok', true,
     'mode', v_mode,
     'happyReached', v_happy_reached,
-    'jackpotReached', v_jackpot_reached
+    'jackpotReached', v_jackpot_reached,
+    'activeMode', v_recomputed.active_mode,
+    'happyHourPrizeBalance', greatest(coalesce(v_recomputed.happy_hour_prize_balance, 0), 0)
   );
 end;
 $$;
@@ -1699,6 +1708,9 @@ declare
   v_pending_free_spins integer;
   v_show_intro boolean;
   v_current_spin_id bigint;
+  v_game_type text := nullif(trim(coalesce(p_state->>'gameType', '')), '');
+  v_mark_active boolean := coalesce((p_state->>'markActive')::boolean, true);
+  v_preserve_device_status boolean := coalesce((p_state->>'preserveDeviceStatus')::boolean, false);
 begin
   if p_device_id is null or trim(p_device_id) = '' then
     raise exception 'p_device_id is required';
@@ -1713,20 +1725,39 @@ begin
 
   update public.devices
   set
-    device_status = 'playing',
-    active_session_id = coalesce(p_session_id, active_session_id),
-    session_last_heartbeat = now(),
+    device_status = case when v_preserve_device_status then device_status else 'playing' end,
+    active_session_id = case
+      when v_preserve_device_status then active_session_id
+      else coalesce(p_session_id, active_session_id)
+    end,
+    session_last_heartbeat = case
+      when v_preserve_device_status then session_last_heartbeat
+      else now()
+    end,
     runtime_mode = coalesce(v_runtime_mode, runtime_mode),
+    current_game_type = case
+      when v_game_type in ('arcade', 'casino') then v_game_type
+      else current_game_type
+    end,
     is_free_game = coalesce(v_is_free_game, is_free_game),
     free_spins_left = coalesce(v_free_spins_left, free_spins_left),
     pending_free_spins = coalesce(v_pending_free_spins, pending_free_spins),
     show_free_spin_intro = coalesce(v_show_intro, show_free_spin_intro),
     current_spin_id = coalesce(v_current_spin_id, current_spin_id),
-    session_metadata = coalesce(p_state, '{}'::jsonb),
+    session_metadata = case
+      when v_preserve_device_status then coalesce(session_metadata, '{}'::jsonb) || coalesce(p_state, '{}'::jsonb)
+      else coalesce(p_state, '{}'::jsonb)
+    end,
+    last_seen_at = now(),
+    last_activity_at = case
+      when v_preserve_device_status then last_activity_at
+      when v_mark_active then now()
+      else last_activity_at
+    end,
     updated_at = now()
   where device_id = p_device_id;
 
-  if p_session_id is not null then
+  if p_session_id is not null and not v_preserve_device_status then
     update public.device_game_sessions
     set
       last_heartbeat = now(),

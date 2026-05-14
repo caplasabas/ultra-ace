@@ -275,6 +275,7 @@ function isValidPaidSpinBet(value: number): boolean {
 
 export function useEngine() {
   const sessionIdRef = useRef<number | null>(null)
+  const ownsDeviceSessionRef = useRef(false)
   const lastOutcomeRef = useRef<SpinOutcome | null>(null)
   const spinCounterRef = useRef(0)
 
@@ -635,26 +636,32 @@ export function useEngine() {
       seedRef.current = seed
       rngRef.current = createRNG(seed)
 
-      try {
-        const sessionId = await startDeviceGameSession({
-          deviceId: id,
-          gameId: 'ultra-ace',
-          gameName: 'Ultra Ace',
-          runtimeMode: restoredDbState?.runtimeMode ?? 'BASE',
-          state: {
+      if (!isShellIframe()) {
+        try {
+          const sessionId = await startDeviceGameSession({
+            deviceId: id,
+            gameId: 'ultra-ace',
+            gameName: 'Ultra Ace',
             runtimeMode: restoredDbState?.runtimeMode ?? 'BASE',
-            isFreeGame: restoredDbState?.isFreeGame ?? false,
-            freeSpinsLeft: restoredDbState?.freeSpinsLeft ?? 0,
-            pendingFreeSpins: restoredDbState?.pendingFreeSpins ?? 0,
-            showFreeSpinIntro: restoredDbState?.showFreeSpinIntro ?? false,
-            spinId: restoredDbState?.spinId ?? 0,
-            spinning: false,
-            scatterTriggerType: restoredDbState?.scatterTriggerType ?? null,
-          },
-        })
-        sessionIdRef.current = sessionId
-      } catch (err) {
-        console.error('[device-session] start failed', err)
+            state: {
+              runtimeMode: restoredDbState?.runtimeMode ?? 'BASE',
+              isFreeGame: restoredDbState?.isFreeGame ?? false,
+              freeSpinsLeft: restoredDbState?.freeSpinsLeft ?? 0,
+              pendingFreeSpins: restoredDbState?.pendingFreeSpins ?? 0,
+              showFreeSpinIntro: restoredDbState?.showFreeSpinIntro ?? false,
+              spinId: restoredDbState?.spinId ?? 0,
+              spinning: false,
+              scatterTriggerType: restoredDbState?.scatterTriggerType ?? null,
+            },
+          })
+          sessionIdRef.current = sessionId
+          ownsDeviceSessionRef.current = true
+        } catch (err) {
+          console.error('[device-session] start failed', err)
+        }
+      } else {
+        sessionIdRef.current = null
+        ownsDeviceSessionRef.current = false
       }
 
       const [initialBalance, persistedBet] = await Promise.all([
@@ -827,7 +834,7 @@ export function useEngine() {
       if (jackpotQueueChannel) jackpotQueueChannel.unsubscribe()
       if (balancePollTimer !== null) clearInterval(balancePollTimer)
       if (jackpotQueuePollTimer !== null) clearInterval(jackpotQueuePollTimer)
-      if (deviceIdRef.current) {
+      if (deviceIdRef.current && ownsDeviceSessionRef.current) {
         void endDeviceGameSession({
           deviceId: deviceIdRef.current,
           sessionId: sessionIdRef.current,
@@ -853,6 +860,8 @@ export function useEngine() {
         spinId,
         spinning,
         scatterTriggerType,
+        markActive: !isShellIframe(),
+        preserveDeviceStatus: isShellIframe(),
       } as const
 
       void updateDeviceGameState({
@@ -882,6 +891,8 @@ export function useEngine() {
     if (!deviceId) return
 
     const end = () => {
+      if (!ownsDeviceSessionRef.current) return
+
       void endDeviceGameSession({
         deviceId,
         sessionId: sessionIdRef.current,
@@ -913,6 +924,8 @@ export function useEngine() {
       spinId,
       spinning,
       scatterTriggerType,
+      markActive: !isShellIframe(),
+      preserveDeviceStatus: isShellIframe(),
     } as const
 
     void updateDeviceGameState({

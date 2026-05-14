@@ -401,6 +401,9 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
   const activeHousePct = asNumber(activeProfile?.house_pct)
   const activeJackpotPct = Math.max(0, asNumber(activeProfile?.pool_pct))
   const activeHappyPct = Math.max(0, asNumber(activeProfile?.player_pct))
+  const activeTargetRtp = asNumber(runtime?.active_target_rtp_pct ?? activeHappyPct)
+  const happyHourActive =
+    runtime?.active_mode === 'HAPPY' && asNumber(runtime?.happy_hour_prize_balance) > 0
   const deviceNameById = useMemo(() => {
     const index = new Map<string, string>()
     for (const device of devices) {
@@ -879,7 +882,12 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                       {adminRtpReady ? formatPercent(globalBaseRtp) : '—'}
                     </div>
                     <div className="text-xs text-fuchsia-200/80">
-                      Target {formatPercent(ENGINE_SIM_TOTAL_RTP_PCT)}
+                      Target {formatPercent(activeTargetRtp || ENGINE_SIM_TOTAL_RTP_PCT)}
+                      {happyHourActive && (
+                        <span className="ml-2 rounded border border-amber-700/60 bg-amber-900/40 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200">
+                          HAPPY
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -905,7 +913,11 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                     <div className="text-lg font-semibold text-emerald-200">System</div>
                   </div>
                   <div className="flex gap-2">
-                    <span className="text-lg font-bold font-mono text-emerald-300">
+                    <span
+                      className={`text-lg font-bold font-mono ${
+                        happyHourActive ? 'text-amber-300' : 'text-emerald-300'
+                      }`}
+                    >
                       {runtime?.active_mode ?? 'BASE'}
                     </span>
                     <button
@@ -927,6 +939,13 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                       Happy Pool {formatCurrency(runtime?.prize_pool_balance)}/{' '}
                       {formatCurrency(runtime?.prize_pool_goal)}
                     </div>
+                    {happyHourActive && (
+                      <div className="rounded border border-amber-700/50 bg-amber-950/30 px-2 py-1 text-xs font-mono text-amber-200">
+                        Happy Hour Active • Pot Remaining{' '}
+                        {formatJackpotCurrency(runtime?.happy_hour_prize_balance)} • Target RTP{' '}
+                        {formatPercent(activeTargetRtp)}
+                      </div>
+                    )}
 
                     <button
                       type="button"

@@ -9,6 +9,8 @@ type DeviceStatePayload = {
   spinId?: number
   spinning?: boolean
   scatterTriggerType?: 'natural' | 'buy' | null
+  markActive?: boolean
+  preserveDeviceStatus?: boolean
 }
 
 export type PersistedSessionState = {
