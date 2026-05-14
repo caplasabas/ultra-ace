@@ -402,6 +402,8 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
   const activeJackpotPct = Math.max(0, asNumber(activeProfile?.pool_pct))
   const activeHappyPct = Math.max(0, asNumber(activeProfile?.player_pct))
   const activeTargetRtp = asNumber(runtime?.active_target_rtp_pct ?? activeHappyPct)
+  const runtimeModeLabel = runtime?.active_mode ?? 'BASE'
+  const runtimeIsHappyMode = runtimeModeLabel === 'HAPPY'
   const happyHourActive =
     runtime?.active_mode === 'HAPPY' && asNumber(runtime?.happy_hour_prize_balance) > 0
   const deviceNameById = useMemo(() => {
@@ -935,10 +937,14 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                     <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/60">
                       Pools
                     </div>
-                    <div className="text-xs font-mono text-emerald-200/80">
+                    <button
+                      type="button"
+                      onClick={() => setShowHappyPotsModal(true)}
+                      className="block w-full text-left text-xs font-mono text-emerald-200/80 underline decoration-dotted underline-offset-2 transition hover:text-emerald-100"
+                    >
                       Happy Pool {formatCurrency(runtime?.prize_pool_balance)}/{' '}
                       {formatCurrency(runtime?.prize_pool_goal)}
-                    </div>
+                    </button>
                     {happyHourActive && (
                       <div className="rounded border border-amber-700/50 bg-amber-950/30 px-2 py-1 text-xs font-mono text-amber-200">
                         Happy Hour Active • Pot Remaining{' '}
@@ -1132,6 +1138,74 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                   expanded={showAllMobileDeviceCounters}
                   onClick={() => setShowAllMobileDeviceCounters(current => !current)}
                 />
+              </div>
+
+              <div className="w-full rounded-lg border border-slate-700 bg-slate-900/80 p-3 md:hidden">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                      Runtime
+                    </div>
+                    <div
+                      className={`mt-0.5 text-base font-bold font-mono ${
+                        runtimeIsHappyMode ? 'text-amber-300' : 'text-emerald-300'
+                      }`}
+                    >
+                      {runtimeModeLabel}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                      Target RTP
+                    </div>
+                    <div className="mt-0.5 text-sm font-mono text-slate-100">
+                      {formatPercent(activeTargetRtp || ENGINE_SIM_TOTAL_RTP_PCT)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] font-mono text-slate-300">
+                  <div className="rounded border border-slate-800 bg-slate-950/40 px-2 py-1.5">
+                    <div className="text-[9px] uppercase tracking-wide text-slate-500">
+                      Auto Happy
+                    </div>
+                    <div
+                      className={
+                        runtime?.auto_happy_enabled ? 'text-emerald-300' : 'text-slate-400'
+                      }
+                    >
+                      {runtime?.auto_happy_enabled ? 'ON' : 'OFF'}
+                    </div>
+                  </div>
+                  <div className="rounded border border-slate-800 bg-slate-950/40 px-2 py-1.5">
+                    <div className="text-[9px] uppercase tracking-wide text-slate-500">
+                      Happy Bank
+                    </div>
+                    <div className="text-amber-200">
+                      {formatJackpotCurrency(runtime?.happy_hour_prize_balance)}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowHappyPotsModal(true)}
+                    className="col-span-2 rounded border border-slate-800 bg-slate-950/40 px-2 py-1.5 text-left transition hover:border-emerald-700/60 hover:bg-emerald-950/20"
+                  >
+                    <div className="text-[9px] uppercase tracking-wide text-slate-500">
+                      Happy Pool
+                    </div>
+                    <div className="text-slate-200">
+                      {formatCurrency(runtime?.prize_pool_balance)} /{' '}
+                      {formatCurrency(runtime?.prize_pool_goal)}
+                    </div>
+                  </button>
+                </div>
+
+                {happyHourActive && (
+                  <div className="mt-2 rounded border border-amber-700/50 bg-amber-950/30 px-2 py-1 text-[11px] font-mono text-amber-200">
+                    Happy Hour Active - Pot Remaining{' '}
+                    {formatJackpotCurrency(runtime?.happy_hour_prize_balance)}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1846,6 +1920,11 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
               </button>
             </div>
             <div className="max-h-[70vh] overflow-auto space-y-2">
+              {happyPots.length === 0 && (
+                <div className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm text-slate-400">
+                  No happy hour pots found.
+                </div>
+              )}
               {happyPots.map(p => (
                 <div
                   key={p.id}
