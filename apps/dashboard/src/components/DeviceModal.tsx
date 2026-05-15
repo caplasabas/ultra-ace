@@ -252,17 +252,17 @@ export function DeviceModal({
     : null
   const [balanceAmount, setBalanceAmount] = useState('0')
   const [balanceKind, setBalanceKind] = useState<'debit' | 'credit'>('credit')
-  const [balanceAccountName, setBalanceAccountName] = useState('Manual Accounting Override')
+  const [balanceAccountName] = useState('Manual Accounting Override')
   const [balanceNotes, setBalanceNotes] = useState('')
 
   const [hopperAmount, setHopperAmount] = useState('0')
   const [hopperKind, setHopperKind] = useState<'debit' | 'credit'>('credit')
-  const [hopperAccountName, setHopperAccountName] = useState('Manual Hopper Override')
+  const [hopperAccountName] = useState('Manual Hopper Override')
   const [hopperNotes, setHopperNotes] = useState('')
 
   const [coinsInAmount, setCoinsInAmount] = useState('0')
   const [coinsInKind, setCoinsInKind] = useState<'debit' | 'credit'>('credit')
-  const [coinsInAccountName, setCoinsInAccountName] = useState('Manual Coins In Override')
+  const [coinsInAccountName] = useState('Manual Coins In Override')
   const [coinsInNotes, setCoinsInNotes] = useState('')
   const [jackpotOverrideAmount, setJackpotOverrideAmount] = useState('')
   const [jackpotOverrideConfirmOpen, setJackpotOverrideConfirmOpen] = useState(false)
