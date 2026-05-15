@@ -16,19 +16,21 @@ type ActivityRow = {
 const REQUIRED_ACTIVITY_TYPES = ['withdrawal']
 
 export function DeviceModal({
-  device,
-  onClose,
-  hopperAlertsEnabled,
-  coinsInAlertsEnabled,
-  coinsInAlertThreshold = 1000,
-  role,
-}: {
+                              device,
+                              onClose,
+                              hopperAlertsEnabled,
+                              coinsInAlertsEnabled,
+                              coinsInAlertThreshold = 1000,
+                              role,
+                              initialTab = 'overview',
+                            }: {
   device: any
   onClose: () => void
   hopperAlertsEnabled?: boolean
   coinsInAlertsEnabled?: boolean
   coinsInAlertThreshold?: number
   role: DashboardRole
+  initialTab?: 'overview' | 'activity' | 'controls' | 'games'
 }) {
   const JACKPOT_OVERRIDE_STEP_COUNT = 10
   const cabinetGames = useCabinetGames(device.device_id)
@@ -45,7 +47,9 @@ export function DeviceModal({
   const [deviceName, setDeviceName] = useState(String(device.name ?? ''))
   const [presenceNow, setPresenceNow] = useState(() => Date.now())
   const normalizeDeploymentMode = (value: unknown): 'online' | 'standby' | 'maintenance' => {
-    const mode = String(value ?? 'online').trim().toLowerCase()
+    const mode = String(value ?? 'online')
+      .trim()
+      .toLowerCase()
     if (mode === 'standby') return 'standby'
     if (mode === 'maintenance') return 'maintenance'
     return 'online'
@@ -57,7 +61,7 @@ export function DeviceModal({
   const [withdrawEnabled, setWithdrawEnabled] = useState(Boolean(device.withdraw_enabled))
   const [withdrawBusy, setWithdrawBusy] = useState(false)
   const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'controls' | 'games'>(
-    'overview',
+    initialTab,
   )
   const [activityRows, setActivityRows] = useState<ActivityRow[]>([])
   const [activityBusy, setActivityBusy] = useState(false)
@@ -136,7 +140,9 @@ export function DeviceModal({
     const metadata = row.metadata ?? {}
 
     if (activityName === 'spin' && metadata.isFreeGame === true) {
-      const source = String(metadata.triggerType ?? '').trim().toLowerCase()
+      const source = String(metadata.triggerType ?? '')
+        .trim()
+        .toLowerCase()
       if (source === 'buy') return 'FREE SPIN (BUY)'
       return 'FREE SPIN'
     }
@@ -265,9 +271,7 @@ export function DeviceModal({
   )
   const [happyOverrideAmount, setHappyOverrideAmount] = useState('')
   const [happyOverrideConfirmOpen, setHappyOverrideConfirmOpen] = useState(false)
-  const [happyOverridePendingAmount, setHappyOverridePendingAmount] = useState<number | null>(
-    null,
-  )
+  const [happyOverridePendingAmount, setHappyOverridePendingAmount] = useState<number | null>(null)
 
   useEffect(() => {
     if (!errorMessage) return
@@ -284,7 +288,7 @@ export function DeviceModal({
   }, [])
 
   useEffect(() => {
-    setActiveTab('overview')
+    setActiveTab(initialTab)
     setActivityPage(1)
     setSelectedActivityType('')
     setActivityTypeOptions([])
@@ -786,7 +790,7 @@ export function DeviceModal({
               ? 'border-amber-400/70 shadow-[0_0_28px_rgba(251,191,36,0.2)]'
               : isAdminView && device.happy_override_selected
                 ? 'border-pink-400/70 shadow-[0_0_28px_rgba(236,72,153,0.18)]'
-              : 'border-slate-800'
+                : 'border-slate-800'
           }`}
         >
           <div className="flex flex-col space-y-1 p-4">
@@ -922,15 +926,21 @@ export function DeviceModal({
                     </div>
                   </div>
 
-                  {!isRunnerView && <div>
-                    <div className="text-[10px] text-slate-400">Stats Basis: {statsBasisLabel}</div>
-                  </div>}
-
-                  {!isRunnerView && <div>
-                    <div className="text-[10px] text-slate-400">
-                      Withdrawal: {device.withdraw_enabled ? 'ENABLED' : 'DISABLED'}
+                  {!isRunnerView && (
+                    <div>
+                      <div className="text-[10px] text-slate-400">
+                        Stats Basis: {statsBasisLabel}
+                      </div>
                     </div>
-                  </div>}
+                  )}
+
+                  {!isRunnerView && (
+                    <div>
+                      <div className="text-[10px] text-slate-400">
+                        Withdrawal: {device.withdraw_enabled ? 'ENABLED' : 'DISABLED'}
+                      </div>
+                    </div>
+                  )}
 
                   <div>
                     <div className="text-[10px] text-slate-400">
@@ -999,12 +1009,14 @@ export function DeviceModal({
                         </div>
                       )}
 
-                      {!isRunnerView && <div>
-                        <div className="text-[10px] text-slate-400">Last Bet</div>
-                        <div className="text-base font-mono font-bold text-violet-300">
-                          {formatCurrency(device.last_bet_amount)}
+                      {!isRunnerView && (
+                        <div>
+                          <div className="text-[10px] text-slate-400">Last Bet</div>
+                          <div className="text-base font-mono font-bold text-violet-300">
+                            {formatCurrency(device.last_bet_amount)}
+                          </div>
                         </div>
-                      </div>}
+                      )}
 
                       {isAdminView && (
                         <>
@@ -1105,9 +1117,7 @@ export function DeviceModal({
                     <tbody className="divide-y divide-slate-800">
                       {activityRows.map(row => (
                         <tr key={row.activity_id}>
-                          <td className="px-3 py-2 text-slate-200">
-                            {formatActivityName(row)}
-                          </td>
+                          <td className="px-3 py-2 text-slate-200">{formatActivityName(row)}</td>
                           <td className="px-3 py-2 text-right font-mono text-slate-300">
                             {row.amount == null ? '—' : formatCurrency(row.amount)}
                           </td>
@@ -1147,7 +1157,9 @@ export function DeviceModal({
                     <button
                       type="button"
                       className="rounded border border-slate-700 bg-slate-900 px-3 py-1.5 text-slate-200 disabled:opacity-40"
-                      disabled={activityBusy || activityPage >= activityTotalPages || !activityHasMore}
+                      disabled={
+                        activityBusy || activityPage >= activityTotalPages || !activityHasMore
+                      }
                       onClick={() => setActivityPage(page => page + 1)}
                     >
                       Next
@@ -1163,173 +1175,153 @@ export function DeviceModal({
             {!isRunnerView && activeTab === 'controls' && (
               <>
                 <div className="px-4 overflow-y-auto">
-                  <h4 className="text-sm font-semibold mb-2">Device Power Controls</h4>
+                  <h4 className="text-sm font-semibold mb-2">Device Controls</h4>
                   <div className="rounded border border-slate-800 bg-slate-900 p-3 mb-4">
-                    <div className="text-xs text-slate-400 mb-3">
-                      Sends command to this device only.
-                    </div>
-                    <div className="flex gap-2 ">
-                      {isAdminView && (
+                    <div className="flex flex-col sm:flex-row gap-3 justify-between">
+                      <div className="flex gap-3">
                         <button
                           type="button"
-                          className="rounded border border-sky-600/80 bg-sky-900/30 px-3 py-1.5 text-xs font-semibold text-sky-200 hover:bg-sky-800/40 disabled:opacity-50"
+                          className="rounded border border-amber-600/80 bg-amber-900/30 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-800/40 disabled:opacity-50"
                           disabled={
                             powerActionBusy !== null ||
                             overrideBusy ||
                             jackpotOverrideBusy ||
                             happyOverrideBusy
                           }
-                          onClick={() => void runDeviceReset()}
+                          onClick={() => void enqueuePowerCommand('restart')}
                         >
-                          {powerActionBusy === 'reset' ? 'Resetting Device...' : 'Reset Device'}
+                          {powerActionBusy === 'restart' ? 'Queueing Restart...' : 'Restart Device'}
                         </button>
+                        <button
+                          type="button"
+                          className="rounded border border-red-600/80 bg-red-900/30 px-3 py-1.5 text-xs font-semibold text-red-200 hover:bg-red-800/40 disabled:opacity-50"
+                          disabled={
+                            powerActionBusy !== null ||
+                            overrideBusy ||
+                            jackpotOverrideBusy ||
+                            happyOverrideBusy
+                          }
+                          onClick={() => void enqueuePowerCommand('shutdown')}
+                        >
+                          {powerActionBusy === 'shutdown'
+                            ? 'Queueing Shutdown...'
+                            : 'Shutdown Device'}
+                        </button>
+                      </div>
+                      {isAdminView && (
+                        <div className="flex gap-3">
+                          <div>
+                            <button
+                              type="button"
+                              className="rounded border border-emerald-600/80 bg-emerald-900/30 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-800/40 disabled:opacity-50"
+                              disabled={
+                                closeAccountsBusy ||
+                                closeAccountsBlocked ||
+                                powerActionBusy !== null ||
+                                overrideBusy ||
+                                jackpotOverrideBusy ||
+                                happyOverrideBusy
+                              }
+                              onClick={() => void closeDeviceAccounts()}
+                            >
+                              {closeAccountsBusy ? 'Closing Accounts...' : 'Close Accounts'}
+                            </button>
+                            {closeAccountsBlockReason && (
+                              <div className="mt-2 text-xs text-amber-300">
+                                {closeAccountsBlockReason}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            className="rounded border border-sky-600/80 bg-sky-900/30 px-3 py-1.5 text-xs font-semibold text-sky-200 hover:bg-sky-800/40 disabled:opacity-50"
+                            disabled={
+                              powerActionBusy !== null ||
+                              overrideBusy ||
+                              jackpotOverrideBusy ||
+                              happyOverrideBusy
+                            }
+                            onClick={() => void runDeviceReset()}
+                          >
+                            {powerActionBusy === 'reset' ? 'Resetting Device...' : 'Reset Device'}
+                          </button>
+                        </div>
                       )}
-                      <button
-                        type="button"
-                        className="rounded border border-amber-600/80 bg-amber-900/30 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-800/40 disabled:opacity-50"
-                        disabled={
-                          powerActionBusy !== null ||
-                          overrideBusy ||
-                          jackpotOverrideBusy ||
-                          happyOverrideBusy
-                        }
-                        onClick={() => void enqueuePowerCommand('restart')}
-                      >
-                        {powerActionBusy === 'restart' ? 'Queueing Restart...' : 'Restart Device'}
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded border border-red-600/80 bg-red-900/30 px-3 py-1.5 text-xs font-semibold text-red-200 hover:bg-red-800/40 disabled:opacity-50"
-                        disabled={
-                          powerActionBusy !== null ||
-                          overrideBusy ||
-                          jackpotOverrideBusy ||
-                          happyOverrideBusy
-                        }
-                        onClick={() => void enqueuePowerCommand('shutdown')}
-                      >
-                        {powerActionBusy === 'shutdown'
-                          ? 'Queueing Shutdown...'
-                          : 'Shutdown Device'}
-                      </button>
                     </div>
                   </div>
 
                   {isAdminView && (
-                    <div className="rounded border border-slate-800 bg-slate-900 p-3 mb-4">
-                      <div className="mb-2 text-sm font-semibold text-slate-100">
-                        Revenue Closing
-                      </div>
-                      <div className="text-xs text-slate-400 mb-3">
-                        Snapshot this device for reporting, then start a new accounting period for visible totals.
-                      </div>
-                      <button
-                        type="button"
-                        className="rounded border border-emerald-600/80 bg-emerald-900/30 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-800/40 disabled:opacity-50"
-                        disabled={
-                          closeAccountsBusy ||
-                          closeAccountsBlocked ||
-                          powerActionBusy !== null ||
-                          overrideBusy ||
-                          jackpotOverrideBusy ||
-                          happyOverrideBusy
-                        }
-                        onClick={() => void closeDeviceAccounts()}
-                      >
-                        {closeAccountsBusy ? 'Closing Accounts...' : 'Close Accounts'}
-                      </button>
-                      {closeAccountsBlockReason && (
-                        <div className="mt-2 text-xs text-amber-300">{closeAccountsBlockReason}</div>
-                      )}
-                    </div>
-                  )}
+                    <div className="flex flex-col sm:flex-row  justify-between">
+                      <div className="sm:flex-1 rounded border border-pink-700/50 bg-pink-950/20 p-3 mb-4">
+                        <h4 className="text-sm font-semibold mb-2">Happy Hour Override</h4>
+                        <div className="text-xs text-pink-200 mb-2">
+                          Gives happy hour pool for this cabinet only.
+                        </div>
 
-                  {isAdminView && (
-                    <>
-                      <h4 className="text-sm font-semibold mb-2">Jackpot Override</h4>
-                      <div className="rounded border border-amber-700/50 bg-amber-950/20 p-3 mb-4">
-                    <div className="text-xs text-amber-200 mb-2">
-                      Arms a device-specific jackpot immediately for this cabinet.
-                    </div>
-                    <div className="text-xs text-slate-400 mb-3">
-                      This creates a fresh queue and {JACKPOT_OVERRIDE_STEP_COUNT} payout-plan
-                      steps for <span className="font-mono text-slate-200">{device.device_id}</span>{' '}
-                      without taking over the normal global jackpot campaign.
-                    </div>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <input
-                        type="number"
-                        min={0}
-                        step={1}
-                        value={jackpotOverrideAmount}
-                        onChange={e => setJackpotOverrideAmount(e.target.value)}
-                        placeholder="Jackpot amount"
-                        className="flex-1 rounded border border-amber-700/50 bg-slate-900 px-3 py-2 text-sm text-slate-100"
-                      />
-                      <button
-                        type="button"
-                        className="rounded border border-amber-500/80 bg-amber-900/40 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-800/50 disabled:opacity-50"
-                        disabled={
-                          jackpotOverrideBusy ||
-                          happyOverrideBusy ||
-                          overrideBusy ||
-                          powerActionBusy !== null ||
-                          deploymentBusy ||
-                          withdrawBusy
-                        }
-                        onClick={openJackpotOverrideConfirm}
-                      >
-                        {jackpotOverrideBusy ? 'Arming Jackpot...' : 'Confirm Jackpot Override'}
-                      </button>
-                    </div>
-                    <div className="mt-3 text-[11px] text-slate-500">
-                      The override is blocked if this cabinet already has an active jackpot queue or
-                      is currently inside a free-spin flow.
-                    </div>
+                        <div className="flex flex-col gap-2">
+                          <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={happyOverrideAmount}
+                            onChange={e => setHappyOverrideAmount(e.target.value)}
+                            placeholder="Happy hour amount"
+                            className="flex-1 rounded border border-pink-700/50 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+                          />
+                          <button
+                            type="button"
+                            className="rounded border border-pink-500/80 bg-pink-900/40 px-3 py-2 text-xs font-semibold text-pink-100 hover:bg-pink-800/50 disabled:opacity-50"
+                            disabled={
+                              happyOverrideBusy ||
+                              jackpotOverrideBusy ||
+                              overrideBusy ||
+                              powerActionBusy !== null ||
+                              deploymentBusy ||
+                              withdrawBusy
+                            }
+                            onClick={openHappyOverrideConfirm}
+                          >
+                            {happyOverrideBusy
+                              ? 'Arming Happy Override...'
+                              : 'Confirm Happy Override'}
+                          </button>
+                        </div>
                       </div>
 
-                      <h4 className="text-sm font-semibold mb-2">Happy Hour Override</h4>
-                      <div className="rounded border border-pink-700/50 bg-pink-950/20 p-3 mb-4">
-                    <div className="text-xs text-pink-200 mb-2">
-                      Arms a device-specific happy hour pool for this cabinet only.
-                    </div>
-                    <div className="text-xs text-slate-400 mb-3">
-                      While active, this device uses happy RTP and only the amount above the normal
-                      win funding cap consumes the override. The RTP drops back automatically the
-                      moment the remaining amount hits zero.
-                    </div>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <input
-                        type="number"
-                        min={0}
-                        step={1}
-                        value={happyOverrideAmount}
-                        onChange={e => setHappyOverrideAmount(e.target.value)}
-                        placeholder="Happy hour amount"
-                        className="flex-1 rounded border border-pink-700/50 bg-slate-900 px-3 py-2 text-sm text-slate-100"
-                      />
-                      <button
-                        type="button"
-                        className="rounded border border-pink-500/80 bg-pink-900/40 px-3 py-2 text-xs font-semibold text-pink-100 hover:bg-pink-800/50 disabled:opacity-50"
-                        disabled={
-                          happyOverrideBusy ||
-                          jackpotOverrideBusy ||
-                          overrideBusy ||
-                          powerActionBusy !== null ||
-                          deploymentBusy ||
-                          withdrawBusy
-                        }
-                        onClick={openHappyOverrideConfirm}
-                      >
-                        {happyOverrideBusy ? 'Arming Happy Override...' : 'Confirm Happy Override'}
-                      </button>
-                    </div>
-                    <div className="mt-3 text-[11px] text-slate-500">
-                      The override is blocked if this cabinet already has an active happy override
-                      or is currently inside a free-spin flow.
-                    </div>
+                      <div className="flex-1 rounded border border-amber-700/50 bg-amber-950/20 p-3 mb-4">
+                        <h4 className="text-sm font-semibold mb-2">Jackpot Override</h4>
+                        <div className="text-xs text-amber-200 mb-2">
+                          Gives jackpot immediately for this cabinet.
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                          <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={jackpotOverrideAmount}
+                            onChange={e => setJackpotOverrideAmount(e.target.value)}
+                            placeholder="Jackpot amount"
+                            className="flex-1 rounded border border-amber-700/50 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+                          />
+                          <button
+                            type="button"
+                            className="rounded border border-amber-500/80 bg-amber-900/40 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-800/50 disabled:opacity-50"
+                            disabled={
+                              jackpotOverrideBusy ||
+                              happyOverrideBusy ||
+                              overrideBusy ||
+                              powerActionBusy !== null ||
+                              deploymentBusy ||
+                              withdrawBusy
+                            }
+                            onClick={openJackpotOverrideConfirm}
+                          >
+                            {jackpotOverrideBusy ? 'Arming Jackpot...' : 'Confirm Jackpot Override'}
+                          </button>
+                        </div>
                       </div>
-                    </>
+                    </div>
                   )}
 
                   <div className="grid md:grid-cols-2 grid-cols-1 gap-3 mb-4">
@@ -1408,7 +1400,9 @@ export function DeviceModal({
                         <div className="flex flex-col gap-2 sm:flex-row">
                           <select
                             value={deploymentMode}
-                            onChange={e => setDeploymentMode(normalizeDeploymentMode(e.target.value))}
+                            onChange={e =>
+                              setDeploymentMode(normalizeDeploymentMode(e.target.value))
+                            }
                             className="flex-1 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
                           >
                             <option value="online">Online</option>
@@ -1472,13 +1466,11 @@ export function DeviceModal({
                     </div>
                   </div>
 
-                  <h4 className="text-sm font-semibold mb-2">Manual Overrides (Demo)</h4>
-                  <div className="grid md:grid-cols-2 grid-cols-1 gap-3 mb-4">
+                  <h4 className="text-sm font-semibold mb-2">Manual Overrides</h4>
+                  <div className="grid md:grid-cols-3 grid-cols-1 gap-3 mb-4">
                     <div className="rounded border border-slate-700 bg-slate-950/70 bg-slate-900 p-3">
-                      <div className="text-xs text-slate-400 mb-2">
-                        Accounting Balance Ledger Entry
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 mb-2">
+                      <div className="text-xs text-green-400 mb-2">Balance Override</div>
+                      <div className="flex flex-col gap-2 mb-2">
                         <select
                           className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm"
                           value={balanceKind}
@@ -1497,12 +1489,12 @@ export function DeviceModal({
                           placeholder="Amount"
                         />
                       </div>
-                      <input
-                        className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs mb-2"
-                        value={balanceAccountName}
-                        onChange={e => setBalanceAccountName(e.target.value)}
-                        placeholder="Account name"
-                      />
+                      {/*<input*/}
+                      {/*  className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs mb-2"*/}
+                      {/*  value={balanceAccountName}*/}
+                      {/*  onChange={e => setBalanceAccountName(e.target.value)}*/}
+                      {/*  placeholder="Account name"*/}
+                      {/*/>*/}
                       <input
                         className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs mb-2"
                         value={balanceNotes}
@@ -1520,15 +1512,15 @@ export function DeviceModal({
                           })
                         }}
                         disabled={overrideBusy}
-                        className="w-full px-3 py-1 rounded text-xs bg-blue-700/30 border border-blue-600 text-blue-300 disabled:opacity-50"
+                        className="w-full px-3 py-1 mt-5 rounded text-xs bg-blue-700/30 border border-blue-600 text-blue-300 disabled:opacity-50"
                       >
                         Post Entry
                       </button>
                     </div>
 
                     <div className="rounded border border-slate-700 bg-slate-950/70 bg-slate-900 p-3">
-                      <div className="text-xs text-slate-400 mb-2">Hopper Balance Ledger Entry</div>
-                      <div className="grid grid-cols-3 gap-2 mb-2">
+                      <div className="text-xs text-amber-300 mb-2">Hopper Balance Override</div>
+                      <div className="flex flex-col gap-2 mb-2">
                         <select
                           className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm"
                           value={hopperKind}
@@ -1547,12 +1539,12 @@ export function DeviceModal({
                           placeholder="Amount"
                         />
                       </div>
-                      <input
-                        className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs mb-2"
-                        value={hopperAccountName}
-                        onChange={e => setHopperAccountName(e.target.value)}
-                        placeholder="Account name"
-                      />
+                      {/*<input*/}
+                      {/*  className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs mb-2"*/}
+                      {/*  value={hopperAccountName}*/}
+                      {/*  onChange={e => setHopperAccountName(e.target.value)}*/}
+                      {/*  placeholder="Account name"*/}
+                      {/*/>*/}
                       <input
                         className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs mb-2"
                         value={hopperNotes}
@@ -1570,19 +1562,15 @@ export function DeviceModal({
                           })
                         }}
                         disabled={overrideBusy}
-                        className="w-full px-3 py-1 rounded text-xs bg-amber-700/30 border border-amber-600 text-amber-300 disabled:opacity-50"
+                        className="w-full px-3 py-1 mt-5 rounded text-xs bg-amber-700/30 border border-amber-600 text-amber-300 disabled:opacity-50"
                       >
                         Post Entry
                       </button>
                     </div>
-                  </div>
 
-                  <div className="grid md:grid-cols-2 grid-cols-1 gap-3 mb-4">
                     <div className="rounded border border-slate-700 bg-slate-950/70 bg-slate-900 p-3">
-                      <div className="text-xs text-slate-400 mb-2">
-                        Coins In Balance Ledger Entry
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 mb-2">
+                      <div className="text-xs text-sky-300 mb-2">Coins In Override</div>
+                      <div className="flex flex-col gap-2 mb-2">
                         <select
                           className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm"
                           value={coinsInKind}
@@ -1601,12 +1589,12 @@ export function DeviceModal({
                           placeholder="Amount"
                         />
                       </div>
-                      <input
-                        className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs mb-2"
-                        value={coinsInAccountName}
-                        onChange={e => setCoinsInAccountName(e.target.value)}
-                        placeholder="Account name"
-                      />
+                      {/*<input*/}
+                      {/*  className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs mb-2"*/}
+                      {/*  value={coinsInAccountName}*/}
+                      {/*  onChange={e => setCoinsInAccountName(e.target.value)}*/}
+                      {/*  placeholder="Account name"*/}
+                      {/*/>*/}
                       <input
                         className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs mb-2"
                         value={coinsInNotes}
@@ -1624,7 +1612,7 @@ export function DeviceModal({
                           })
                         }}
                         disabled={overrideBusy}
-                        className="w-full px-3 py-1 rounded text-xs bg-blue-700/30 border border-blue-600 text-blue-300 disabled:opacity-50"
+                        className="w-full px-3 py-1 mt-5 rounded text-xs bg-blue-700/30 border border-blue-600 text-blue-300 disabled:opacity-50"
                       >
                         Post Entry
                       </button>

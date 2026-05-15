@@ -1002,7 +1002,8 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                           }}
                           className="block text-left text-xs font-mono text-orange-300 underline decoration-dotted underline-offset-2 transition hover:text-orange-200"
                         >
-                          Override Jackpot {formatJackpotCurrency(overrideTotals.manualJackpotTotal)}
+                          Override Jackpot{' '}
+                          {formatJackpotCurrency(overrideTotals.manualJackpotTotal)}
                           {' / '}
                           {formatJackpotCurrency(overrideTotals.manualJackpotRemaining)} (
                           {overrideTotals.manualJackpotCount})
@@ -1288,7 +1289,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                     <div className="flex items-start gap-2">
                       <button
                         type="button"
-                        onClick={() =>
+                        onDoubleClick={() =>
                           setSelectedDevice({
                             ...d,
                             game_type: gameType,
@@ -1297,39 +1298,82 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                         className="min-w-0 flex-1 text-left"
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-semibold text-slate-100">
-                              {d.name?.trim() || 'Unnamed Cabinet'}
-                            </div>
-                            <div className="truncate text-[10px] text-slate-400">
-                              {[d.area_name, d.station_name].filter(Boolean).join(' • ') ||
-                                'Unassigned'}
-                            </div>
-                            <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px]">
-                              <span
-                                className={`rounded px-1.5 py-0.5 font-semibold ${mobileStatusPillClass}`}
-                              >
-                                {deviceStatusLabel}
-                              </span>
-                              {playDuration && (
-                                <span className="rounded border border-emerald-700/50 bg-emerald-950/40 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-200">
-                                  {playDuration}
-                                </span>
-                              )}
-                              {coinsInHigh && (
-                                <span className="rounded border border-sky-400/70 bg-sky-950/60 px-1.5 py-0.5 text-[10px] font-semibold text-sky-200">
-                                  COINS
-                                </span>
-                              )}
-                              {isAdminView && d.jackpot_selected && (
-                                <span className="rounded border border-amber-400/70 bg-amber-900/50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200">
-                                  JACKPOT
-                                </span>
-                              )}
-                              {isAdminView && d.happy_override_selected && (
-                                <span className="rounded border border-pink-400/70 bg-pink-900/40 px-1.5 py-0.5 text-[10px] font-semibold text-pink-200">
-                                  HAPPY OVR
-                                </span>
+                          <div className="flex flex-1 min-w-0">
+                            <div className="flex flex-1 justify-between">
+                              <div className="truncate text-sm font-semibold text-slate-100">
+                                {d.name?.trim() || 'Unnamed Cabinet'}
+                                <div className="truncate text-[10px] text-slate-400">
+                                  {[d.area_name, d.station_name].filter(Boolean).join(' • ') ||
+                                    'Unassigned'}
+                                </div>
+
+                                <div className="mt-2 flex items-center gap-2 text-[10px]">
+                                  <span
+                                    className={`rounded px-1.5 py-0.5 font-semibold ${mobileStatusPillClass}`}
+                                  >
+                                    {deviceStatusLabel}
+                                  </span>
+                                  {playDuration && (
+                                    <span className="rounded border border-emerald-700/50 bg-emerald-950/40 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-200">
+                                      {playDuration}
+                                    </span>
+                                  )}
+                                  {coinsInHigh && (
+                                    <span className="rounded border border-sky-400/70 bg-sky-950/60 px-1.5 py-0.5 text-[10px] font-semibold text-sky-200">
+                                      COINS
+                                    </span>
+                                  )}
+                                  {isAdminView && d.jackpot_selected && (
+                                    <span className="rounded border border-amber-400/70 bg-amber-900/50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200">
+                                      JACKPOT
+                                    </span>
+                                  )}
+                                  {isAdminView && d.happy_override_selected && (
+                                    <span className="rounded border border-pink-400/70 bg-pink-900/40 px-1.5 py-0.5 text-[10px] font-semibold text-pink-200">
+                                      HAPPY OVR
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {!isRunnerView && (
+                                <div className="flex flex-col gap-4">
+                                  <div className="text-right">
+                                    <div className="text-[10px] text-slate-500">Last Bet At</div>{' '}
+                                    <div className="text-xs text-slate-300">
+                                      {d.last_bet_at
+                                        ? moment(d.last_bet_at).format('MM-DD hh:mm A')
+                                        : '—'}
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    <button
+                                      type="button"
+                                      className="rounded-3xl border border-slate-500/80 bg-slate-900/30 px-3  py-1.5 text-[10px] font-semibold text-slate-200 hover:bg-slate-800/40 disabled:opacity-50"
+                                      onClick={() => {
+                                        setSelectedDevice({
+                                          ...d,
+                                          game_type: gameType,
+                                          initial_tab: 'activity',
+                                        })
+                                      }}
+                                    >
+                                      Activity
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="rounded-3xl border border-slate-500/80 bg-slate-900/30 px-3  py-1.5 text-[10px] font-semibold text-slate-200 hover:bg-slate-800/40 disabled:opacity-50"
+                                      onClick={() => {
+                                        setSelectedDevice({
+                                          ...d,
+                                          game_type: gameType,
+                                          initial_tab: 'controls',
+                                        })
+                                      }}
+                                    >
+                                      Controls
+                                    </button>
+                                  </div>
+                                </div>
                               )}
                             </div>
                             {mobileExpanded && (
@@ -1403,15 +1447,6 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                               </>
                             )}
                           </div>
-
-                          {!isRunnerView && (
-                            <div className="mt-0.5 text-right">
-                              <div className="text-[10px] text-slate-500">Last Bet At</div>{' '}
-                              <div className="text-xs text-slate-300">
-                                {d.last_bet_at ? moment(d.last_bet_at).format('MM-DD hh:mm A') : '—'}
-                              </div>
-                            </div>
-                          )}
                         </div>
 
                         <div
@@ -1431,7 +1466,9 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                             <div className="text-[10px] text-slate-500">Coins-In</div>
                             <div
                               className={`truncate font-mono text-xs ${
-                                coinsInHigh ? 'font-bold text-sky-200 animate-pulse' : 'text-sky-300'
+                                coinsInHigh
+                                  ? 'font-bold text-sky-200 animate-pulse'
+                                  : 'text-sky-300'
                               }`}
                             >
                               {formatCurrency(d.coins_in_total)}
@@ -1606,16 +1643,18 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                       </button>
                     </th>
                   )}
-                  {!isRunnerView && <th className="px-4 py-2 text-right">
-                    <button
-                      type="button"
-                      className="hover:text-white"
-                      onClick={() => onSort('last_bet_at')}
-                    >
-                      Last Bet At{' '}
-                      {sortField === 'last_bet_at' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
-                    </button>
-                  </th>}
+                  {!isRunnerView && (
+                    <th className="px-4 py-2 text-right">
+                      <button
+                        type="button"
+                        className="hover:text-white"
+                        onClick={() => onSort('last_bet_at')}
+                      >
+                        Last Bet At{' '}
+                        {sortField === 'last_bet_at' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                      </button>
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
@@ -1646,16 +1685,16 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                           : // : stuckSession
                             //   ? 'bg-yellow-950/30 ring-1 ring-yellow-500/40'
                             hopperLow
-                              ? 'bg-red-950/30 ring-1 ring-red-500/40'
-                              : coinsInHigh
-                                ? 'bg-sky-950/30 ring-1 ring-sky-500/40'
-                                : isAdminView && highRtp
-                                  ? 'bg-fuchsia-950/30 ring-1 ring-fuchsia-500/40'
-                                  : isAdminView && d.jackpot_selected
-                                    ? 'bg-amber-950/25 hover:bg-amber-900/30 ring-1 ring-inset ring-amber-400/40'
-                                    : isAdminView && d.happy_override_selected
-                                      ? 'bg-pink-950/25 hover:bg-pink-900/30 ring-1 ring-inset ring-pink-400/40'
-                                      : 'hover:bg-slate-900/50'
+                            ? 'bg-red-950/30 ring-1 ring-red-500/40'
+                            : coinsInHigh
+                              ? 'bg-sky-950/30 ring-1 ring-sky-500/40'
+                              : isAdminView && highRtp
+                                ? 'bg-fuchsia-950/30 ring-1 ring-fuchsia-500/40'
+                                : isAdminView && d.jackpot_selected
+                                  ? 'bg-amber-950/25 hover:bg-amber-900/30 ring-1 ring-inset ring-amber-400/40'
+                                  : isAdminView && d.happy_override_selected
+                                    ? 'bg-pink-950/25 hover:bg-pink-900/30 ring-1 ring-inset ring-pink-400/40'
+                                    : 'hover:bg-slate-900/50'
                       }`}
                       onClick={() =>
                         setSelectedDevice({
@@ -1759,21 +1798,23 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                           )}
                         </div>
                       </td>
-                      {!isRunnerView && <td className="px-4 py-2 text-xs">
-                        <div className="text-slate-200">{telemetryLabel}</div>
-                        {isAdminView && jackpotStatus && (
-                          <div className="text-amber-300">{jackpotStatus}</div>
-                        )}
-                        {isAdminView && d.jackpot_selected && (
-                          <div className="text-amber-200/80">
-                            Target {formatJackpotCurrency(d.jackpot_target_amount)} • Remaining{' '}
-                            {formatJackpotCurrency(d.jackpot_remaining_amount)}
-                          </div>
-                        )}
-                        {isAdminView && happyOverrideStatus && (
-                          <div className="text-pink-300">{happyOverrideStatus}</div>
-                        )}
-                      </td>}
+                      {!isRunnerView && (
+                        <td className="px-4 py-2 text-xs">
+                          <div className="text-slate-200">{telemetryLabel}</div>
+                          {isAdminView && jackpotStatus && (
+                            <div className="text-amber-300">{jackpotStatus}</div>
+                          )}
+                          {isAdminView && d.jackpot_selected && (
+                            <div className="text-amber-200/80">
+                              Target {formatJackpotCurrency(d.jackpot_target_amount)} • Remaining{' '}
+                              {formatJackpotCurrency(d.jackpot_remaining_amount)}
+                            </div>
+                          )}
+                          {isAdminView && happyOverrideStatus && (
+                            <div className="text-pink-300">{happyOverrideStatus}</div>
+                          )}
+                        </td>
+                      )}
                       <td className="px-4 py-2 text-right font-mono font-bold text-green-400">
                         {formatCurrency(d.balance)}
                       </td>
@@ -1809,9 +1850,11 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                           <span>{formatCurrency(d.hopper_balance)}</span>
                         </div>
                       </td>
-                      {!isRunnerView && <td className="px-4 py-2 text-right font-mono text-rose-300">
-                        {formatCurrency(d.withdraw_total)}
-                      </td>}
+                      {!isRunnerView && (
+                        <td className="px-4 py-2 text-right font-mono text-rose-300">
+                          {formatCurrency(d.withdraw_total)}
+                        </td>
+                      )}
                       {isAdminView && (
                         <td className="px-4 py-2 text-right">
                           <div className="flex gap-2 justify-end font-mono text-xs text-slate-300">
@@ -1853,9 +1896,11 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                           {formatCurrency(deviceHouseWin)}
                         </td>
                       )}
-                      {!isRunnerView && <td className="px-4 py-2 text-right text-xs text-slate-400">
-                        {d.last_bet_at ? moment(d.last_bet_at).format('YYYY-MM-DD hh:mm A') : '—'}
-                      </td>}
+                      {!isRunnerView && (
+                        <td className="px-4 py-2 text-right text-xs text-slate-400">
+                          {d.last_bet_at ? moment(d.last_bet_at).format('YYYY-MM-DD hh:mm A') : '—'}
+                        </td>
+                      )}
                     </tr>
                   )
                 })}
@@ -1899,6 +1944,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
       {selectedLiveDevice && (
         <DeviceModal
           device={{ ...selectedLiveDevice, hopper_alert_threshold: hopperAlertThreshold }}
+          initialTab={selectedDevice.initial_tab ?? 'overview'}
           hopperAlertsEnabled={hopperAlertsEnabled}
           coinsInAlertsEnabled={coinsInAlertsEnabled}
           coinsInAlertThreshold={coinsInAlertThreshold}
@@ -2215,59 +2261,64 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                   No manual jackpot overrides found.
                 </div>
               )}
-              {overrideModalView === 'manual_jackpot' && manualJackpotOverrides.map(override => {
-                const snapshot = (override.goal_snapshot as Record<string, unknown> | null) ?? null
-                const deviceId = String(snapshot?.deviceId ?? '').trim()
-                const snapshotDeviceName = String(snapshot?.deviceName ?? '').trim()
-                const deviceLabel =
-                  snapshotDeviceName || deviceNameById.get(deviceId) || deviceId || 'Unknown Device'
+              {overrideModalView === 'manual_jackpot' &&
+                manualJackpotOverrides.map(override => {
+                  const snapshot =
+                    (override.goal_snapshot as Record<string, unknown> | null) ?? null
+                  const deviceId = String(snapshot?.deviceId ?? '').trim()
+                  const snapshotDeviceName = String(snapshot?.deviceName ?? '').trim()
+                  const deviceLabel =
+                    snapshotDeviceName ||
+                    deviceNameById.get(deviceId) ||
+                    deviceId ||
+                    'Unknown Device'
 
-                return (
-                  <div
-                    key={override.id}
-                    className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm"
-                  >
-                    <div className="flex flex-wrap items-center gap-2 font-mono">
-                      <span>#{override.id}</span>
-                      <span className="rounded border border-amber-700 bg-amber-950/60 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
-                        {String(override.status ?? 'queued').toUpperCase()}
-                      </span>
-                      <span className="text-slate-300">{deviceLabel}</span>
-                      {deviceId && <span className="text-slate-500">{deviceId}</span>}
+                  return (
+                    <div
+                      key={override.id}
+                      className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm"
+                    >
+                      <div className="flex flex-wrap items-center gap-2 font-mono">
+                        <span>#{override.id}</span>
+                        <span className="rounded border border-amber-700 bg-amber-950/60 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                          {String(override.status ?? 'queued').toUpperCase()}
+                        </span>
+                        <span className="text-slate-300">{deviceLabel}</span>
+                        {deviceId && <span className="text-slate-500">{deviceId}</span>}
+                      </div>
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-300 sm:grid-cols-4">
+                        <div>
+                          <div className="text-slate-500">Amount</div>
+                          <div className="font-mono">
+                            {formatJackpotCurrency(override.amount_total)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-slate-500">Remaining</div>
+                          <div className="font-mono">
+                            {formatJackpotCurrency(override.amount_remaining)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-slate-500">Created</div>
+                          <div className="font-mono">
+                            {override.created_at
+                              ? moment(override.created_at).format('MM-DD hh:mm:ss A')
+                              : '—'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-slate-500">Completed</div>
+                          <div className="font-mono">
+                            {override.completed_at
+                              ? moment(override.completed_at).format('MM-DD hh:mm:ss A')
+                              : '—'}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-300 sm:grid-cols-4">
-                      <div>
-                        <div className="text-slate-500">Amount</div>
-                        <div className="font-mono">
-                          {formatJackpotCurrency(override.amount_total)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-slate-500">Remaining</div>
-                        <div className="font-mono">
-                          {formatJackpotCurrency(override.amount_remaining)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-slate-500">Created</div>
-                        <div className="font-mono">
-                          {override.created_at
-                            ? moment(override.created_at).format('MM-DD hh:mm:ss A')
-                            : '—'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-slate-500">Completed</div>
-                        <div className="font-mono">
-                          {override.completed_at
-                            ? moment(override.completed_at).format('MM-DD hh:mm:ss A')
-                            : '—'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
               {overrideModalView === 'happy' && activeHappyOverrides.length === 0 && (
                 <div className="rounded border border-slate-800 bg-slate-900/70 p-3 text-sm text-slate-400">
                   No active happy overrides found.
