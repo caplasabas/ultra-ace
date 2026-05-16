@@ -1089,21 +1089,22 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
               </div>
 
               <div className="hidden flex-wrap justify-center items-center gap-5 text-sm text-slate-300 md:flex">
-                <div className="text-xs text-green-300">
-                  ✅ Operational: {deviceSummaryCounts.operational}
+                <div className="text-xs text-blue-300">
+                  ▶️ Playing: {deviceSummaryCounts.active}
                 </div>
+
+                <div className="text-xs text-yellow-300">🟡 AFK: {deviceSummaryCounts.afk}</div>
 
                 <div className="text-xs text-green-300">
                   🟢 Online: {deviceSummaryCounts.online}
                 </div>
 
-                <div className="text-xs text-blue-300">
-                  ▶️ Playing: {deviceSummaryCounts.active}
-                </div>
-                <div className="text-xs text-yellow-300">🟡 AFK: {deviceSummaryCounts.afk}</div>
-
                 <div className="text-xs text-red-300">
                   🔴 Offline: {deviceSummaryCounts.offline}
+                </div>
+
+                <div className="text-xs text-green-300">
+                  ✅ Operational: {deviceSummaryCounts.operational}
                 </div>
 
                 <div className="text-xs text-amber-300">
@@ -1123,41 +1124,42 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                     🟣 High RTP: {deviceSummaryCounts.highRtp}
                   </div>
                 )}
-
-
               </div>
 
-              <div className="flex items-center text-center space-y-2 md:hidden">
+              <div className="flex flex-col gap-3 items-center text-center space-y-2 md:hidden">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-300">
-                  <div className="text-xs text-green-300">
-                    ✅ Operational: {deviceSummaryCounts.operational}
+                  <div className="text-xs text-blue-300">
+                    ▶ Playing: {deviceSummaryCounts.active}
                   </div>
+
+                  <div className="text-xs text-yellow-300">🟡 AFK: {deviceSummaryCounts.afk}</div>
+
                   <div className="text-xs text-green-300">
                     🟢 Online: {deviceSummaryCounts.online}
                   </div>
                   <div className="text-xs text-red-300">
                     🔴 Offline: {deviceSummaryCounts.offline}
                   </div>
+                  <div className="text-xs text-green-300">
+                    ✅ Operational: {deviceSummaryCounts.operational}
+                  </div>
 
-                  <div className="text-xs text-blue-300">
-                    ▶ Playing: {deviceSummaryCounts.active}
-                  </div>
-                  <div className="text-xs text-yellow-300">🟡 AFK: {deviceSummaryCounts.afk}</div>
-                  <div className="text-xs text-orange-300">
-                    🟠 Low Hopper: {deviceSummaryCounts.lowHopper}
-                  </div>
-                  <div className="text-xs text-sky-300">
-                    🔷 High Coins-In: {deviceSummaryCounts.highCoinsIn}
+                  <div className="text-xs text-amber-300">
+                    ⏸ Standby: {deviceSummaryCounts.standby}
                   </div>
                 </div>
 
                 {showAllMobileDeviceCounters && (
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-300">
+                  <div className="flex flex-wrap items-center  gap-x-4 gap-y-2 text-sm text-slate-300">
                     <div className="text-xs text-violet-300">
                       🛠 Test Mode: {deviceSummaryCounts.maintenance}
                     </div>
-                    <div className="text-xs text-amber-300">
-                      ⏸ Standby: {deviceSummaryCounts.standby}
+
+                    <div className="text-xs text-orange-300">
+                      🟠 Low Hopper: {deviceSummaryCounts.lowHopper}
+                    </div>
+                    <div className="text-xs text-sky-300">
+                      🔷 High Coins-In: {deviceSummaryCounts.highCoinsIn}
                     </div>
                     {isAdminView && (
                       <div className="text-xs text-fuchsia-300">
