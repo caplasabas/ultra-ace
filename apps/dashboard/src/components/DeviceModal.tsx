@@ -16,14 +16,14 @@ type ActivityRow = {
 const REQUIRED_ACTIVITY_TYPES = ['withdrawal']
 
 export function DeviceModal({
-                              device,
-                              onClose,
-                              hopperAlertsEnabled,
-                              coinsInAlertsEnabled,
-                              coinsInAlertThreshold = 1000,
-                              role,
-                              initialTab = 'overview',
-                            }: {
+  device,
+  onClose,
+  hopperAlertsEnabled,
+  coinsInAlertsEnabled,
+  coinsInAlertThreshold = 1000,
+  role,
+  initialTab = 'overview',
+}: {
   device: any
   onClose: () => void
   hopperAlertsEnabled?: boolean
@@ -75,6 +75,7 @@ export function DeviceModal({
   const isStaffView = role === 'staff'
   const isRunnerView = role === 'runner'
   const isAdminView = !isStaffView && !isRunnerView
+
 
   // Assignment UI/Logic state
   const [agents, setAgents] = useState<any[]>([])
@@ -979,16 +980,30 @@ export function DeviceModal({
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="rounded border border-green-700/40 bg-green-900/20 p-3 mt-5">
-                    <div className="text-[10px] text-green-300/80">Balance</div>
-                    <div className="text-lg font-mono font-bold text-green-400">
-                      {formatCurrency(device.balance)}
-                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <div className="text-[10px] text-green-300/80">Balance</div>
+                        <div className="text-lg font-mono font-bold text-green-400">
+                          {formatCurrency(device.balance)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-sky-300/80">Coins In</div>
+                        <div
+                          className={`text-lg font-mono font-bold ${
+                            coinsInHigh ? 'text-sky-200 animate-pulse' : 'text-sky-400'
+                          }`}
+                        >
+                          {formatCurrency(device.coins_in_total)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-pink-300/80">Happy Override</div>
 
-                    <div className="mt-2 text-[10px] text-amber-300/80">Hopper</div>
-                    <div
-                      className={`text-lg font-mono font-bold ${hopperLow ? 'text-red-300 animate-pulse' : 'text-amber-300'}`}
-                    >
-                      {formatCurrency(device.hopper_balance)}
+                        <div className="text-lg font-mono font-bold text-pink-400">
+                          {formatCurrency((device as any).happy_override_given_total ?? 0)}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -999,18 +1014,17 @@ export function DeviceModal({
                         : 'border-slate-700 bg-slate-800'
                     }`}
                   >
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-3 gap-3">
                       <div>
-                        <div className="text-[10px] text-slate-400">Coins In</div>
+                        <div className="text-[10px] text-amber-300/80">Hopper</div>
                         <div
                           className={`text-base font-mono font-bold ${
-                            coinsInHigh ? 'text-sky-200 animate-pulse' : 'text-sky-400'
+                            hopperLow ? 'text-red-300 animate-pulse' : 'text-amber-300'
                           }`}
                         >
-                          {formatCurrency(device.coins_in_total)}
+                          {formatCurrency(device.hopper_balance)}
                         </div>
                       </div>
-
                       {!isRunnerView && (
                         <div>
                           <div className="text-[10px] text-slate-400">Withdrawals</div>
@@ -1019,7 +1033,14 @@ export function DeviceModal({
                           </div>
                         </div>
                       )}
-
+                      {isAdminView && (
+                        <div>
+                          <div className="text-[10px] text-slate-400">House Win</div>
+                          <div className="text-base font-mono font-bold text-orange-400">
+                            {formatCurrency(deviceHouseWin)}
+                          </div>
+                        </div>
+                      )}
                       {!isRunnerView && (
                         <div>
                           <div className="text-[10px] text-slate-400">Last Bet</div>
@@ -1028,7 +1049,6 @@ export function DeviceModal({
                           </div>
                         </div>
                       )}
-
                       {isAdminView && (
                         <>
                           <div>
@@ -1037,28 +1057,18 @@ export function DeviceModal({
                               {formatCurrency(device.bet_total)}
                             </div>
                           </div>
-
                           <div>
                             <div className="text-[10px] text-slate-400">Total Win</div>
                             <div className="text-base font-mono font-bold text-red-400">
                               {formatCurrency(device.win_total)}
                             </div>
                           </div>
-
                           <div>
                             <div className="text-[10px] text-slate-400">RTP</div>
                             <div className="text-base font-mono font-bold text-fuchsia-400">
                               {deviceRtp.toFixed(2)}%
                             </div>
                           </div>
-
-                          <div>
-                            <div className="text-[10px] text-slate-400">House Win</div>
-                            <div className="text-base font-mono font-bold text-orange-400">
-                              {formatCurrency(deviceHouseWin)}
-                            </div>
-                          </div>
-
                           <div>
                             <div className="text-[10px] text-slate-400">Spins</div>
                             <div className="text-base font-mono font-bold text-emerald-400">

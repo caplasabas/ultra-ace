@@ -93,6 +93,11 @@ export type DeviceRow = {
   happy_override_target_amount?: number | null
   happy_override_remaining_amount?: number | null
   happy_override_id?: number | null
+  happy_override_given_total?: number | null
+
+  happy_override_sessions?: number | null
+
+last_happy_override_win_at?: string | null
   arcade_shell_version?: string | null
   current_ip?: string | null
   updated_at?: string | null

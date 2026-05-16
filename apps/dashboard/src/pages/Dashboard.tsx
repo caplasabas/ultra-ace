@@ -217,7 +217,9 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
       const [{ data: jackpotData }, { data: queueData }] = await Promise.all([
         supabase
           .from('jackpot_pots')
-          .select('id,campaign_id,status,amount_total,amount_remaining,goal_mode,goal_snapshot,created_at')
+          .select(
+            'id,campaign_id,status,amount_total,amount_remaining,goal_mode,goal_snapshot,created_at',
+          )
           .order('id', { ascending: false })
           .limit(50),
         supabase
@@ -335,10 +337,16 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
   }
   const getDevicePlayDuration = (device: DeviceRow) => {
     if (device.device_status !== 'playing') return null
-    return formatPlayDuration(device.session_started_at ?? device.arcade_session_started_at, durationNow)
+    return formatPlayDuration(
+      device.session_started_at ?? device.arcade_session_started_at,
+      durationNow,
+    )
   }
   const getDeviceRtpTotals = (
-    device: Pick<DeviceRow, 'device_id' | 'eligible_bet_total' | 'eligible_win_total' | 'bet_total' | 'win_total'>,
+    device: Pick<
+      DeviceRow,
+      'device_id' | 'eligible_bet_total' | 'eligible_win_total' | 'bet_total' | 'win_total'
+    >,
   ) => {
     const raw = adminRtpByDevice[String(device.device_id ?? '').trim()] ?? { bet: 0, win: 0 }
     const currentBet = asNumber(device.eligible_bet_total ?? device.bet_total)
@@ -349,7 +357,10 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
     }
   }
   const getDeviceRtp = (
-    device: Pick<DeviceRow, 'device_id' | 'eligible_bet_total' | 'eligible_win_total' | 'bet_total' | 'win_total'>,
+    device: Pick<
+      DeviceRow,
+      'device_id' | 'eligible_bet_total' | 'eligible_win_total' | 'bet_total' | 'win_total'
+    >,
   ) => {
     const totals = getDeviceRtpTotals(device)
     return totals.bet > 0 ? (totals.win / totals.bet) * 100 : 0
@@ -478,10 +489,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
     )
 
     return {
-      manualJackpotTotal: manualJackpots.reduce(
-        (sum, pot) => sum + asNumber(pot?.amount_total),
-        0,
-      ),
+      manualJackpotTotal: manualJackpots.reduce((sum, pot) => sum + asNumber(pot?.amount_total), 0),
       manualJackpotRemaining: manualJackpots.reduce(
         (sum, pot) => sum + asNumber(pot?.amount_remaining),
         0,
@@ -647,7 +655,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
         return isTest
 
       case 'offline':
-        return isOffline
+        return isOperational && isOffline
 
       case 'playing':
         return isPlaying
@@ -692,6 +700,18 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
     return deploymentFiltered
   }, [adminRtpByDevice, deploymentFilter, devices, searchTerm, sortField, sortDirection])
 
+
+  const totalHappyOverrideGiven = visibleDevices.reduce(
+    (sum, d) => sum + asNumber((d as any).happy_override_given_total),
+
+    0,
+  )
+
+  const totalJackpotOverrideGiven = visibleDevices.reduce(
+    (sum, d) => sum + asNumber((d as any).jackpot_win_total),
+
+    0,
+  )
   const onSort = (field: SortField) => {
     if (field === sortField) {
       setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'))
@@ -721,12 +741,12 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
         ['name', 'balance', 'coins_in_total', 'hopper_balance'].includes(option.field),
       )
     : isStaffView
-    ? SORT_OPTIONS.filter(option =>
-        ['last_bet_at', 'name', 'balance', 'coins_in_total', 'hopper_balance'].includes(
-          option.field,
-        ),
-      )
-    : SORT_OPTIONS
+      ? SORT_OPTIONS.filter(option =>
+          ['last_bet_at', 'name', 'balance', 'coins_in_total', 'hopper_balance'].includes(
+            option.field,
+          ),
+        )
+      : SORT_OPTIONS
   const hiddenCount = devices.filter(d => !matchesDeploymentFilter(d, deploymentFilter)).length
   const filterSummary =
     deploymentFilter === 'all'
@@ -743,7 +763,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
     currentPage * pageSize,
   )
   const selectedLiveDevice = selectedDevice
-    ? devices.find(d => d.device_id === selectedDevice.device_id) ?? selectedDevice
+    ? (devices.find(d => d.device_id === selectedDevice.device_id) ?? selectedDevice)
     : null
 
   return (
@@ -1020,8 +1040,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                           }}
                           className="block text-left text-xs font-mono text-orange-300 underline decoration-dotted underline-offset-2 transition hover:text-orange-200"
                         >
-                          Override Jackpot{' '}
-                          {formatJackpotCurrency(overrideTotals.manualJackpotTotal)}
+                          Override Jackpot {formatCurrency(totalJackpotOverrideGiven)}
                           {' / '}
                           {formatJackpotCurrency(overrideTotals.manualJackpotRemaining)} (
                           {overrideTotals.manualJackpotCount})
@@ -1034,7 +1053,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                           }}
                           className="block text-left text-xs font-mono text-pink-300 underline decoration-dotted underline-offset-2 transition hover:text-pink-200"
                         >
-                          Happy Override {formatJackpotCurrency(overrideTotals.happyOverrideTotal)}
+                          Happy Override {formatCurrency(totalHappyOverrideGiven)}
                           {' / '}
                           {formatJackpotCurrency(overrideTotals.happyOverrideRemaining)} (
                           {overrideTotals.happyOverrideCount})
@@ -1491,8 +1510,8 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                         <div
                           className={
                             mobileExpanded
-                              ? 'mt-3 grid grid-cols-2 gap-x-3 gap-y-2'
-                              : 'mt-3 grid grid-cols-4 gap-x-2 gap-y-2'
+                              ? 'mt-3 grid grid-cols-3 gap-x-3 gap-y-2'
+                              : 'mt-3 grid grid-cols-3 gap-x-2 gap-y-2'
                           }
                         >
                           <div className="min-w-0">
@@ -1511,6 +1530,13 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                               }`}
                             >
                               {formatCurrency(d.coins_in_total)}
+                            </div>
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-[10px] text-slate-500">Happy Ovr</div>
+
+                            <div className="truncate font-mono text-xs font-bold text-pink-300">
+                              {formatCurrency(d.happy_override_given_total)}
                             </div>
                           </div>
                           <div className="min-w-0">
@@ -1867,6 +1893,14 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                         >
                           {isRunnerView ? '' : 'Coins-In:'}
                           <span className="font-extrabold">{formatCurrency(d.coins_in_total)}</span>
+                        </div>
+
+                        <div>
+                          <div className="text-[10px] text-slate-500">Happy Ovr</div>
+
+                          <div className="font-mono text-xs font-bold text-pink-300">
+                            {formatCurrency(d.happy_override_given_total)}
+                          </div>
                         </div>
                         {!isRunnerView && (
                           <div className="flex gap-2 justify-end font-mono text-sm text-indigo-300">
