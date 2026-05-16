@@ -165,7 +165,8 @@ export function DeviceModal({
     return `${seconds}s`
   }
   const statsBasisLabel =
-    device.deployment_mode === 'maintenance' ? 'All Activity' : 'Eligible Activity'
+    device.deployment_mode === 'maintenance' ? 'Test Mode Activity' : 'Operational Activity'
+
   const baseWinAmount =
     asNumber(device.win_total) -
     asNumber(device.jackpot_win_total) -
@@ -635,11 +636,12 @@ export function DeviceModal({
 
     setSuccessMessage(
       deploymentMode === 'maintenance'
-        ? `Device set to maintenance mode`
+        ? `Device set to test mode`
         : deploymentMode === 'standby'
           ? `Device set to standby mode`
-          : `Device set to online mode`,
+          : `Device set to operational mode`,
     )
+
     setErrorMessage(null)
   }
 
@@ -810,7 +812,11 @@ export function DeviceModal({
                             : 'bg-amber-900/40 text-amber-300 border border-amber-700/50'
                       }`}
                     >
-                      {presenceStatus.toUpperCase()}
+                      {presenceStatus === 'playing'
+                        ? 'PLAYING'
+                        : presenceStatus === 'offline'
+                          ? 'OFFLINE'
+                          : 'IDLE'}
                     </span>
                     {currentPlayDuration && (
                       <span className="rounded border border-emerald-700/50 bg-emerald-950/40 px-2 py-0.5 text-[10px] font-mono font-semibold text-emerald-200">
@@ -922,7 +928,12 @@ export function DeviceModal({
 
                   <div>
                     <div className="text-[10px] text-slate-400">
-                      Mode: {(device.deployment_mode ?? 'online').toUpperCase()}
+                      Mode:{' '}
+                      {(device.deployment_mode ?? 'online') === 'maintenance'
+                        ? 'TEST MODE'
+                        : (device.deployment_mode ?? 'online') === 'standby'
+                          ? 'STANDBY'
+                          : 'OPERATIONAL'}
                     </div>
                   </div>
 
@@ -1080,8 +1091,13 @@ export function DeviceModal({
                   <div>
                     <div>Latest activity first</div>
                     <div>
-                      Device mode: {(device.deployment_mode ?? 'online').toUpperCase()} • Stats
-                      basis: {statsBasisLabel}
+                      Device mode:{' '}
+                      {(device.deployment_mode ?? 'online') === 'maintenance'
+                        ? 'TEST MODE'
+                        : (device.deployment_mode ?? 'online') === 'standby'
+                          ? 'STANDBY'
+                          : 'OPERATIONAL'}{' '}
+                      • Stats basis: {statsBasisLabel}
                     </div>
                   </div>
                   <div className="flex flex-col gap-1 md:items-end">

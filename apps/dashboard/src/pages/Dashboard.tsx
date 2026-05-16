@@ -30,13 +30,13 @@ type SortField =
 type SortDirection = 'asc' | 'desc'
 type DeploymentFilter =
   | 'all'
+  | 'operational'
   | 'online'
-  | 'standby'
-  | 'maintenance'
+  | 'offline'
   | 'playing'
-  | 'playing_online'
-  | 'playing_standby'
-  | 'playing_maintenance'
+  | 'standby'
+  | 'test'
+
 type OverrideModalView = 'manual_jackpot' | 'happy'
 
 type AdminRtpTotals = {
@@ -58,13 +58,17 @@ const SORT_OPTIONS: { field: SortField; label: string }[] = [
 
 const DEPLOYMENT_FILTER_OPTIONS: { value: DeploymentFilter; label: string }[] = [
   { value: 'all', label: 'All' },
+
+  { value: 'operational', label: 'Operational' },
+
   { value: 'online', label: 'Online' },
-  { value: 'standby', label: 'Standby' },
-  { value: 'maintenance', label: 'Maintenance' },
+  { value: 'offline', label: 'Offline' },
+
   { value: 'playing', label: 'Playing' },
-  { value: 'playing_online', label: 'Playing Online' },
-  { value: 'playing_standby', label: 'Playing Standby' },
-  { value: 'playing_maintenance', label: 'Playing Maintenance' },
+
+  { value: 'standby', label: 'Standby' },
+
+  { value: 'test', label: 'Test Mode' },
 ]
 
 // const ENGINE_SIM_BASE_RTP_PCT = 67.29
@@ -511,10 +515,13 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
   )
   const deviceSummaryCounts = useMemo(
     () => ({
-      online: devices.filter(d => (d.deployment_mode ?? 'online') === 'online').length,
+      operational: devices.filter(d => (d.deployment_mode ?? 'online') === 'online').length,
+      online: devices.filter(d => (d.device_status ?? 'idle') !== 'offline').length,
       standby: devices.filter(d => (d.deployment_mode ?? 'online') === 'standby').length,
       maintenance: devices.filter(d => (d.deployment_mode ?? 'online') === 'maintenance').length,
-      offline: devices.filter(d => d.device_status === 'offline').length,
+      offline: devices.filter(
+        d => (d.deployment_mode ?? 'online') === 'online' && d.device_status === 'offline',
+      ).length,
       active: devices.filter(d => d.device_status === 'playing').length,
       afk: devices.filter(d => d.device_status === 'idle').length,
       lowHopper: hopperAlertsEnabled
@@ -524,8 +531,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
           }).length
         : 0,
       highCoinsIn: devices.filter(d => isCoinsInHigh(d)).length,
-      highRtp: devices.filter(d => d.device_status === 'playing' && getDeviceRtp(d) > 110)
-        .length,
+      highRtp: devices.filter(d => d.device_status === 'playing' && getDeviceRtp(d) > 110).length,
     }),
     [adminRtpByDevice, coinsInAlertThreshold, coinsInAlertsEnabled, devices, hopperAlertsEnabled],
   )
@@ -609,35 +615,47 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
     if (field === 'rtp') return device.device_status === 'playing' ? getDeviceRtp(device) : -1
     return asNumber(device[field as keyof DeviceRow] as number | string | null | undefined)
   }
-
   const matchesDeploymentFilter = (device: DeviceRow, filter: DeploymentFilter) => {
-    const deploymentMode = device.deployment_mode ?? 'online'
-    const isMaintenance = deploymentMode === 'maintenance'
-    const isStandby = deploymentMode === 'standby'
-    const isPlaying = device.device_status === 'playing'
+    const mode = device.deployment_mode ?? 'online'
+
+    const status = device.device_status ?? 'idle'
+
+    const isOperational = mode === 'online'
+
+    const isStandby = mode === 'standby'
+
+    const isTest = mode === 'maintenance'
+
+    const isOffline = status === 'offline'
+
+    const isPlaying = status === 'playing'
 
     switch (filter) {
       case 'all':
         return true
+
+      case 'operational':
+        return isOperational
+
       case 'online':
-        return !isMaintenance && !isStandby
+        return isOperational && !isOffline
+
       case 'standby':
         return isStandby
-      case 'maintenance':
-        return isMaintenance
+
+      case 'test':
+        return isTest
+
+      case 'offline':
+        return isOffline
+
       case 'playing':
         return isPlaying
-      case 'playing_online':
-        return isPlaying && !isMaintenance && !isStandby
-      case 'playing_standby':
-        return isPlaying && isStandby
-      case 'playing_maintenance':
-        return isPlaying && isMaintenance
+
       default:
         return true
     }
   }
-
   const visibleDevices = useMemo(() => {
     const search = searchTerm.trim().toLowerCase()
     const filtered = search
@@ -1072,19 +1090,28 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
 
               <div className="hidden flex-wrap justify-center items-center gap-5 text-sm text-slate-300 md:flex">
                 <div className="text-xs text-green-300">
+                  ✅ Operational: {deviceSummaryCounts.operational}
+                </div>
+
+                <div className="text-xs text-green-300">
                   🟢 Online: {deviceSummaryCounts.online}
                 </div>
+
+                <div className="text-xs text-blue-300">
+                  ▶️ Playing: {deviceSummaryCounts.active}
+                </div>
+                <div className="text-xs text-yellow-300">🟡 AFK: {deviceSummaryCounts.afk}</div>
+
+                <div className="text-xs text-red-300">
+                  🔴 Offline: {deviceSummaryCounts.offline}
+                </div>
+
                 <div className="text-xs text-amber-300">
                   ⏸ Standby: {deviceSummaryCounts.standby}
                 </div>
                 <div className="text-xs text-violet-300">
-                  🛠 Maintenance: {deviceSummaryCounts.maintenance}
+                  🛠 Test Mode: {deviceSummaryCounts.maintenance}
                 </div>
-                <div className="text-xs text-red-300">
-                  🔴 Offline: {deviceSummaryCounts.offline}
-                </div>
-                <div className="text-xs text-blue-300">🔵 Active: {deviceSummaryCounts.active}</div>
-                <div className="text-xs text-yellow-300">🟡 AFK: {deviceSummaryCounts.afk}</div>
                 <div className="text-xs text-orange-300">
                   🟠 Low Hopper: {deviceSummaryCounts.lowHopper}
                 </div>
@@ -1096,18 +1123,24 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                     🟣 High RTP: {deviceSummaryCounts.highRtp}
                   </div>
                 )}
+
+
               </div>
 
               <div className="flex items-center text-center space-y-2 md:hidden">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-300">
                   <div className="text-xs text-green-300">
+                    ✅ Operational: {deviceSummaryCounts.operational}
+                  </div>
+                  <div className="text-xs text-green-300">
                     🟢 Online: {deviceSummaryCounts.online}
                   </div>
-                  <div className="text-xs text-amber-300">
-                    ⏸ Standby: {deviceSummaryCounts.standby}
+                  <div className="text-xs text-red-300">
+                    🔴 Offline: {deviceSummaryCounts.offline}
                   </div>
+
                   <div className="text-xs text-blue-300">
-                    🔵 Active: {deviceSummaryCounts.active}
+                    ▶ Playing: {deviceSummaryCounts.active}
                   </div>
                   <div className="text-xs text-yellow-300">🟡 AFK: {deviceSummaryCounts.afk}</div>
                   <div className="text-xs text-orange-300">
@@ -1121,10 +1154,10 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                 {showAllMobileDeviceCounters && (
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-300">
                     <div className="text-xs text-violet-300">
-                      🛠 Maintenance: {deviceSummaryCounts.maintenance}
+                      🛠 Test Mode: {deviceSummaryCounts.maintenance}
                     </div>
-                    <div className="text-xs text-red-300">
-                      🔴 Offline: {deviceSummaryCounts.offline}
+                    <div className="text-xs text-amber-300">
+                      ⏸ Standby: {deviceSummaryCounts.standby}
                     </div>
                     {isAdminView && (
                       <div className="text-xs text-fuchsia-300">
@@ -1259,7 +1292,11 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                 const playDuration = getDevicePlayDuration(d)
                 const deviceStatus = d.device_status ?? 'idle'
                 const deviceStatusLabel =
-                  deviceStatus.toUpperCase() === 'IDLE' ? 'AFK' : deviceStatus.toUpperCase()
+                  deviceStatus.toUpperCase() === 'IDLE'
+                    ? 'IDLE'
+                    : deviceStatus.toUpperCase() === 'PLAYING'
+                      ? 'PLAYING'
+                      : deviceStatus.toUpperCase()
                 const mobileStatusPillClass =
                   deviceStatus === 'playing'
                     ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50'
@@ -1391,7 +1428,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                                   )}
                                   {(d.deployment_mode ?? 'online') === 'maintenance' && (
                                     <span className="rounded border border-violet-700 bg-violet-900/40 px-1.5 py-0.5 text-[10px] text-violet-200">
-                                      MAINT
+                                      TEST
                                     </span>
                                   )}
                                 </div>
@@ -1788,8 +1825,10 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
                             }`}
                           >
                             {(d.device_status ?? 'idle').toUpperCase() === 'IDLE'
-                              ? 'AFK'
-                              : (d.device_status ?? 'idle').toUpperCase()}
+                              ? 'IDLE'
+                              : (d.device_status ?? 'idle').toUpperCase() === 'PLAYING'
+                                ? 'PLAYING'
+                                : (d.device_status ?? 'idle').toUpperCase()}
                           </span>
                           {playDuration && (
                             <span className="font-mono text-[10px] font-semibold text-emerald-300">
